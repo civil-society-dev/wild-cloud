@@ -322,4 +322,3 @@ func init() {
 	serviceCmd.AddCommand(serviceListCmd)
 	serviceCmd.AddCommand(serviceInstallCmd)
 }
-

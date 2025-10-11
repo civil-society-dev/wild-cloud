@@ -1,0 +1,40 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "CLI",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "GO_ENV": "development",
+                "WILD_CENTRAL_ENV": "development"
+            },
+            "args": ["--help"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "CLI with args",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "GO_ENV": "development",
+                "WILD_CENTRAL_ENV": "development"
+            },
+            "args": "${input:cliArgs}",
+            "cwd": "${workspaceFolder}"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "cliArgs",
+            "type": "promptString",
+            "description": "CLI arguments (e.g., 'list instances' or 'create --name test')"
+        }
+    ]
+}

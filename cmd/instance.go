@@ -162,7 +162,7 @@ var instanceDeleteCmd = &cobra.Command{
 var instanceCurrentCmd = &cobra.Command{
 	Use:   "current",
 	Short: "Show current instance",
-	Long:  `Display the instance that would be used by commands.
+	Long: `Display the instance that would be used by commands.
 
 Resolution order:
   1. --instance flag

@@ -183,4 +183,3 @@ func init() {
 	appCmd.AddCommand(appDeleteCmd)
 	appCmd.AddCommand(appStatusCmd)
 }
-

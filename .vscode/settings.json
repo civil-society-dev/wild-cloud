@@ -1,0 +1,23 @@
+{
+    "go.gopath": "",
+    "go.goroot": "",
+    "go.useLanguageServer": true,
+
+    "gopls": {
+        "experimentalWorkspaceModule": true,
+        "build.experimentalWorkspaceModule": true
+    },
+
+    "go.lintTool": "golangci-lint",
+    "go.lintOnSave": "workspace",
+    "go.formatTool": "goimports",
+    "go.testOnSave": false,
+
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        },
+        "editor.suggest.snippetsPreventQuickSuggestions": false
+    }
+}

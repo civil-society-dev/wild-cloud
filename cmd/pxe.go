@@ -75,4 +75,3 @@ func init() {
 	pxeCmd.AddCommand(pxeListCmd)
 	pxeCmd.AddCommand(pxeDownloadCmd)
 }
-

@@ -479,4 +479,3 @@ func init() {
 	nodeUpdateCmd.Flags().Bool("maintenance", false, "Set maintenance mode")
 	nodeUpdateCmd.Flags().Bool("no-maintenance", false, "Clear maintenance mode")
 }
-

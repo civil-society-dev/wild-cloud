@@ -281,4 +281,3 @@ func init() {
 	clusterKubeconfigCmd.Flags().Bool("persist", false, "Save kubeconfig to instance directory")
 	clusterKubeconfigCmd.Flags().Bool("generate", false, "Regenerate kubeconfig from the cluster")
 }
-

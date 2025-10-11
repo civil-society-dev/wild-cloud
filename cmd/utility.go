@@ -65,4 +65,3 @@ var nodeIPCmd = &cobra.Command{
 		return nil
 	},
 }
-
