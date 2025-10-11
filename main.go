@@ -24,14 +24,21 @@ func main() {
 		dataDir = "/var/lib/wild-central"
 	}
 
-	// Get directory path from environment (required)
-	directoryPath := os.Getenv("WILD_DIRECTORY")
-	if directoryPath == "" {
-		log.Fatal("WILD_DIRECTORY environment variable is required")
+	// Get apps directory from environment or use default
+	// Note: Setup files (cluster-services, cluster-nodes, etc.) are now embedded in the binary
+	appsDir := os.Getenv("WILD_DIRECTORY")
+	if appsDir == "" {
+		// Default apps directory
+		appsDir = "/opt/wild-cloud/apps"
+		log.Printf("WILD_DIRECTORY not set, using default apps directory: %s", appsDir)
+	} else {
+		// If WILD_DIRECTORY is set, use it as-is for backward compatibility
+		// (it might point to the old directory structure with apps/ subdirectory)
+		log.Printf("Using WILD_DIRECTORY for apps: %s", appsDir)
 	}
 
 	// Create API handler with all dependencies
-	api, err := v1.NewAPI(dataDir, directoryPath)
+	api, err := v1.NewAPI(dataDir, appsDir)
 	if err != nil {
 		log.Fatalf("Failed to initialize API: %v", err)
 	}
@@ -51,7 +58,7 @@ func main() {
 
 	// Status endpoint
 	router.HandleFunc("/api/v1/status", func(w http.ResponseWriter, r *http.Request) {
-		api.StatusHandler(w, r, startTime, dataDir, directoryPath)
+		api.StatusHandler(w, r, startTime, dataDir, appsDir)
 	}).Methods("GET")
 
 	// Default server settings
@@ -61,7 +68,7 @@ func main() {
 	addr := fmt.Sprintf("%s:%d", host, port)
 	log.Printf("Starting wild-central daemon on %s", addr)
 	log.Printf("Data directory: %s", dataDir)
-	log.Printf("Wild Cloud Directory: %s", directoryPath)
+	log.Printf("Apps directory: %s", appsDir)
 
 	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Fatal("Server failed to start:", err)

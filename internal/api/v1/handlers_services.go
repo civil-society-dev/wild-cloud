@@ -27,7 +27,7 @@ func (api *API) ServicesList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// List services
-	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	servicesMgr := services.NewManager(api.dataDir)
 	svcList, err := servicesMgr.List(instanceName)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list services: %v", err))
@@ -52,7 +52,7 @@ func (api *API) ServicesGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get service
-	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	servicesMgr := services.NewManager(api.dataDir)
 	service, err := servicesMgr.Get(instanceName, serviceName)
 	if err != nil {
 		respondError(w, http.StatusNotFound, fmt.Sprintf("Service not found: %v", err))
@@ -109,7 +109,7 @@ func (api *API) ServicesInstall(w http.ResponseWriter, r *http.Request) {
 		}()
 
 		fmt.Printf("[DEBUG] Service install goroutine started: service=%s instance=%s opID=%s\n", req.Name, instanceName, opID)
-		servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+		servicesMgr := services.NewManager(api.dataDir)
 		opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := servicesMgr.Install(instanceName, req.Name, req.Fetch, req.Deploy, opID, api.broadcaster); err != nil {
@@ -159,7 +159,7 @@ func (api *API) ServicesInstallAll(w http.ResponseWriter, r *http.Request) {
 
 	// Install in background
 	go func() {
-		servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+		servicesMgr := services.NewManager(api.dataDir)
 		opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := servicesMgr.InstallAll(instanceName, req.Fetch, req.Deploy, opID, api.broadcaster); err != nil {
@@ -197,7 +197,7 @@ func (api *API) ServicesDelete(w http.ResponseWriter, r *http.Request) {
 
 	// Delete in background
 	go func() {
-		servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+		servicesMgr := services.NewManager(api.dataDir)
 		opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := servicesMgr.Delete(instanceName, serviceName); err != nil {
@@ -226,7 +226,7 @@ func (api *API) ServicesGetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get status
-	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	servicesMgr := services.NewManager(api.dataDir)
 	status, err := servicesMgr.GetStatus(instanceName, serviceName)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get status: %v", err))
@@ -241,7 +241,7 @@ func (api *API) ServicesGetManifest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	serviceName := vars["service"]
 
-	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	servicesMgr := services.NewManager(api.dataDir)
 	manifest, err := servicesMgr.GetManifest(serviceName)
 	if err != nil {
 		respondError(w, http.StatusNotFound, fmt.Sprintf("Service not found: %v", err))
@@ -256,7 +256,7 @@ func (api *API) ServicesGetConfig(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	serviceName := vars["service"]
 
-	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	servicesMgr := services.NewManager(api.dataDir)
 
 	// Get manifest
 	manifest, err := servicesMgr.GetManifest(serviceName)
@@ -286,7 +286,7 @@ func (api *API) ServicesGetInstanceConfig(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	servicesMgr := services.NewManager(api.dataDir)
 
 	// Get manifest to know which config paths to read
 	manifest, err := servicesMgr.GetManifest(serviceName)
@@ -364,7 +364,7 @@ func (api *API) ServicesFetch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch service files
-	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	servicesMgr := services.NewManager(api.dataDir)
 	if err := servicesMgr.Fetch(instanceName, serviceName); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to fetch service: %v", err))
 		return
@@ -388,7 +388,7 @@ func (api *API) ServicesCompile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Compile templates
-	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	servicesMgr := services.NewManager(api.dataDir)
 	if err := servicesMgr.Compile(instanceName, serviceName); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to compile templates: %v", err))
 		return
@@ -412,7 +412,7 @@ func (api *API) ServicesDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Deploy service (without operation tracking for standalone deploy)
-	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	servicesMgr := services.NewManager(api.dataDir)
 	if err := servicesMgr.Deploy(instanceName, serviceName, "", nil); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to deploy service: %v", err))
 		return

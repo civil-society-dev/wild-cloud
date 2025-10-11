@@ -21,36 +21,32 @@ import (
 
 // API holds all dependencies for API handlers
 type API struct {
-	dataDir       string
-	directoryPath string // Path to Wild Cloud Directory
-	appsDir       string
-	config        *config.Manager
-	secrets       *secrets.Manager
-	context       *context.Manager
-	instance      *instance.Manager
-	broadcaster   *operations.Broadcaster // SSE broadcaster for operation output
+	dataDir     string
+	appsDir     string // Path to external apps directory
+	config      *config.Manager
+	secrets     *secrets.Manager
+	context     *context.Manager
+	instance    *instance.Manager
+	broadcaster *operations.Broadcaster // SSE broadcaster for operation output
 }
 
 // NewAPI creates a new API handler with all dependencies
-func NewAPI(dataDir, directoryPath string) (*API, error) {
+// Note: Setup files (cluster-services, cluster-nodes, etc.) are now embedded in the binary
+func NewAPI(dataDir, appsDir string) (*API, error) {
 	// Ensure base directories exist
 	instancesDir := filepath.Join(dataDir, "instances")
 	if err := os.MkdirAll(instancesDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create instances directory: %w", err)
 	}
 
-	// Apps directory is now in Wild Cloud Directory
-	appsDir := filepath.Join(directoryPath, "apps")
-
 	return &API{
-		dataDir:       dataDir,
-		directoryPath: directoryPath,
-		appsDir:       appsDir,
-		config:        config.NewManager(),
-		secrets:       secrets.NewManager(),
-		context:       context.NewManager(dataDir),
-		instance:      instance.NewManager(dataDir),
-		broadcaster:   operations.NewBroadcaster(),
+		dataDir:     dataDir,
+		appsDir:     appsDir,
+		config:      config.NewManager(),
+		secrets:     secrets.NewManager(),
+		context:     context.NewManager(dataDir),
+		instance:    instance.NewManager(dataDir),
+		broadcaster: operations.NewBroadcaster(),
 	}, nil
 }
 
@@ -427,7 +423,7 @@ func (api *API) SetContext(w http.ResponseWriter, r *http.Request) {
 }
 
 // StatusHandler returns daemon status information
-func (api *API) StatusHandler(w http.ResponseWriter, r *http.Request, startTime time.Time, dataDir, directoryPath string) {
+func (api *API) StatusHandler(w http.ResponseWriter, r *http.Request, startTime time.Time, dataDir, appsDir string) {
 	// Get list of instances
 	instances, err := api.instance.ListInstances()
 	if err != nil {
@@ -443,7 +439,8 @@ func (api *API) StatusHandler(w http.ResponseWriter, r *http.Request, startTime 
 		"uptime":        uptime.String(),
 		"uptimeSeconds": int(uptime.Seconds()),
 		"dataDir":       dataDir,
-		"directoryPath": directoryPath,
+		"appsDir":       appsDir,
+		"setupFiles":    "embedded", // Indicate that setup files are now embedded
 		"instances": map[string]interface{}{
 			"count": len(instances),
 			"names": instances,

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,30 +11,41 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
+	"github.com/wild-cloud/wild-central/daemon/internal/setup"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // Manager handles base service operations
 type Manager struct {
-	dataDir     string
-	servicesDir string                      // Path to services directory
-	manifests   map[string]*ServiceManifest // Cached service manifests
+	dataDir   string
+	manifests map[string]*ServiceManifest // Cached service manifests
 }
 
 // NewManager creates a new services manager
-func NewManager(dataDir, servicesDir string) *Manager {
+// Note: Service definitions are now loaded from embedded setup files
+func NewManager(dataDir string) *Manager {
 	m := &Manager{
-		dataDir:     dataDir,
-		servicesDir: servicesDir,
+		dataDir: dataDir,
 	}
 
-	// Load all service manifests
-	manifests, err := LoadAllManifests(servicesDir)
-	if err != nil {
-		// Log error but continue - services without manifests will fall back to hardcoded map
-		fmt.Printf("Warning: failed to load service manifests: %v\n", err)
-		manifests = make(map[string]*ServiceManifest)
+	// Load all service manifests from embedded files
+	manifests := make(map[string]*ServiceManifest)
+	services, err := setup.ListServices()
+	if err == nil {
+		for _, serviceName := range services {
+			manifest, err := setup.GetManifest(serviceName)
+			if err == nil {
+				// Convert setup.ServiceManifest to services.ServiceManifest
+				manifests[serviceName] = &ServiceManifest{
+					Name:        manifest.Name,
+					Description: manifest.Description,
+					Category:    manifest.Category,
+				}
+			}
+		}
+	} else {
+		fmt.Printf("Warning: failed to load service manifests from embedded files: %v\n", err)
 	}
 	m.manifests = manifests
 
@@ -124,18 +136,13 @@ func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 func (m *Manager) List(instanceName string) ([]Service, error) {
 	services := []Service{}
 
-	// Discover services from the services directory
-	entries, err := os.ReadDir(m.servicesDir)
+	// Discover services from embedded setup files
+	serviceNames, err := setup.ListServices()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read services directory: %w", err)
+		return nil, fmt.Errorf("failed to list services from embedded files: %w", err)
 	}
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue // Skip non-directories like README.md
-		}
-
-		name := entry.Name()
+	for _, name := range serviceNames {
 
 		// Get service info from manifest if available
 		var namespace, description, version string
@@ -232,11 +239,17 @@ func (m *Manager) InstallAll(instanceName string, fetch, deploy bool, opID strin
 func (m *Manager) Delete(instanceName, serviceName string) error {
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
 
-	serviceDir := filepath.Join(m.servicesDir, serviceName)
-	manifestsFile := filepath.Join(serviceDir, "manifests.yaml")
+	// Check if service exists in embedded files
+	if !setup.ServiceExists(serviceName) {
+		return fmt.Errorf("service %s not found", serviceName)
+	}
+
+	// Get manifests file from embedded setup or instance directory
+	instanceServiceDir := filepath.Join(m.dataDir, "instances", instanceName, "setup", "cluster-services", serviceName)
+	manifestsFile := filepath.Join(instanceServiceDir, "manifests.yaml")
 
 	if !storage.FileExists(manifestsFile) {
-		return fmt.Errorf("service %s not found", serviceName)
+		return fmt.Errorf("service manifests not found - service may not be installed")
 	}
 
 	cmd := exec.Command("kubectl", "delete", "-f", manifestsFile)
@@ -292,12 +305,11 @@ func (m *Manager) GetConfigReferences(serviceName string) ([]string, error) {
 	return manifest.ConfigReferences, nil
 }
 
-// Fetch copies service files from directory to instance
+// Fetch extracts service files from embedded setup to instance
 func (m *Manager) Fetch(instanceName, serviceName string) error {
-	// 1. Validate service exists in directory
-	sourceDir := filepath.Join(m.servicesDir, serviceName)
-	if !dirExists(sourceDir) {
-		return fmt.Errorf("service %s not found in directory", serviceName)
+	// 1. Validate service exists in embedded files
+	if !setup.ServiceExists(serviceName) {
+		return fmt.Errorf("service %s not found in embedded files", serviceName)
 	}
 
 	// 2. Create instance service directory
@@ -307,31 +319,36 @@ func (m *Manager) Fetch(instanceName, serviceName string) error {
 		return fmt.Errorf("failed to create service directory: %w", err)
 	}
 
-	// 3. Copy files:
+	// 3. Extract files from embedded setup:
 	//    - README.md (if exists, optional)
 	//    - install.sh (if exists, optional)
+	//    - wild-manifest.yaml
 	//    - kustomize.template/* (if exists, optional)
 
-	// Copy README.md
-	copyFileIfExists(filepath.Join(sourceDir, "README.md"),
-		filepath.Join(instanceDir, "README.md"))
-
-	// Copy install.sh (optional)
-	installSh := filepath.Join(sourceDir, "install.sh")
-	if fileExists(installSh) {
-		if err := copyFile(installSh, filepath.Join(instanceDir, "install.sh")); err != nil {
-			return fmt.Errorf("failed to copy install.sh: %w", err)
-		}
-		// Make install.sh executable
-		os.Chmod(filepath.Join(instanceDir, "install.sh"), 0755)
+	// Extract README.md if it exists
+	if readmeData, err := setup.GetServiceFile(serviceName, "README.md"); err == nil {
+		os.WriteFile(filepath.Join(instanceDir, "README.md"), readmeData, 0644)
 	}
 
-	// Copy kustomize.template directory if it exists
-	templateDir := filepath.Join(sourceDir, "kustomize.template")
-	if dirExists(templateDir) {
+	// Extract install.sh if it exists
+	if installData, err := setup.GetServiceFile(serviceName, "install.sh"); err == nil {
+		installPath := filepath.Join(instanceDir, "install.sh")
+		if err := os.WriteFile(installPath, installData, 0755); err != nil {
+			return fmt.Errorf("failed to write install.sh: %w", err)
+		}
+	}
+
+	// Extract wild-manifest.yaml
+	if manifestData, err := setup.GetServiceFile(serviceName, "wild-manifest.yaml"); err == nil {
+		os.WriteFile(filepath.Join(instanceDir, "wild-manifest.yaml"), manifestData, 0644)
+	}
+
+	// Extract kustomize.template directory
+	templateFS, err := setup.GetKustomizeTemplate(serviceName)
+	if err == nil {
 		destTemplateDir := filepath.Join(instanceDir, "kustomize.template")
-		if err := copyDir(templateDir, destTemplateDir); err != nil {
-			return fmt.Errorf("failed to copy templates: %w", err)
+		if err := extractFS(templateFS, destTemplateDir); err != nil {
+			return fmt.Errorf("failed to extract templates: %w", err)
 		}
 	}
 
@@ -402,6 +419,32 @@ func copyDir(src, dst string) error {
 	}
 
 	return nil
+}
+
+// extractFS extracts files from an fs.FS to a destination directory
+func extractFS(fsys fs.FS, dst string) error {
+	return fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Create destination path
+		dstPath := filepath.Join(dst, path)
+
+		if d.IsDir() {
+			// Create directory
+			return os.MkdirAll(dstPath, 0755)
+		}
+
+		// Read file from embedded FS
+		data, err := fs.ReadFile(fsys, path)
+		if err != nil {
+			return err
+		}
+
+		// Write file to destination
+		return os.WriteFile(dstPath, data, 0644)
+	})
 }
 
 // Compile processes gomplate templates into final Kubernetes manifests

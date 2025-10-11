@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/config"
+	"github.com/wild-cloud/wild-central/daemon/internal/setup"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
@@ -335,11 +336,11 @@ func (m *Manager) Apply(instanceName, nodeIdentifier string, opts ApplyOptions) 
 		}
 	}
 
-	// Always auto-fetch templates if they don't exist
+	// Always auto-extract templates from embedded files if they don't exist
 	templatesDir := filepath.Join(setupDir, "patch.templates")
 	if !m.templatesExist(templatesDir) {
-		if err := m.copyTemplatesFromDirectory(templatesDir); err != nil {
-			return fmt.Errorf("failed to copy templates: %w", err)
+		if err := m.extractEmbeddedTemplates(templatesDir); err != nil {
+			return fmt.Errorf("failed to extract templates: %w", err)
 		}
 	}
 
@@ -504,36 +505,31 @@ func (m *Manager) templatesExist(templatesDir string) bool {
 	return err1 == nil && err2 == nil
 }
 
-// copyTemplatesFromDirectory copies patch templates from directory/ to instance
-func (m *Manager) copyTemplatesFromDirectory(destDir string) error {
-	// Find the directory/setup/cluster-nodes/patch.templates directory
-	// It should be in the same parent as the data directory
-	sourceDir := filepath.Join(filepath.Dir(m.dataDir), "directory", "setup", "cluster-nodes", "patch.templates")
-
-	// Check if source directory exists
-	if _, err := os.Stat(sourceDir); err != nil {
-		return fmt.Errorf("source templates directory not found: %s", sourceDir)
-	}
-
+// extractEmbeddedTemplates extracts patch templates from embedded files to instance directory
+func (m *Manager) extractEmbeddedTemplates(destDir string) error {
 	// Create destination directory
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("failed to create templates directory: %w", err)
 	}
 
-	// Copy controlplane.yaml
-	if err := m.copyFile(
-		filepath.Join(sourceDir, "controlplane.yaml"),
-		filepath.Join(destDir, "controlplane.yaml"),
-	); err != nil {
-		return fmt.Errorf("failed to copy controlplane template: %w", err)
+	// Get embedded template files
+	controlplaneData, err := setup.GetClusterNodesFile("patch.templates/controlplane.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to get controlplane template: %w", err)
 	}
 
-	// Copy worker.yaml
-	if err := m.copyFile(
-		filepath.Join(sourceDir, "worker.yaml"),
-		filepath.Join(destDir, "worker.yaml"),
-	); err != nil {
-		return fmt.Errorf("failed to copy worker template: %w", err)
+	workerData, err := setup.GetClusterNodesFile("patch.templates/worker.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to get worker template: %w", err)
+	}
+
+	// Write templates
+	if err := os.WriteFile(filepath.Join(destDir, "controlplane.yaml"), controlplaneData, 0644); err != nil {
+		return fmt.Errorf("failed to write controlplane template: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(destDir, "worker.yaml"), workerData, 0644); err != nil {
+		return fmt.Errorf("failed to write worker template: %w", err)
 	}
 
 	return nil
@@ -660,9 +656,9 @@ func (m *Manager) Update(instanceName string, hostname string, updates map[strin
 	return nil
 }
 
-// FetchTemplates copies patch templates from directory/ to instance
+// FetchTemplates extracts patch templates from embedded files to instance
 func (m *Manager) FetchTemplates(instanceName string) error {
 	instancePath := m.GetInstancePath(instanceName)
 	destDir := filepath.Join(instancePath, "setup", "cluster-nodes", "patch.templates")
-	return m.copyTemplatesFromDirectory(destDir)
+	return m.extractEmbeddedTemplates(destDir)
 }
