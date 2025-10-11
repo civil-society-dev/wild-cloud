@@ -1,0 +1,24 @@
+# Daemon build artifacts
+build/
+dist/
+wildd
+*.deb
+__debug*
+
+# Go build cache
+*.o
+*.a
+*.so
+__debug*
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.cover
+*.coverage
+
+# Go workspace file
+go.work
+go.work.sum

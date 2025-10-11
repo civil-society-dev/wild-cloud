@@ -1,0 +1,41 @@
+server {
+    listen 80;
+    server_name _;
+    
+    # Wild Central Management Interface
+    root /var/www/html/wild-central;
+    index index.html;
+
+    # API proxy to wild-cloud-central service
+    location /api/ {
+        proxy_pass http://localhost:5055;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Serve Talos PXE boot assets
+    location /talos/ {
+        alias /var/www/html/talos/;
+        autoindex on;
+        add_header Cache-Control "public, max-age=3600";
+    }
+
+    # iPXE boot script
+    location /boot.ipxe {
+        root /var/www/html/talos;
+        add_header Content-Type "text/plain";
+    }
+
+    # Kernel and initramfs
+    location /amd64/ {
+        alias /var/www/html/talos/amd64/;
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    # Static files
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}

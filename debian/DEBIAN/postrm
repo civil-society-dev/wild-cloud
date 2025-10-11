@@ -1,0 +1,46 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+    purge)
+        echo "Purging wild-cloud-central configuration..."
+        
+        # Remove sudoers file
+        if [ -f /etc/sudoers.d/wild-cloud-central ]; then
+            rm -f /etc/sudoers.d/wild-cloud-central
+        fi
+        
+        # Remove configuration directory
+        if [ -d /etc/wild-cloud-central ]; then
+            rm -rf /etc/wild-cloud-central
+        fi
+        
+        # Remove log directory
+        if [ -d /var/log/wild-cloud-central ]; then
+            rm -rf /var/log/wild-cloud-central
+        fi
+        
+        # Remove lib directory
+        if [ -d /var/lib/wild-cloud-central ]; then
+            rm -rf /var/lib/wild-cloud-central
+        fi
+        
+        # Remove wildcloud user
+        if id wildcloud >/dev/null 2>&1; then
+            userdel wildcloud || true
+        fi
+        
+        echo "wild-cloud-central purged successfully"
+        ;;
+
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

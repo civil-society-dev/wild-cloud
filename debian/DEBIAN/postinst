@@ -1,0 +1,62 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+    configure)
+        echo "Configuring wild-cloud-central..."
+
+        # Create wildcloud user if it doesn't exist
+        if ! id wildcloud >/dev/null 2>&1; then
+            useradd --system --home-dir /var/lib/wild-cloud-central --create-home --shell /bin/false wildcloud
+        fi
+
+        # Create required directories
+        mkdir -p /var/lib/wild-cloud-central
+        mkdir -p /var/log/wild-cloud-central
+        mkdir -p /var/www/html/talos
+        mkdir -p /var/ftpd
+
+        # Set ownership of wildcloud-managed files and directories
+        chown wildcloud:wildcloud /var/lib/wild-cloud-central
+        chown wildcloud:wildcloud /var/log/wild-cloud-central
+        
+        # Force ownership of talos directory (critical for PXE assets)
+        echo "Setting ownership of /var/www/html/talos/ to wildcloud"
+        chown -R wildcloud:wildcloud /var/www/html/talos/
+        
+        echo "Setting ownership of /var/ftpd/ to wildcloud"
+        chown -R wildcloud:wildcloud /var/ftpd
+
+        # Set ownership of dnsmasq.conf if it exists
+        if [ -f /etc/dnsmasq.conf ]; then
+            chown wildcloud:wildcloud /etc/dnsmasq.conf
+            # TODO: /etc/dnsmasq.d/wild-cloud.conf
+        fi
+
+        # Install sudoers file
+        if [ -f /etc/wild-cloud-central/wild-cloud-central.sudoers ]; then
+            mkdir -p /etc/sudoers.d
+            cp /etc/wild-cloud-central/wild-cloud-central.sudoers /etc/sudoers.d/wild-cloud-central
+            chmod 440 /etc/sudoers.d/wild-cloud-central
+        fi
+
+        # Enable and start the service
+        systemctl daemon-reload
+        systemctl enable wild-cloud-central.service
+
+        echo "wild-cloud-central configured successfully"
+        echo "Start the service with: sudo systemctl start wild-cloud-central"
+        echo "View logs with: sudo journalctl -u wild-cloud-central -f"
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

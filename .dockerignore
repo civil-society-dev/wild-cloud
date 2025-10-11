@@ -1,0 +1,9 @@
+build/
+debian-package/
+.git/
+.gitignore
+*.md
+ref/
+Dockerfile
+docker-compose.yml
+.dockerignore

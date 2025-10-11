@@ -1,0 +1,27 @@
+[Unit]
+Description=Wild Cloud Central Service
+Documentation=https://github.com/wildcloud/wild-central
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=wildcloud
+Group=wildcloud
+ExecStart=/usr/bin/wild-cloud-central
+Restart=always
+RestartSec=5
+Environment=CONFIG_PATH=/etc/wild-cloud-central/config.yaml
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wild-cloud-central
+
+# Security settings
+NoNewPrivileges=no
+PrivateTmp=yes
+ProtectSystem=no
+ProtectHome=yes
+ReadWritePaths=/etc/wild-cloud-central /var/lib/wild-cloud-central /var/log/wild-cloud-central /etc/dnsmasq.conf /var/www/html/talos /var/ftpd
+
+[Install]
+WantedBy=multi-user.target

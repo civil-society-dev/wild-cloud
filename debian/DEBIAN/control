@@ -1,0 +1,10 @@
+Package: wild-cloud-central
+Version: VERSION_PLACEHOLDER
+Section: net
+Priority: optional
+Architecture: ARCH_PLACEHOLDER
+Depends: dnsmasq, nginx
+Maintainer: Wild Cloud Team <paul@payne.io>
+Description: Wild Cloud Central Management Service
+ A web-based management service for wild-cloud infrastructure
+ providing DNS, DHCP, and PXE boot services configuration.
