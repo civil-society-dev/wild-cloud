@@ -1,0 +1,84 @@
+---
+# Internal-only middleware
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: internal-only
+  namespace: kubernetes-dashboard
+spec:
+  ipWhiteList:
+    # Restrict to local private network ranges
+    sourceRange:
+      - 127.0.0.1/32 # localhost
+      - 10.0.0.0/8 # Private network
+      - 172.16.0.0/12 # Private network
+      - 192.168.0.0/16 # Private network
+
+---
+# HTTPS redirect middleware
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: dashboard-redirect-scheme
+  namespace: kubernetes-dashboard
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+
+---
+# IngressRoute for Dashboard
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kubernetes-dashboard-https
+  namespace: kubernetes-dashboard
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`dashboard.{{ .cloud.internalDomain }}`)
+      kind: Rule
+      middlewares:
+        - name: internal-only
+          namespace: kubernetes-dashboard
+      services:
+        - name: kubernetes-dashboard
+          port: 443
+          serversTransport: dashboard-transport
+  tls:
+    secretName: wildcard-internal-wild-cloud-tls
+
+---
+# HTTP to HTTPS redirect.
+# FIXME: Is this needed?
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kubernetes-dashboard-http
+  namespace: kubernetes-dashboard
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`dashboard.{{ .cloud.internalDomain }}`)
+      kind: Rule
+      middlewares:
+        - name: dashboard-redirect-scheme
+          namespace: kubernetes-dashboard
+      services:
+        - name: kubernetes-dashboard
+          port: 443
+          serversTransport: dashboard-transport
+
+---
+# ServersTransport for HTTPS backend with skip verify.
+# FIXME: Is this needed?
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: dashboard-transport
+  namespace: kubernetes-dashboard
+spec:
+  insecureSkipVerify: true
+  serverName: dashboard.{{ .cloud.internalDomain }}

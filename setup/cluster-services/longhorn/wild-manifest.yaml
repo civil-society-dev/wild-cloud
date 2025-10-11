@@ -1,0 +1,7 @@
+name: longhorn
+description: Cloud-native distributed block storage for Kubernetes
+namespace: longhorn-system
+category: infrastructure
+
+dependencies:
+  - traefik

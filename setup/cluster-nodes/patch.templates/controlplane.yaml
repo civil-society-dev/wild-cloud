@@ -1,0 +1,23 @@
+machine:
+  install:
+    disk: {{ index .cluster.nodes.active "{{NODE_NAME}}" "disk" }}
+    image: factory.talos.dev/metal-installer/{{SCHEMATIC_ID}}:{{VERSION}}
+  network:
+    hostname: "{{NODE_NAME}}"
+    interfaces:
+      - interface: {{ index .cluster.nodes.active "{{NODE_NAME}}" "interface" }}
+        dhcp: false
+        addresses:
+          - "{{NODE_IP}}/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: {{ .cloud.router.ip }}
+        vip:
+          ip: {{ .cluster.nodes.control.vip }}
+# cluster:
+#   discovery:
+#     enabled: true
+#     registries:
+#       service:
+#         disabled: true
+#   allowSchedulingOnControlPlanes: true

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-feature-discovery-master
+  namespace: node-feature-discovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: node-feature-discovery-master
+  template:
+    metadata:
+      labels:
+        name: node-feature-discovery-master
+    spec:
+      serviceAccountName: node-feature-discovery
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: master
+        image: registry.k8s.io/nfd/node-feature-discovery:v0.17.3
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        command:
+        - "nfd-master"
+        args:
+        - "-metrics=8081"
+        - "-grpc-health=8082"
+        ports:
+        - containerPort: 8081
+          name: metrics
+        - containerPort: 8082
+          name: health
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi

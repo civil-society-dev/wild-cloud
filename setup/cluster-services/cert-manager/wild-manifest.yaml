@@ -1,0 +1,25 @@
+name: cert-manager
+description: X.509 certificate management for Kubernetes
+namespace: cert-manager
+category: infrastructure
+
+dependencies:
+  - traefik
+
+configReferences:
+  - cloud.domain
+  - cloud.baseDomain
+  - cloud.internalDomain
+  - operator.email
+
+serviceConfig:
+  cloudflareDomain:
+    path: cluster.certManager.cloudflare.domain
+    prompt: "Enter Cloudflare domain"
+    default: "{{ .cloud.baseDomain }}"
+    type: string
+  cloudflareZoneID:
+    path: cluster.certManager.cloudflare.zoneID
+    prompt: "Enter Cloudflare zone ID"
+    default: ""
+    type: string

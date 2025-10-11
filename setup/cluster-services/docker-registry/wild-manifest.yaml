@@ -1,0 +1,20 @@
+name: docker-registry
+description: Private Docker image registry for cluster
+namespace: docker-registry
+category: infrastructure
+
+dependencies:
+  - traefik
+  - cert-manager
+
+serviceConfig:
+  registryHost:
+    path: cloud.dockerRegistryHost
+    prompt: "Enter Docker Registry hostname"
+    default: "registry.{{ .cloud.internalDomain }}"
+    type: string
+  storage:
+    path: cluster.dockerRegistry.storage
+    prompt: "Enter Docker Registry storage size"
+    default: "100Gi"
+    type: string

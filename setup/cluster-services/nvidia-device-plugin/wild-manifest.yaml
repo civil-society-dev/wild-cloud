@@ -1,0 +1,7 @@
+name: nvidia-device-plugin
+description: NVIDIA device plugin for Kubernetes
+namespace: nvidia-device-plugin
+category: infrastructure
+
+dependencies:
+  - node-feature-discovery

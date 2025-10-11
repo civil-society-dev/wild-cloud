@@ -1,0 +1,63 @@
+# Talos Version to Schematic ID Mappings
+#
+# This file contains mappings of Talos versions to their corresponding
+# default schematic IDs for wild-cloud deployments.
+#
+# Schematic IDs are generated from factory.talos.dev and include
+# common system extensions needed for typical hardware.
+#
+# To add new versions:
+# 1. Go to https://factory.talos.dev/
+# 2. Select the system extensions you need
+# 3. Generate the schematic
+# 4. Add the version and schematic ID below
+
+# Format: Each schematic ID is the primary key with version and definition nested  
+  "434a0300db532066f1098e05ac068159371d00f0aba0a3103a0e826e83825c82":
+    schematic:
+      customization:
+        systemExtensions:
+          officialExtensions:
+            - siderolabs/gvisor
+            - siderolabs/intel-ucode
+            - siderolabs/iscsi-tools
+            - siderolabs/util-linux-tools
+  "f309e674d9ad94655e2cf8a43ea1432475c717cd1885f596bd7ec852b900bc5b":
+    schematic:
+      customization:
+        systemExtensions:
+            officialExtensions:
+                - siderolabs/gvisor
+                - siderolabs/intel-ucode
+                - siderolabs/iscsi-tools
+                - siderolabs/nvidia-container-toolkit-lts
+                - siderolabs/nvidia-container-toolkit-production
+                - siderolabs/nvidia-fabricmanager-lts
+                - siderolabs/nvidia-fabricmanager-production
+                - siderolabs/nvidia-open-gpu-kernel-modules-lts
+                - siderolabs/nvidia-open-gpu-kernel-modules-production
+                - siderolabs/util-linux-tools"
+  "56774e0894c8a3a3a9834a2aea65f24163cacf9506abbcbdc3ba135eaca4953f":
+    schematic:
+      customization:
+      systemExtensions:
+          officialExtensions:
+              - siderolabs/gvisor
+              - siderolabs/intel-ucode
+              - siderolabs/iscsi-tools
+              - siderolabs/nvidia-container-toolkit-production
+              - siderolabs/nvidia-fabricmanager-production
+              - siderolabs/nvidia-open-gpu-kernel-modules-production
+              - siderolabs/util-linux-tools
+  "9ac1424dbdf4b964154a36780dbf2215bf17d2752cd0847fa3b81d7da761457f":
+    schematic:
+      customization:
+      systemExtensions:
+          officialExtensions:
+              - siderolabs/gvisor
+              - siderolabs/intel-ucode
+              - siderolabs/iscsi-tools
+              - siderolabs/nonfree-kmod-nvidia-production
+              - siderolabs/nvidia-container-toolkit-production
+              - siderolabs/nvidia-fabricmanager-production
+              - siderolabs/util-linux-tools

@@ -1,0 +1,21 @@
+name: nfs
+description: NFS client provisioner for external NFS storage
+namespace: nfs-system
+category: infrastructure
+
+serviceConfig:
+  nfsHost:
+    path: cloud.nfs.host
+    prompt: "Enter NFS server hostname or IP address"
+    default: "192.168.1.100"
+    type: string
+  mediaPath:
+    path: cloud.nfs.mediaPath
+    prompt: "Enter NFS export path for media storage"
+    default: "/mnt/storage/media"
+    type: string
+  storageCapacity:
+    path: cloud.nfs.storageCapacity
+    prompt: "Enter NFS storage capacity (e.g., 1Ti, 500Gi)"
+    default: "1Ti"
+    type: string
