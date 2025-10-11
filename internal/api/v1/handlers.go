@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/wild-cloud/wild-central/daemon/internal/config"
 	"github.com/wild-cloud/wild-central/daemon/internal/context"
+	"github.com/wild-cloud/wild-central/daemon/internal/dnsmasq"
 	"github.com/wild-cloud/wild-central/daemon/internal/instance"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/secrets"
@@ -27,6 +29,7 @@ type API struct {
 	secrets     *secrets.Manager
 	context     *context.Manager
 	instance    *instance.Manager
+	dnsmasq     *dnsmasq.ConfigGenerator
 	broadcaster *operations.Broadcaster // SSE broadcaster for operation output
 }
 
@@ -39,6 +42,13 @@ func NewAPI(dataDir, appsDir string) (*API, error) {
 		return nil, fmt.Errorf("failed to create instances directory: %w", err)
 	}
 
+	// Determine dnsmasq config path
+	dnsmasqConfigPath := "/etc/dnsmasq.d/wild-cloud.conf"
+	if os.Getenv("WILD_API_DNSMASQ_CONFIG_PATH") != "" {
+		dnsmasqConfigPath = os.Getenv("WILD_API_DNSMASQ_CONFIG_PATH")
+		log.Printf("Using custom dnsmasq config path: %s", dnsmasqConfigPath)
+	}
+
 	return &API{
 		dataDir:     dataDir,
 		appsDir:     appsDir,
@@ -46,6 +56,7 @@ func NewAPI(dataDir, appsDir string) (*API, error) {
 		secrets:     secrets.NewManager(),
 		context:     context.NewManager(dataDir),
 		instance:    instance.NewManager(dataDir),
+		dnsmasq:     dnsmasq.NewConfigGenerator(dnsmasqConfigPath),
 		broadcaster: operations.NewBroadcaster(),
 	}, nil
 }
@@ -145,6 +156,12 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/utilities/controlplane/ip", api.UtilitiesControlPlaneIP).Methods("GET")
 	r.HandleFunc("/api/v1/utilities/secrets/{secret}/copy", api.UtilitiesSecretCopy).Methods("POST")
 	r.HandleFunc("/api/v1/utilities/version", api.UtilitiesVersion).Methods("GET")
+
+	// dnsmasq management
+	r.HandleFunc("/api/v1/dnsmasq/status", api.DnsmasqStatus).Methods("GET")
+	r.HandleFunc("/api/v1/dnsmasq/config", api.DnsmasqGetConfig).Methods("GET")
+	r.HandleFunc("/api/v1/dnsmasq/restart", api.DnsmasqRestart).Methods("POST")
+	r.HandleFunc("/api/v1/dnsmasq/update", api.DnsmasqUpdate).Methods("POST")
 }
 
 // CreateInstance creates a new instance
@@ -168,10 +185,19 @@ func (api *API) CreateInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, map[string]string{
+	// Attempt to update dnsmasq configuration with all instances
+	// This is non-critical - include warning in response if it fails
+	response := map[string]interface{}{
 		"name":    req.Name,
 		"message": "Instance created successfully",
-	})
+	}
+
+	if err := api.updateDnsmasqForAllInstances(); err != nil {
+		log.Printf("Warning: Could not update dnsmasq configuration: %v", err)
+		response["warning"] = fmt.Sprintf("dnsmasq update failed: %v. Use POST /api/v1/dnsmasq/update to retry.", err)
+	}
+
+	respondJSON(w, http.StatusCreated, response)
 }
 
 // ListInstances lists all instances
