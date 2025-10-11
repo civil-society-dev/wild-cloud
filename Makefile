@@ -107,46 +107,11 @@ clean:
 	@go clean
 	@echo "✅ Clean complete"
 
-test:
-	@echo "🧪 Running tests..."
-	@go test -v ./...
-
-run:
-	@echo "🚀 Running $(BINARY_NAME)..."
-	@go run -ldflags="$(LDFLAGS)" .
-
-dev:
-	@echo "🚀 Running $(BINARY_NAME) in development mode..."
-	@go run . &
-	@echo "Daemon started on http://localhost:5055"
-
-# Code quality targets
-fmt:
-	@echo "🎨 Formatting code..."
-	@go fmt ./...
-	@echo "✅ Format complete"
-
-vet:
-	@echo "🔍 Running go vet..."
-	@go vet ./...
-	@echo "✅ Vet complete"
-
-check: fmt vet test
-	@echo "✅ All checks passed"
-
-# Dependency management
-deps-check:
-	@echo "📦 Checking dependencies..."
-	@go mod verify
-	@go mod tidy
-	@echo "✅ Dependencies verified"
-
 # Version information
 version:
 	@echo "Version: $(VERSION)"
 	@echo "Git Commit: $(GIT_COMMIT)"
 	@echo "Build Time: $(BUILD_TIME)"
-	@echo "Go Version: $(GO_VERSION)"
 
 install: build
 	sudo cp $(BUILD_DIR)/$(BINARY_NAME) /usr/bin/
