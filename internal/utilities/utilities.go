@@ -11,9 +11,9 @@ import (
 
 // HealthStatus represents cluster health information
 type HealthStatus struct {
-	Overall   string            `json:"overall"`   // healthy, degraded, unhealthy
+	Overall    string            `json:"overall"`    // healthy, degraded, unhealthy
 	Components map[string]string `json:"components"` // component -> status
-	Issues    []string          `json:"issues"`
+	Issues     []string          `json:"issues"`
 }
 
 // DashboardToken represents a Kubernetes dashboard token
@@ -96,7 +96,7 @@ func checkComponent(kubeconfigPath, name, namespace, selector string) error {
 	var result struct {
 		Items []struct {
 			Status struct {
-				Phase string `json:"phase"`
+				Phase             string `json:"phase"`
 				ContainerStatuses []struct {
 					Ready bool `json:"ready"`
 				} `json:"containerStatuses"`

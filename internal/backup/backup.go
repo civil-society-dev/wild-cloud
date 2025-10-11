@@ -28,10 +28,10 @@ type BackupInfo struct {
 
 // RestoreOptions configures restore behavior
 type RestoreOptions struct {
-	DBOnly       bool   `json:"db_only"`
-	PVCOnly      bool   `json:"pvc_only"`
-	SkipGlobals  bool   `json:"skip_globals"`
-	SnapshotID   string `json:"snapshot_id,omitempty"`
+	DBOnly      bool   `json:"db_only"`
+	PVCOnly     bool   `json:"pvc_only"`
+	SkipGlobals bool   `json:"skip_globals"`
+	SnapshotID  string `json:"snapshot_id,omitempty"`
 }
 
 // Manager handles backup and restore operations

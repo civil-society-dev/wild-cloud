@@ -13,27 +13,27 @@ import (
 
 // Manager handles instance lifecycle operations
 type Manager struct {
-	dataDir       string
-	configMgr     *config.Manager
-	secretsMgr    *secrets.Manager
-	contextMgr    *context.Manager
+	dataDir    string
+	configMgr  *config.Manager
+	secretsMgr *secrets.Manager
+	contextMgr *context.Manager
 }
 
 // NewManager creates a new instance manager
 func NewManager(dataDir string) *Manager {
 	return &Manager{
-		dataDir:       dataDir,
-		configMgr:     config.NewManager(),
-		secretsMgr:    secrets.NewManager(),
-		contextMgr:    context.NewManager(dataDir),
+		dataDir:    dataDir,
+		configMgr:  config.NewManager(),
+		secretsMgr: secrets.NewManager(),
+		contextMgr: context.NewManager(dataDir),
 	}
 }
 
 // Instance represents a Wild Cloud instance
 type Instance struct {
-	Name       string
-	Path       string
-	ConfigPath string
+	Name        string
+	Path        string
+	ConfigPath  string
 	SecretsPath string
 }
 

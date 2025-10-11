@@ -15,9 +15,9 @@ import (
 
 // Manager handles node discovery operations
 type Manager struct {
-	dataDir   string
-	nodeMgr   *node.Manager
-	talosctl  *tools.Talosctl
+	dataDir     string
+	nodeMgr     *node.Manager
+	talosctl    *tools.Talosctl
 	discoveryMu sync.Mutex
 }
 
@@ -35,20 +35,20 @@ func NewManager(dataDir string, instanceName string) *Manager {
 
 // DiscoveredNode represents a discovered node on the network
 type DiscoveredNode struct {
-	IP              string `json:"ip"`
-	Hostname        string `json:"hostname,omitempty"`
-	MaintenanceMode bool   `json:"maintenance_mode"`
-	Version         string `json:"version,omitempty"`
-	Interface       string `json:"interface,omitempty"`
+	IP              string   `json:"ip"`
+	Hostname        string   `json:"hostname,omitempty"`
+	MaintenanceMode bool     `json:"maintenance_mode"`
+	Version         string   `json:"version,omitempty"`
+	Interface       string   `json:"interface,omitempty"`
 	Disks           []string `json:"disks,omitempty"`
 }
 
 // DiscoveryStatus represents the current state of discovery
 type DiscoveryStatus struct {
-	Active     bool              `json:"active"`
-	StartedAt  time.Time         `json:"started_at,omitempty"`
-	NodesFound []DiscoveredNode  `json:"nodes_found"`
-	Error      string            `json:"error,omitempty"`
+	Active     bool             `json:"active"`
+	StartedAt  time.Time        `json:"started_at,omitempty"`
+	NodesFound []DiscoveredNode `json:"nodes_found"`
+	Error      string           `json:"error,omitempty"`
 }
 
 // GetDiscoveryDir returns the discovery directory for an instance

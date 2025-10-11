@@ -30,7 +30,7 @@ type Operation struct {
 	Instance  string    `json:"instance"`
 	Status    string    `json:"status"` // pending, running, completed, failed, cancelled
 	Message   string    `json:"message,omitempty"`
-	Progress  int       `json:"progress"` // 0-100
+	Progress  int       `json:"progress"`          // 0-100
 	LogFile   string    `json:"logFile,omitempty"` // Path to output log file
 	StartedAt time.Time `json:"started_at"`
 	EndedAt   time.Time `json:"ended_at,omitempty"`

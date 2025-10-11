@@ -24,9 +24,9 @@ type ServiceManifest struct {
 
 // ConfigDefinition defines config that should be prompted during service setup
 type ConfigDefinition struct {
-	Path    string `yaml:"path" json:"path"`               // Config path to set
-	Prompt  string `yaml:"prompt" json:"prompt"`           // User prompt text
-	Default string `yaml:"default" json:"default"`         // Default value (supports templates)
+	Path    string `yaml:"path" json:"path"`                     // Config path to set
+	Prompt  string `yaml:"prompt" json:"prompt"`                 // User prompt text
+	Default string `yaml:"default" json:"default"`               // Default value (supports templates)
 	Type    string `yaml:"type,omitempty" json:"type,omitempty"` // Value type: string|int|bool (default: string)
 }
 

@@ -485,7 +485,7 @@ func (m *Manager) GetStatus(instanceName, appName string) (*DeployedApp, error) 
 	var podList struct {
 		Items []struct {
 			Status struct {
-				Phase string `json:"phase"`
+				Phase             string `json:"phase"`
 				ContainerStatuses []struct {
 					Ready bool `json:"ready"`
 				} `json:"containerStatuses"`

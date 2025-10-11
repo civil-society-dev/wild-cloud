@@ -13,9 +13,9 @@ import (
 
 // Manager handles node configuration and state management
 type Manager struct {
-	dataDir    string
-	configMgr  *config.Manager
-	talosctl   *tools.Talosctl
+	dataDir   string
+	configMgr *config.Manager
+	talosctl  *tools.Talosctl
 }
 
 // NewManager creates a new node manager
@@ -407,8 +407,8 @@ func (m *Manager) Apply(instanceName, nodeIdentifier string, opts ApplyOptions) 
 
 	// Post-application updates: move to production IP, exit maintenance mode
 	node.Applied = true
-	node.CurrentIP = node.TargetIP  // Node now on production IP
-	node.Maintenance = false         // Exit maintenance mode
+	node.CurrentIP = node.TargetIP // Node now on production IP
+	node.Maintenance = false       // Exit maintenance mode
 	if err := m.updateNodeStatus(instanceName, node); err != nil {
 		return fmt.Errorf("failed to update node status: %w", err)
 	}

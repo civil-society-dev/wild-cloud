@@ -42,11 +42,11 @@ func NewManager(dataDir, servicesDir string) *Manager {
 
 // Service represents a base service
 type Service struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Status      string   `json:"status"`
-	Version     string   `json:"version"`
-	Namespace   string   `json:"namespace"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Status       string   `json:"status"`
+	Version      string   `json:"version"`
+	Namespace    string   `json:"namespace"`
 	Dependencies []string `json:"dependencies,omitempty"`
 }
 
@@ -557,8 +557,8 @@ func (m *Manager) Deploy(instanceName, serviceName, opID string, broadcaster *op
 		err := cmd.Run()
 		fmt.Printf("[DEBUG] Command completed for opID=%s, err=%v\n", opID, err)
 		if broadcaster != nil {
-			outputWriter.Flush()            // Flush any remaining buffered data
-			broadcaster.Close(opID)         // Close all SSE clients
+			outputWriter.Flush()    // Flush any remaining buffered data
+			broadcaster.Close(opID) // Close all SSE clients
 		}
 		return err
 	} else {

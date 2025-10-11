@@ -1,0 +1,38 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Daemon (debug)",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "GO_ENV": "development",
+                "WILD_CENTRAL_ENV": "development",
+                "DEBUG": "true"
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "showLog": true,
+            "trace": "verbose"
+        },
+        {
+            "name": "Daemon (no debug)",
+            "type": "go",
+            "request": "launch",
+            "program": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "GO_ENV": "development",
+                "WILD_CENTRAL_ENV": "development"
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "showLog": true
+        }
+    ],
+}

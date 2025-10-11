@@ -95,6 +95,11 @@ func (m *Manager) GetSecret(secretsPath, key string) (string, error) {
 		return "", fmt.Errorf("getting secret %s: %w", key, err)
 	}
 
+	// yq returns "null" for non-existent keys
+	if value == "" || value == "null" {
+		return "", fmt.Errorf("secret not found: %s", key)
+	}
+
 	return value, nil
 }
 
