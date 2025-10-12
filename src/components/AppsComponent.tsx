@@ -2,161 +2,131 @@ import { useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { 
-  AppWindow, 
-  Database, 
-  Globe, 
-  Shield, 
-  BarChart3, 
-  MessageSquare, 
-  Plus, 
-  Search, 
-  Settings, 
+import {
+  AppWindow,
+  Database,
+  Globe,
+  Shield,
+  BarChart3,
+  MessageSquare,
+  Search,
   ExternalLink,
   CheckCircle,
   AlertCircle,
-  Clock,
   Download,
   Trash2,
-  BookOpen
+  BookOpen,
+  Loader2,
+  Archive,
+  RotateCcw,
+  Settings,
 } from 'lucide-react';
+import { useInstanceContext } from '../hooks/useInstanceContext';
+import { useAvailableApps, useDeployedApps, useAppBackups } from '../hooks/useApps';
+import { BackupRestoreModal } from './BackupRestoreModal';
+import { AppConfigDialog } from './apps/AppConfigDialog';
+import type { App } from '../services/api';
 
-interface AppsComponentProps {
-  onComplete?: () => void;
+interface MergedApp extends App {
+  deploymentStatus?: 'added' | 'deployed';
 }
 
-interface Application {
-  id: string;
-  name: string;
-  description: string;
-  category: 'database' | 'web' | 'security' | 'monitoring' | 'communication' | 'storage';
-  status: 'available' | 'installing' | 'running' | 'error' | 'stopped';
-  version?: string;
-  namespace?: string;
-  replicas?: number;
-  resources?: {
-    cpu: string;
-    memory: string;
-  };
-  urls?: string[];
-}
-
-export function AppsComponent({ onComplete }: AppsComponentProps) {
-  const [applications, setApplications] = useState<Application[]>([
-    {
-      id: 'postgres',
-      name: 'PostgreSQL',
-      description: 'Reliable, high-performance SQL database',
-      category: 'database',
-      status: 'running',
-      version: 'v15.4',
-      namespace: 'default',
-      replicas: 1,
-      resources: { cpu: '500m', memory: '1Gi' },
-      urls: ['postgres://postgres.wildcloud.local:5432'],
-    },
-    {
-      id: 'redis',
-      name: 'Redis',
-      description: 'In-memory data structure store',
-      category: 'database',
-      status: 'running',
-      version: 'v7.2',
-      namespace: 'default',
-      replicas: 1,
-      resources: { cpu: '250m', memory: '512Mi' },
-    },
-    {
-      id: 'traefik-dashboard',
-      name: 'Traefik Dashboard',
-      description: 'Load balancer and reverse proxy dashboard',
-      category: 'web',
-      status: 'running',
-      version: 'v3.0',
-      namespace: 'kube-system',
-      urls: ['https://traefik.wildcloud.local'],
-    },
-    {
-      id: 'grafana',
-      name: 'Grafana',
-      description: 'Monitoring and observability dashboards',
-      category: 'monitoring',
-      status: 'installing',
-      version: 'v10.2',
-      namespace: 'monitoring',
-    },
-    {
-      id: 'prometheus',
-      name: 'Prometheus',
-      description: 'Time-series monitoring and alerting',
-      category: 'monitoring',
-      status: 'running',
-      version: 'v2.45',
-      namespace: 'monitoring',
-      replicas: 1,
-      resources: { cpu: '1000m', memory: '2Gi' },
-    },
-    {
-      id: 'vault',
-      name: 'HashiCorp Vault',
-      description: 'Secrets management and encryption',
-      category: 'security',
-      status: 'available',
-      version: 'v1.15',
-    },
-    {
-      id: 'minio',
-      name: 'MinIO',
-      description: 'High-performance object storage',
-      category: 'storage',
-      status: 'available',
-      version: 'RELEASE.2023-12-07',
-    },
-  ]);
+export function AppsComponent() {
+  const { currentInstance } = useInstanceContext();
+  const { data: availableAppsData, isLoading: loadingAvailable, error: availableError } = useAvailableApps();
+  const {
+    apps: deployedApps,
+    isLoading: loadingDeployed,
+    error: deployedError,
+    addApp,
+    isAdding,
+    deployApp,
+    isDeploying,
+    deleteApp,
+    isDeleting
+  } = useDeployedApps(currentInstance);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [selectedAppForConfig, setSelectedAppForConfig] = useState<App | null>(null);
+  const [backupModalOpen, setBackupModalOpen] = useState(false);
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false);
+  const [selectedAppForBackup, setSelectedAppForBackup] = useState<string | null>(null);
 
-  const getStatusIcon = (status: Application['status']) => {
+  // Fetch backups for the selected app
+  const {
+    backups,
+    isLoading: backupsLoading,
+    backup: createBackup,
+    isBackingUp,
+    restore: restoreBackup,
+    isRestoring,
+  } = useAppBackups(currentInstance, selectedAppForBackup);
+
+  // Merge available and deployed apps
+  // DeployedApps now includes status: 'added' | 'deployed'
+  const applications: MergedApp[] = (availableAppsData?.apps || []).map(app => {
+    const deployedApp = deployedApps.find(d => d.name === app.name);
+    return {
+      ...app,
+      deploymentStatus: deployedApp?.status as 'added' | 'deployed' | undefined, // 'added' or 'deployed' from API
+    };
+  });
+
+  const isLoading = loadingAvailable || loadingDeployed;
+
+  const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'running':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'error':
         return <AlertCircle className="h-5 w-5 text-red-500" />;
-      case 'installing':
-        return <Clock className="h-5 w-5 text-blue-500 animate-spin" />;
+      case 'deploying':
+        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
       case 'stopped':
         return <AlertCircle className="h-5 w-5 text-yellow-500" />;
-      default:
+      case 'added':
+        return <Settings className="h-5 w-5 text-blue-500" />;
+      case 'available':
         return <Download className="h-5 w-5 text-muted-foreground" />;
+      default:
+        return null;
     }
   };
 
-  const getStatusBadge = (status: Application['status']) => {
-    const variants = {
+  const getStatusBadge = (app: MergedApp) => {
+    // Determine status: runtime status > deployment status > available
+    const status = app.status?.status || app.deploymentStatus || 'available';
+
+    const variants: Record<string, 'secondary' | 'default' | 'success' | 'destructive' | 'warning' | 'outline'> = {
       available: 'secondary',
-      installing: 'default',
+      added: 'outline',
+      deploying: 'default',
       running: 'success',
       error: 'destructive',
       stopped: 'warning',
-    } as const;
+      deployed: 'outline',
+    };
 
-    const labels = {
+    const labels: Record<string, string> = {
       available: 'Available',
-      installing: 'Installing',
+      added: 'Added',
+      deploying: 'Deploying',
       running: 'Running',
       error: 'Error',
       stopped: 'Stopped',
+      deployed: 'Deployed',
     };
 
     return (
-      <Badge variant={variants[status] as any}>
-        {labels[status]}
+      <Badge variant={variants[status]}>
+        {labels[status] || status}
       </Badge>
     );
   };
 
-  const getCategoryIcon = (category: Application['category']) => {
+  const getCategoryIcon = (category?: string) => {
     switch (category) {
       case 'database':
         return <Database className="h-4 w-4" />;
@@ -175,12 +145,60 @@ export function AppsComponent({ onComplete }: AppsComponentProps) {
     }
   };
 
-  const handleAppAction = (appId: string, action: 'install' | 'start' | 'stop' | 'delete' | 'configure') => {
-    console.log(`${action} app: ${appId}`);
+  const handleAppAction = (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore') => {
+    if (!currentInstance) return;
+
+    switch (action) {
+      case 'configure':
+        // Open config dialog for adding or reconfiguring app
+        setSelectedAppForConfig(app);
+        setConfigDialogOpen(true);
+        break;
+      case 'deploy':
+        deployApp(app.name);
+        break;
+      case 'delete':
+        if (confirm(`Are you sure you want to delete ${app.name}?`)) {
+          deleteApp(app.name);
+        }
+        break;
+      case 'backup':
+        setSelectedAppForBackup(app.name);
+        setBackupModalOpen(true);
+        break;
+      case 'restore':
+        setSelectedAppForBackup(app.name);
+        setRestoreModalOpen(true);
+        break;
+    }
+  };
+
+  const handleConfigSave = (config: Record<string, string>) => {
+    if (!selectedAppForConfig) return;
+
+    // Call addApp with the configuration
+    addApp({
+      name: selectedAppForConfig.name,
+      config: config,
+    });
+
+    // Close dialog
+    setConfigDialogOpen(false);
+    setSelectedAppForConfig(null);
+  };
+
+  const handleBackupConfirm = () => {
+    createBackup();
+  };
+
+  const handleRestoreConfirm = (backupId?: string) => {
+    if (backupId) {
+      restoreBackup(backupId);
+    }
   };
 
   const categories = ['all', 'database', 'web', 'security', 'monitoring', 'communication', 'storage'];
-  
+
   const filteredApps = applications.filter(app => {
     const matchesSearch = app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          app.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -188,7 +206,34 @@ export function AppsComponent({ onComplete }: AppsComponentProps) {
     return matchesSearch && matchesCategory;
   });
 
-  const runningApps = applications.filter(app => app.status === 'running').length;
+  const runningApps = applications.filter(app => app.status?.status === 'running').length;
+
+  // Show message if no instance is selected
+  if (!currentInstance) {
+    return (
+      <Card className="p-8 text-center">
+        <AppWindow className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">No Instance Selected</h3>
+        <p className="text-muted-foreground mb-4">
+          Please select or create an instance to manage apps.
+        </p>
+      </Card>
+    );
+  }
+
+  // Show error state
+  if (availableError || deployedError) {
+    return (
+      <Card className="p-8 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">Error Loading Apps</h3>
+        <p className="text-muted-foreground mb-4">
+          {(availableError as Error)?.message || (deployedError as Error)?.message || 'An error occurred'}
+        </p>
+        <Button onClick={() => window.location.reload()}>Reload Page</Button>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -260,135 +305,199 @@ export function AppsComponent({ onComplete }: AppsComponentProps) {
 
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm text-muted-foreground">
-            {runningApps} applications running • {applications.length} total available
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading apps...
+              </span>
+            ) : (
+              `${runningApps} applications running • ${applications.length} total available`
+            )}
           </div>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add App
-          </Button>
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredApps.map((app) => (
-          <Card key={app.id} className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-muted rounded-lg">
-                {getCategoryIcon(app.category)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-medium truncate">{app.name}</h3>
-                  {app.version && (
-                    <Badge variant="outline" className="text-xs">
-                      {app.version}
-                    </Badge>
-                  )}
-                  {getStatusIcon(app.status)}
+      {isLoading ? (
+        <Card className="p-8 text-center">
+          <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-muted-foreground">Loading applications...</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filteredApps.map((app) => (
+            <Card key={app.name} className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-muted rounded-lg">
+                  {getCategoryIcon(app.category)}
                 </div>
-                <p className="text-sm text-muted-foreground mb-2">{app.description}</p>
-                
-                {app.status === 'running' && (
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    {app.namespace && (
-                      <div>Namespace: {app.namespace}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-medium truncate">{app.name}</h3>
+                    {app.version && (
+                      <Badge variant="outline" className="text-xs">
+                        {app.version}
+                      </Badge>
                     )}
-                    {app.replicas && (
-                      <div>Replicas: {app.replicas}</div>
+                    {getStatusIcon(app.status?.status)}
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">{app.description}</p>
+
+                  {app.status?.status === 'running' && (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      {app.status.namespace && (
+                        <div>Namespace: {app.status.namespace}</div>
+                      )}
+                      {app.status.replicas && (
+                        <div>Replicas: {app.status.replicas}</div>
+                      )}
+                      {app.status.resources && (
+                        <div>
+                          Resources: {app.status.resources.cpu} CPU, {app.status.resources.memory} RAM
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {app.status?.message && (
+                    <p className="text-xs text-muted-foreground mt-1">{app.status.message}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {getStatusBadge(app)}
+                  <div className="flex flex-col gap-1">
+                    {/* Available: not added yet */}
+                    {!app.deploymentStatus && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleAppAction(app, 'configure')}
+                        disabled={isAdding}
+                      >
+                        {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Configure & Add'}
+                      </Button>
                     )}
-                    {app.resources && (
-                      <div>Resources: {app.resources.cpu} CPU, {app.resources.memory} RAM</div>
+
+                    {/* Added: in config but not deployed */}
+                    {app.deploymentStatus === 'added' && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAppAction(app, 'configure')}
+                          title="Edit configuration"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleAppAction(app, 'deploy')}
+                          disabled={isDeploying}
+                        >
+                          {isDeploying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Deploy'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleAppAction(app, 'delete')}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                      </>
                     )}
-                    {app.urls && app.urls.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <span>URLs:</span>
-                        {app.urls.map((url, index) => (
-                          <Button
-                            key={index}
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 text-xs"
-                            onClick={() => window.open(url, '_blank')}
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Access
-                          </Button>
-                        ))}
-                      </div>
+
+                    {/* Deployed: running in Kubernetes */}
+                    {app.deploymentStatus === 'deployed' && (
+                      <>
+                        {app.status?.status === 'running' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAppAction(app, 'backup')}
+                              disabled={isBackingUp}
+                              title="Create backup"
+                            >
+                              <Archive className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAppAction(app, 'restore')}
+                              disabled={isRestoring}
+                              title="Restore from backup"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleAppAction(app, 'delete')}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                      </>
                     )}
                   </div>
-                )}
-              </div>
-              
-              <div className="flex flex-col gap-2">
-                {getStatusBadge(app.status)}
-                <div className="flex gap-1">
-                  {app.status === 'available' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleAppAction(app.id, 'install')}
-                    >
-                      Install
-                    </Button>
-                  )}
-                  {app.status === 'running' && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleAppAction(app.id, 'configure')}
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleAppAction(app.id, 'stop')}
-                      >
-                        Stop
-                      </Button>
-                    </>
-                  )}
-                  {app.status === 'stopped' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleAppAction(app.id, 'start')}
-                    >
-                      Start
-                    </Button>
-                  )}
-                  {(app.status === 'running' || app.status === 'stopped') && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleAppAction(app.id, 'delete')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {filteredApps.length === 0 && (
+      {!isLoading && filteredApps.length === 0 && (
         <Card className="p-8 text-center">
           <AppWindow className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">No applications found</h3>
           <p className="text-muted-foreground mb-4">
-            {searchTerm || selectedCategory !== 'all' 
+            {searchTerm || selectedCategory !== 'all'
               ? 'Try adjusting your search or category filter'
-              : 'Install your first application to get started'
+              : 'No applications available to display'
             }
           </p>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Browse App Catalog
-          </Button>
         </Card>
       )}
+
+      {/* Backup Modal */}
+      <BackupRestoreModal
+        isOpen={backupModalOpen}
+        onClose={() => {
+          setBackupModalOpen(false);
+          setSelectedAppForBackup(null);
+        }}
+        mode="backup"
+        appName={selectedAppForBackup || ''}
+        onConfirm={handleBackupConfirm}
+        isPending={isBackingUp}
+      />
+
+      {/* Restore Modal */}
+      <BackupRestoreModal
+        isOpen={restoreModalOpen}
+        onClose={() => {
+          setRestoreModalOpen(false);
+          setSelectedAppForBackup(null);
+        }}
+        mode="restore"
+        appName={selectedAppForBackup || ''}
+        backups={backups?.backups || []}
+        isLoading={backupsLoading}
+        onConfirm={handleRestoreConfirm}
+        isPending={isRestoring}
+      />
+
+      {/* App Configuration Dialog */}
+      <AppConfigDialog
+        open={configDialogOpen}
+        onOpenChange={setConfigDialogOpen}
+        app={selectedAppForConfig}
+        existingConfig={selectedAppForConfig?.config}
+        onSave={handleConfigSave}
+        isSaving={isAdding}
+      />
     </div>
   );
 }

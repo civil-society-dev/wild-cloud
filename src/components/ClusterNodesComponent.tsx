@@ -2,151 +2,145 @@ import { useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Cpu, HardDrive, Network, Monitor, Plus, CheckCircle, AlertCircle, Clock, BookOpen, ExternalLink } from 'lucide-react';
+import { Cpu, HardDrive, Network, Monitor, CheckCircle, AlertCircle, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
+import { useInstanceContext } from '../hooks/useInstanceContext';
+import { useNodes, useDiscoveryStatus } from '../hooks/useNodes';
 
-interface ClusterNodesComponentProps {
-  onComplete?: () => void;
-}
+export function ClusterNodesComponent() {
+  const { currentInstance } = useInstanceContext();
+  const {
+    nodes,
+    isLoading,
+    error,
+    addNode,
+    isAdding,
+    deleteNode,
+    isDeleting,
+    discover,
+    isDiscovering,
+    detect,
+    isDetecting
+  } = useNodes(currentInstance);
 
-interface Node {
-  id: string;
-  name: string;
-  type: 'controller' | 'worker' | 'unassigned';
-  status: 'pending' | 'connecting' | 'connected' | 'healthy' | 'error';
-  ipAddress?: string;
-  macAddress: string;
-  osVersion?: string;
-  specs: {
-    cpu: string;
-    memory: string;
-    storage: string;
-  };
-}
+  const {
+    data: discoveryStatus
+  } = useDiscoveryStatus(currentInstance);
 
-export function ClusterNodesComponent({ onComplete }: ClusterNodesComponentProps) {
-  const [currentOsVersion, setCurrentOsVersion] = useState('v13.0.5');
-  const [nodes, setNodes] = useState<Node[]>([
-    {
-      id: 'controller-1',
-      name: 'Controller Node 1',
-      type: 'controller',
-      status: 'healthy',
-      macAddress: '00:1A:2B:3C:4D:5E',
-      osVersion: 'v13.0.4',
-      specs: {
-        cpu: '4 cores',
-        memory: '8GB RAM',
-        storage: '120GB SSD',
-      },
-    },
-    {
-      id: 'worker-1',
-      name: 'Worker Node 1',
-      type: 'worker',
-      status: 'healthy',
-      macAddress: '00:1A:2B:3C:4D:5F',
-      osVersion: 'v13.0.5',
-      specs: {
-        cpu: '8 cores',
-        memory: '16GB RAM',
-        storage: '500GB SSD',
-      },
-    },
-    {
-      id: 'worker-2',
-      name: 'Worker Node 2',
-      type: 'worker',
-      status: 'healthy',
-      macAddress: '00:1A:2B:3C:4D:60',
-      osVersion: 'v13.0.4',
-      specs: {
-        cpu: '8 cores',
-        memory: '16GB RAM',
-        storage: '500GB SSD',
-      },
-    },
-    {
-      id: 'node-1',
-      name: 'Node 1',
-      type: 'unassigned',
-      status: 'pending',
-      macAddress: '00:1A:2B:3C:4D:5E',
-      osVersion: 'v13.0.5',
-      specs: {
-        cpu: '4 cores',
-        memory: '8GB RAM',
-        storage: '120GB SSD',
-      },
-    },
-    {
-      id: 'node-2',
-      name: 'Node 2',
-      type: 'unassigned',
-      status: 'pending',
-      macAddress: '00:1A:2B:3C:4D:5F',
-      osVersion: 'v13.0.5',
-      specs: {
-        cpu: '8 cores',
-        memory: '16GB RAM',
-        storage: '500GB SSD',
-      },
-    },
-  ]);
+  const [subnet, setSubnet] = useState('192.168.1.0/24');
 
-  const getStatusIcon = (status: Node['status']) => {
+  const getStatusIcon = (status?: string) => {
     switch (status) {
-      case 'connected':
+      case 'ready':
+      case 'healthy':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'error':
         return <AlertCircle className="h-5 w-5 text-red-500" />;
       case 'connecting':
-        return <Clock className="h-5 w-5 text-blue-500 animate-spin" />;
+      case 'provisioning':
+        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
       default:
         return <Monitor className="h-5 w-5 text-muted-foreground" />;
     }
   };
 
-  const getStatusBadge = (status: Node['status']) => {
-    const variants = {
+  const getStatusBadge = (status?: string) => {
+    const variants: Record<string, 'secondary' | 'default' | 'success' | 'destructive'> = {
       pending: 'secondary',
       connecting: 'default',
-      connected: 'success',
+      provisioning: 'default',
+      ready: 'success',
       healthy: 'success',
       error: 'destructive',
-    } as const;
+    };
 
-    const labels = {
+    const labels: Record<string, string> = {
       pending: 'Pending',
       connecting: 'Connecting',
-      connected: 'Connected',
+      provisioning: 'Provisioning',
+      ready: 'Ready',
       healthy: 'Healthy',
       error: 'Error',
     };
 
     return (
-      <Badge variant={variants[status] as any}>
-        {labels[status]}
+      <Badge variant={variants[status || 'pending']}>
+        {labels[status || 'pending'] || status}
       </Badge>
     );
   };
 
-  const getTypeIcon = (type: Node['type']) => {
-    return type === 'controller' ? (
+  const getRoleIcon = (role: string) => {
+    return role === 'controlplane' ? (
       <Cpu className="h-4 w-4" />
     ) : (
       <HardDrive className="h-4 w-4" />
     );
   };
 
-  const handleNodeAction = (nodeId: string, action: 'connect' | 'retry' | 'upgrade_node') => {
-    console.log(`${action} node: ${nodeId}`);
+  const handleAddNode = (ip: string, hostname: string, role: 'controlplane' | 'worker') => {
+    if (!currentInstance) return;
+    addNode({ target_ip: ip, hostname, role, disk: '/dev/sda' });
   };
 
-  const connectedNodes = nodes.filter(node => node.status === 'connected').length;
-  const assignedNodes = nodes.filter(node => node.type !== 'unassigned');
-  const unassignedNodes = nodes.filter(node => node.type === 'unassigned');
-  const totalNodes = nodes.length;
-  const isComplete = connectedNodes === totalNodes;
+  const handleDeleteNode = (hostname: string) => {
+    if (!currentInstance) return;
+    if (confirm(`Are you sure you want to remove node ${hostname}?`)) {
+      deleteNode(hostname);
+    }
+  };
+
+  const handleDiscover = () => {
+    if (!currentInstance) return;
+    discover(subnet);
+  };
+
+  const handleDetect = () => {
+    if (!currentInstance) return;
+    detect();
+  };
+
+  // Derive status from backend state flags for each node
+  const assignedNodes = nodes.map(node => {
+    let status = 'pending';
+    if (node.maintenance) {
+      status = 'provisioning';
+    } else if (node.configured && !node.applied) {
+      status = 'connecting';
+    } else if (node.applied) {
+      status = 'ready';
+    }
+    return { ...node, status };
+  });
+
+  // Extract IPs from discovered nodes
+  const discoveredIps = discoveryStatus?.nodes_found?.map(n => n.ip) || [];
+
+  // Show message if no instance is selected
+  if (!currentInstance) {
+    return (
+      <Card className="p-8 text-center">
+        <Network className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">No Instance Selected</h3>
+        <p className="text-muted-foreground mb-4">
+          Please select or create an instance to manage nodes.
+        </p>
+      </Card>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Card className="p-8 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">Error Loading Nodes</h3>
+        <p className="text-muted-foreground mb-4">
+          {(error as Error)?.message || 'An error occurred'}
+        </p>
+        <Button onClick={() => window.location.reload()}>Reload Page</Button>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -190,148 +184,148 @@ export function ClusterNodesComponent({ onComplete }: ClusterNodesComponentProps
           </div>
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-lg font-medium mb-4">Assigned Nodes ({assignedNodes.length}/{totalNodes})</h2>
-          {assignedNodes.map((node) => (
-            <Card key={node.id} className="p-4">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-muted rounded-lg">
-                  {getTypeIcon(node.type)}
+        {isLoading ? (
+          <Card className="p-8 text-center">
+            <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
+            <p className="text-muted-foreground">Loading nodes...</p>
+          </Card>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-medium">Cluster Nodes ({assignedNodes.length})</h2>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Subnet (e.g., 192.168.1.0/24)"
+                    value={subnet}
+                    onChange={(e) => setSubnet(e.target.value)}
+                    className="px-3 py-1 text-sm border rounded-lg"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleDiscover}
+                    disabled={isDiscovering || discoveryStatus?.active}
+                  >
+                    {isDiscovering || discoveryStatus?.active ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    {discoveryStatus?.active ? 'Discovering...' : 'Discover'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDetect}
+                    disabled={isDetecting}
+                  >
+                    {isDetecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Auto Detect
+                  </Button>
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium">{node.name}</h4>
-                    <Badge variant="outline" className="text-xs">
-                      {node.type}
-                    </Badge>
-                    {getStatusIcon(node.status)}
-                  </div>
-                  <div className="text-sm text-muted-foreground mb-2">
-                    MAC: {node.macAddress}
-                    {node.ipAddress && ` • IP: ${node.ipAddress}`}
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Cpu className="h-3 w-3" />
-                      {node.specs.cpu}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Monitor className="h-3 w-3" />
-                      {node.specs.memory}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <HardDrive className="h-3 w-3" />
-                      {node.specs.storage}
-                    </span>
-                    {node.osVersion && (
-                      <span className="flex items-center gap-1">
+              </div>
+
+              {assignedNodes.map((node) => (
+                <Card key={node.hostname} className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-muted rounded-lg">
+                      {getRoleIcon(node.role)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium">{node.hostname}</h4>
                         <Badge variant="outline" className="text-xs">
-                          OS: {node.osVersion}
+                          {node.role}
                         </Badge>
-                      </span>
-                    )}
+                        {getStatusIcon(node.status)}
+                      </div>
+                      <div className="text-sm text-muted-foreground mb-2">
+                        IP: {node.target_ip}
+                      </div>
+                      {node.hardware && (
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          {node.hardware.cpu && (
+                            <span className="flex items-center gap-1">
+                              <Cpu className="h-3 w-3" />
+                              {node.hardware.cpu}
+                            </span>
+                          )}
+                          {node.hardware.memory && (
+                            <span className="flex items-center gap-1">
+                              <Monitor className="h-3 w-3" />
+                              {node.hardware.memory}
+                            </span>
+                          )}
+                          {node.hardware.disk && (
+                            <span className="flex items-center gap-1">
+                              <HardDrive className="h-3 w-3" />
+                              {node.hardware.disk}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {node.talosVersion && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Talos: {node.talosVersion}
+                          {node.kubernetesVersion && ` • K8s: ${node.kubernetesVersion}`}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {getStatusBadge(node.status)}
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteNode(node.hostname)}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {getStatusBadge(node.status)}
-                  {node.osVersion !== currentOsVersion && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleNodeAction(node.id, 'upgrade_node')}
-                    >
-                      Upgrade OS
-                    </Button>
-                  )}
-                  {node.status === 'error' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleNodeAction(node.id, 'retry')}
-                    >
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+                </Card>
+              ))}
 
-        <h2 className="text-lg font-medium mb-4 mt-6">Unassigned Nodes ({unassignedNodes.length}/{totalNodes})</h2>
-        <div className="space-y-4">
-          {unassignedNodes.map((node) => (
-            <Card key={node.id} className="p-4">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-muted rounded-lg">
-                  {getTypeIcon(node.type)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium">{node.name}</h4>
-                    <Badge variant="outline" className="text-xs">
-                      {node.type}
-                    </Badge>
-                    {getStatusIcon(node.status)}
-                  </div>
-                  <div className="text-sm text-muted-foreground mb-2">
-                    MAC: {node.macAddress}
-                    {node.ipAddress && ` • IP: ${node.ipAddress}`}
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Cpu className="h-3 w-3" />
-                      {node.specs.cpu}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Monitor className="h-3 w-3" />
-                      {node.specs.memory}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <HardDrive className="h-3 w-3" />
-                      {node.specs.storage}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {getStatusBadge(node.status)}
-                  {node.status === 'pending' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleNodeAction(node.id, 'connect')}
-                    >
-                      Assign
-                    </Button>
-                  )}
-                  {node.status === 'error' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleNodeAction(node.id, 'retry')}
-                    >
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        {isComplete && (
-          <div className="mt-6 p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <h3 className="font-medium text-green-800 dark:text-green-200">
-                Infrastructure Ready!
-              </h3>
+              {assignedNodes.length === 0 && (
+                <Card className="p-8 text-center">
+                  <Network className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Nodes</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Use the discover or auto-detect buttons above to find nodes on your network.
+                  </p>
+                </Card>
+              )}
             </div>
-            <p className="text-sm text-green-700 dark:text-green-300 mb-3">
-              All nodes are connected and ready for Kubernetes installation.
-            </p>
-            <Button onClick={onComplete} className="bg-green-600 hover:bg-green-700">
-              Continue to Kubernetes Installation
-            </Button>
-          </div>
+
+            {discoveredIps.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Discovered IPs ({discoveredIps.length})</h3>
+                <div className="space-y-2">
+                  {discoveredIps.map((ip) => (
+                    <Card key={ip} className="p-3 flex items-center justify-between">
+                      <span className="text-sm font-mono">{ip}</span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleAddNode(ip, `node-${ip}`, 'worker')}
+                          disabled={isAdding}
+                        >
+                          Add as Worker
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAddNode(ip, `controlplane-${ip}`, 'controlplane')}
+                          disabled={isAdding}
+                        >
+                          Add as Control Plane
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </Card>
 

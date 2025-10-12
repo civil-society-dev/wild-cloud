@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { apiService } from '../services/api';
+import { apiService } from '../services/api-legacy';
 
 interface HealthResponse {
   service: string;

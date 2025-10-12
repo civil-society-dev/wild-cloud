@@ -39,20 +39,20 @@ export const parseSimpleYaml = (yamlText: string): Config => {
       const cleanValue = value.replace(/"/g, '');
 
       if (currentSection === 'cloud') {
-        if (currentSubsection === 'dns') (config.cloud.dns as any)[key] = cleanValue;
-        else if (currentSubsection === 'router') (config.cloud.router as any)[key] = cleanValue;
-        else if (currentSubsection === 'dnsmasq') (config.cloud.dnsmasq as any)[key] = cleanValue;
-        else (config.cloud as any)[key] = cleanValue;
+        if (currentSubsection === 'dns') (config.cloud.dns as Record<string, string>)[key] = cleanValue;
+        else if (currentSubsection === 'router') (config.cloud.router as Record<string, string>)[key] = cleanValue;
+        else if (currentSubsection === 'dnsmasq') (config.cloud.dnsmasq as Record<string, string>)[key] = cleanValue;
+        else (config.cloud as Record<string, string>)[key] = cleanValue;
       } else if (currentSection === 'cluster') {
         if (currentSubsection === 'nodes') {
           // Skip nodes level
         } else if (currentSubsection === 'talos') {
-          (config.cluster.nodes.talos as any)[key] = cleanValue;
+          (config.cluster.nodes.talos as Record<string, string>)[key] = cleanValue;
         } else {
-          (config.cluster as any)[key] = cleanValue;
+          (config.cluster as Record<string, string | number>)[key] = cleanValue;
         }
       } else if (currentSection === 'server') {
-        (config.server as any)[key] = key === 'port' ? parseInt(cleanValue) : cleanValue;
+        (config.server as Record<string, string | number>)[key] = key === 'port' ? parseInt(cleanValue) : cleanValue;
       }
     }
   }

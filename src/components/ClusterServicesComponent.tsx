@@ -1,128 +1,128 @@
-import { useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Container, Shield, Network, Database, CheckCircle, AlertCircle, Clock, Terminal, FileText, BookOpen, ExternalLink } from 'lucide-react';
+import { Container, Shield, Network, Database, CheckCircle, AlertCircle, Terminal, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
+import { useInstanceContext } from '../hooks/useInstanceContext';
+import { useServices } from '../hooks/useServices';
+import type { Service } from '../services/api';
 
-interface ClusterServicesComponentProps {
-  onComplete?: () => void;
-}
+export function ClusterServicesComponent() {
+  const { currentInstance } = useInstanceContext();
+  const {
+    services,
+    isLoading,
+    error,
+    installService,
+    isInstalling,
+    installAll,
+    isInstallingAll,
+    deleteService,
+    isDeleting
+  } = useServices(currentInstance);
 
-interface ClusterComponent {
-  id: string;
-  name: string;
-  description: string;
-  status: 'pending' | 'installing' | 'ready' | 'error';
-  version?: string;
-  logs?: string[];
-}
-
-export function ClusterServicesComponent({ onComplete }: ClusterServicesComponentProps) {
-  const [components, setComponents] = useState<ClusterComponent[]>([
-    {
-      id: 'talos-config',
-      name: 'Talos Configuration',
-      description: 'Generate and apply Talos cluster configuration',
-      status: 'pending',
-    },
-    {
-      id: 'kubernetes-bootstrap',
-      name: 'Kubernetes Bootstrap',
-      description: 'Initialize Kubernetes control plane',
-      status: 'pending',
-      version: 'v1.29.0',
-    },
-    {
-      id: 'cni-plugin',
-      name: 'Container Network Interface',
-      description: 'Install and configure Cilium CNI',
-      status: 'pending',
-      version: 'v1.14.5',
-    },
-    {
-      id: 'storage-class',
-      name: 'Storage Classes',
-      description: 'Configure persistent volume storage',
-      status: 'pending',
-    },
-    {
-      id: 'ingress-controller',
-      name: 'Ingress Controller',
-      description: 'Install Traefik ingress controller',
-      status: 'pending',
-      version: 'v3.0.0',
-    },
-    {
-      id: 'monitoring',
-      name: 'Cluster Monitoring',
-      description: 'Deploy Prometheus and Grafana stack',
-      status: 'pending',
-    },
-  ]);
-
-  const [showLogs, setShowLogs] = useState<string | null>(null);
-
-  const getStatusIcon = (status: ClusterComponent['status']) => {
+  const getStatusIcon = (status?: string) => {
     switch (status) {
+      case 'running':
       case 'ready':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'error':
         return <AlertCircle className="h-5 w-5 text-red-500" />;
+      case 'deploying':
       case 'installing':
-        return <Clock className="h-5 w-5 text-blue-500 animate-spin" />;
+        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
       default:
         return null;
     }
   };
 
-  const getStatusBadge = (status: ClusterComponent['status']) => {
-    const variants = {
-      pending: 'secondary',
+  const getStatusBadge = (service: Service) => {
+    const status = service.status?.status || (service.deployed ? 'deployed' : 'available');
+
+    const variants: Record<string, 'secondary' | 'default' | 'success' | 'destructive' | 'outline'> = {
+      available: 'secondary',
+      deploying: 'default',
       installing: 'default',
+      running: 'success',
       ready: 'success',
       error: 'destructive',
-    } as const;
+      deployed: 'outline',
+    };
 
-    const labels = {
-      pending: 'Pending',
+    const labels: Record<string, string> = {
+      available: 'Available',
+      deploying: 'Deploying',
       installing: 'Installing',
+      running: 'Running',
       ready: 'Ready',
       error: 'Error',
+      deployed: 'Deployed',
     };
 
     return (
-      <Badge variant={variants[status] as any}>
-        {labels[status]}
+      <Badge variant={variants[status]}>
+        {labels[status] || status}
       </Badge>
     );
   };
 
-  const getComponentIcon = (id: string) => {
-    switch (id) {
-      case 'talos-config':
-        return <FileText className="h-5 w-5" />;
-      case 'kubernetes-bootstrap':
-        return <Container className="h-5 w-5" />;
-      case 'cni-plugin':
-        return <Network className="h-5 w-5" />;
-      case 'storage-class':
-        return <Database className="h-5 w-5" />;
-      case 'ingress-controller':
-        return <Shield className="h-5 w-5" />;
-      case 'monitoring':
-        return <Terminal className="h-5 w-5" />;
-      default:
-        return <Container className="h-5 w-5" />;
+  const getServiceIcon = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('network') || lowerName.includes('cni') || lowerName.includes('cilium')) {
+      return <Network className="h-5 w-5" />;
+    } else if (lowerName.includes('storage') || lowerName.includes('volume')) {
+      return <Database className="h-5 w-5" />;
+    } else if (lowerName.includes('ingress') || lowerName.includes('traefik') || lowerName.includes('nginx')) {
+      return <Shield className="h-5 w-5" />;
+    } else if (lowerName.includes('monitor') || lowerName.includes('prometheus') || lowerName.includes('grafana')) {
+      return <Terminal className="h-5 w-5" />;
+    } else {
+      return <Container className="h-5 w-5" />;
     }
   };
 
-  const handleComponentAction = (componentId: string, action: 'install' | 'retry') => {
-    console.log(`${action} component: ${componentId}`);
+  const handleInstallService = (serviceName: string) => {
+    if (!currentInstance) return;
+    installService({ name: serviceName });
   };
 
-  const readyComponents = components.filter(component => component.status === 'ready').length;
-  const totalComponents = components.length;
-  const isComplete = readyComponents === totalComponents;
+  const handleDeleteService = (serviceName: string) => {
+    if (!currentInstance) return;
+    if (confirm(`Are you sure you want to delete service ${serviceName}?`)) {
+      deleteService(serviceName);
+    }
+  };
+
+  const handleInstallAll = () => {
+    if (!currentInstance) return;
+    installAll();
+  };
+
+  // Show message if no instance is selected
+  if (!currentInstance) {
+    return (
+      <Card className="p-8 text-center">
+        <Container className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">No Instance Selected</h3>
+        <p className="text-muted-foreground mb-4">
+          Please select or create an instance to manage services.
+        </p>
+      </Card>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Card className="p-8 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">Error Loading Services</h3>
+        <p className="text-muted-foreground mb-4">
+          {(error as Error)?.message || 'An error occurred'}
+        </p>
+        <Button onClick={() => window.location.reload()}>Reload Page</Button>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -167,108 +167,91 @@ export function ClusterServicesComponent({ onComplete }: ClusterServicesComponen
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <pre className="text-xs text-muted-foreground bg-muted p-2 rounded-lg">
-          endpoint: civil<br/>
-          endpointIp: 192.168.8.240<br/>
-          kubernetes:<br/>
-            config: /home/payne/.kube/config<br/>
-            context: default<br/>
-          loadBalancerRange: 192.168.8.240-192.168.8.250<br/>
-          dashboard:<br/>
-            adminUsername: admin<br/>
-          certManager:<br/>
-            namespace: cert-manager<br/>
-            cloudflare:<br/>
-              domain: payne.io<br/>
-              ownerId: cloud-payne-io-cluster<br/>
-          </pre>
-      </div>
-
-
-        <div className="space-y-4">
-          {components.map((component) => (
-            <div key={component.id}>
-              <div className="flex items-center gap-4 p-4 rounded-lg border bg-card">
-                <div className="p-2 bg-muted rounded-lg">
-                  {getComponentIcon(component.id)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium">{component.name}</h3>
-                    {component.version && (
-                      <Badge variant="outline" className="text-xs">
-                        {component.version}
-                      </Badge>
-                    )}
-                    {getStatusIcon(component.status)}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{component.description}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {getStatusBadge(component.status)}
-                  {(component.status === 'installing' || component.status === 'error') && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowLogs(showLogs === component.id ? null : component.id)}
-                    >
-                      <Terminal className="h-4 w-4 mr-1" />
-                      Logs
-                    </Button>
-                  )}
-                  {component.status === 'pending' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleComponentAction(component.id, 'install')}
-                    >
-                      Install
-                    </Button>
-                  )}
-                  {component.status === 'error' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleComponentAction(component.id, 'retry')}
-                    >
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              </div>
-              
-              {showLogs === component.id && (
-                <Card className="mt-2 p-4 bg-black text-green-400 font-mono text-sm">
-                  <div className="max-h-40 overflow-y-auto">
-                    <div>Installing {component.name}...</div>
-                    <div>✓ Checking prerequisites</div>
-                    <div>✓ Downloading manifests</div>
-                    {component.status === 'installing' && (
-                      <div className="animate-pulse">⏳ Applying configuration...</div>
-                    )}
-                    {component.status === 'error' && (
-                      <div className="text-red-400">✗ Installation failed: timeout waiting for pods</div>
-                    )}
-                  </div>
-                </Card>
-              )}
-            </div>
-          ))}
+          <div className="text-sm text-muted-foreground">
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading services...
+              </span>
+            ) : (
+              `${services.length} services available`
+            )}
+          </div>
+          <Button
+            size="sm"
+            onClick={handleInstallAll}
+            disabled={isInstallingAll || services.length === 0}
+          >
+            {isInstallingAll ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Install All
+          </Button>
         </div>
 
-        {isComplete && (
-          <div className="mt-6 p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <h3 className="font-medium text-green-800 dark:text-green-200">
-                Kubernetes Cluster Ready!
-              </h3>
-            </div>
-            <p className="text-sm text-green-700 dark:text-green-300 mb-3">
-              Your Kubernetes cluster is fully configured and ready for application deployment.
-            </p>
-            <Button onClick={onComplete} className="bg-green-600 hover:bg-green-700">
-              Continue to App Management
-            </Button>
+        {isLoading ? (
+          <Card className="p-8 text-center">
+            <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
+            <p className="text-muted-foreground">Loading services...</p>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {services.map((service) => (
+              <div key={service.name}>
+                <div className="flex items-center gap-4 p-4 rounded-lg border bg-card">
+                  <div className="p-2 bg-muted rounded-lg">
+                    {getServiceIcon(service.name)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-medium">{service.name}</h3>
+                      {service.version && (
+                        <Badge variant="outline" className="text-xs">
+                          {service.version}
+                        </Badge>
+                      )}
+                      {getStatusIcon(service.status?.status)}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{service.description}</p>
+                    {service.status?.message && (
+                      <p className="text-xs text-muted-foreground mt-1">{service.status.message}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {getStatusBadge(service)}
+                    {!service.deployed && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleInstallService(service.name)}
+                        disabled={isInstalling}
+                      >
+                        {isInstalling ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Install'}
+                      </Button>
+                    )}
+                    {service.deployed && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteService(service.name)}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {services.length === 0 && (
+              <Card className="p-8 text-center">
+                <Container className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Services Available</h3>
+                <p className="text-muted-foreground">
+                  No cluster services are configured for this instance.
+                </p>
+              </Card>
+            )}
           </div>
         )}
       </Card>

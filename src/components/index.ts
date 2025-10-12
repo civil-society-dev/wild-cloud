@@ -17,3 +17,8 @@ export { PxeComponent } from './PxeComponent';
 export { ClusterNodesComponent } from './ClusterNodesComponent';
 export { ClusterServicesComponent } from './ClusterServicesComponent';
 export { AppsComponent } from './AppsComponent';
+export { SecretInput } from './SecretInput';
+export { ConfigViewer } from './ConfigViewer';
+export { DownloadButton } from './DownloadButton';
+export { CopyButton } from './CopyButton';
+export { ServiceCard } from './ServiceCard';

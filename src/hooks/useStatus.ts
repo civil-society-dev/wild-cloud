@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiService } from '../services/api';
+import { apiService } from '../services/api-legacy';
 import type { Status } from '../types';
 
 export const useStatus = () => {

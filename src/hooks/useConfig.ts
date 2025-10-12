@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '../services/api';
+import { apiService } from '../services/api-legacy';
 import type { Config } from '../types';
 
 interface ConfigResponse {
