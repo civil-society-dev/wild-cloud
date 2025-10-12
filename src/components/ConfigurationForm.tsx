@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FileText, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { useConfig, useMessages } from '../hooks';
+import { useConfig } from '../hooks';
 import { configFormSchema, defaultConfigValues, type ConfigFormData } from '../schemas/config';
 import {
   Card,

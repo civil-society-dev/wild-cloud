@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Save, X } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { useConfigYaml } from '../hooks';
 import { Button, Textarea } from './ui';
 import {

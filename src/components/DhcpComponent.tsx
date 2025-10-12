@@ -55,7 +55,7 @@ export function DhcpComponent() {
           <div>
             <Label htmlFor="dhcpRange">IP Range</Label>
             <div className="flex w-full items-center mt-1">
-              <Input id="dhcpRange" value="192.168.8.100,192.168.8.239"/>
+              <Input id="dhcpRange" value="192.168.8.100,192.168.8.239" readOnly/>
               <Button variant="ghost">
                 <HelpCircle/>
               </Button>

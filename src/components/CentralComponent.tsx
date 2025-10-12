@@ -1,9 +1,48 @@
 import { Card } from './ui/card';
 import { Button } from './ui/button';
-import { Server, Network, Settings, Clock, HelpCircle, CheckCircle, BookOpen, ExternalLink } from 'lucide-react';
-import { Input, Label } from './ui';
+import { Server, HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { useCentralStatus } from '../hooks/useCentralStatus';
+import { useInstanceConfig, useInstanceContext } from '../hooks';
 
 export function CentralComponent() {
+  const { currentInstance } = useInstanceContext();
+  const { data: centralStatus, isLoading: statusLoading, error: statusError } = useCentralStatus();
+  const { config: fullConfig, isLoading: configLoading } = useInstanceConfig(currentInstance);
+
+  const serverConfig = fullConfig?.server as { host?: string; port?: number } | undefined;
+
+  const formatUptime = (seconds?: number) => {
+    if (!seconds) return 'Unknown';
+
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+
+    return parts.join(' ');
+  };
+
+  // Show error state
+  if (statusError) {
+    return (
+      <Card className="p-8 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">Error Loading Central Status</h3>
+        <p className="text-muted-foreground mb-4">
+          {(statusError as Error)?.message || 'An error occurred'}
+        </p>
+        <Button onClick={() => window.location.reload()}>Reload Page</Button>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Educational Intro Section */}
@@ -17,8 +56,8 @@ export function CentralComponent() {
               What is the Central Service?
             </h3>
             <p className="text-blue-800 dark:text-blue-200 mb-3 leading-relaxed">
-              The Central Service is the "brain" of your personal cloud. It acts as the main coordinator that manages 
-              all the different services running on your network. Think of it like the control tower at an airport - 
+              The Central Service is the "brain" of your personal cloud. It acts as the main coordinator that manages
+              all the different services running on your network. Think of it like the control tower at an airport -
               it keeps track of what's happening, routes traffic between services, and ensures everything works together smoothly.
             </p>
             <p className="text-blue-700 dark:text-blue-300 mb-4 text-sm">
@@ -37,77 +76,122 @@ export function CentralComponent() {
           <div className="p-2 bg-primary/10 rounded-lg">
             <Server className="h-6 w-6 text-primary" />
           </div>
-          <div>
-            <h2 className="text-2xl font-semibold">Central Service</h2>
+          <div className="flex-1">
+            <h2 className="text-2xl font-semibold">Central Service Status</h2>
             <p className="text-muted-foreground">
-              Monitor and manage the central server service
+              Monitor the Wild Central server
             </p>
           </div>
+          {centralStatus && (
+            <Badge variant="success" className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              {centralStatus.status === 'running' ? 'Running' : centralStatus.status}
+            </Badge>
+          )}
         </div>
 
-        <div>
-          <h3 className="text-lg font-medium mb-4">Service Status</h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-            <div className="flex items-center gap-2">
-              <Server className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">IP Address: 192.168.8.50</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Network className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Network: 192.168.8.0/24</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Version: 1.0.0 (update available)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Age: 12s</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <HelpCircle className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Platform: ARM</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <span className="text-sm text-green-500">File permissions: Good</span>
-            </div>
+        {statusLoading || configLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-
-          <div className="space-y-4">
+        ) : (
+          <div className="space-y-6">
+            {/* Server Information */}
             <div>
-              <Label htmlFor="ip">IP</Label>
-              <div className="flex w-full items-center mt-1">
-                <Input id="ip" value="192.168.5.80"/>
-                <Button variant="ghost">
-                  <HelpCircle/>
-                </Button>
+              <h3 className="text-lg font-medium mb-4">Server Information</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card className="p-4 border-l-4 border-l-blue-500">
+                  <div className="flex items-start gap-3">
+                    <Settings className="h-5 w-5 text-blue-500 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-sm text-muted-foreground mb-1">Version</div>
+                      <div className="font-medium font-mono">{centralStatus?.version || 'Unknown'}</div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4 border-l-4 border-l-green-500">
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-5 w-5 text-green-500 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-sm text-muted-foreground mb-1">Uptime</div>
+                      <div className="font-medium">{formatUptime(centralStatus?.uptimeSeconds)}</div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4 border-l-4 border-l-purple-500">
+                  <div className="flex items-start gap-3">
+                    <Database className="h-5 w-5 text-purple-500 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-sm text-muted-foreground mb-1">Instances</div>
+                      <div className="font-medium">{centralStatus?.instances.count || 0} configured</div>
+                      {centralStatus?.instances.names && centralStatus.instances.names.length > 0 && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {centralStatus.instances.names.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4 border-l-4 border-l-orange-500">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-sm text-muted-foreground mb-1">Setup Files</div>
+                      <div className="font-medium capitalize">{centralStatus?.setupFiles || 'Unknown'}</div>
+                    </div>
+                  </div>
+                </Card>
               </div>
             </div>
+
+            {/* Configuration */}
             <div>
-              <Label htmlFor="interface">Interface</Label>
-              <div className="flex w-full items-center mt-1">
-                <Input id="interface" value="eth0"/>
-                <Button variant="ghost">
-                  <HelpCircle/>
-                </Button>
+              <h3 className="text-lg font-medium mb-4">Configuration</h3>
+              <div className="space-y-3">
+                <Card className="p-4 border-l-4 border-l-cyan-500">
+                  <div className="flex items-start gap-3">
+                    <Server className="h-5 w-5 text-cyan-500 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-sm text-muted-foreground mb-1">Server Host</div>
+                      <div className="font-medium font-mono">{serverConfig?.host || '0.0.0.0'}</div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm text-muted-foreground mb-1">Server Port</div>
+                      <div className="font-medium font-mono">{serverConfig?.port || 5055}</div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4 border-l-4 border-l-indigo-500">
+                  <div className="flex items-start gap-3">
+                    <HardDrive className="h-5 w-5 text-indigo-500 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-sm text-muted-foreground mb-1">Data Directory</div>
+                      <div className="font-medium font-mono text-sm break-all">
+                        {centralStatus?.dataDir || '/var/lib/wild-central'}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4 border-l-4 border-l-pink-500">
+                  <div className="flex items-start gap-3">
+                    <FolderTree className="h-5 w-5 text-pink-500 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-sm text-muted-foreground mb-1">Apps Directory</div>
+                      <div className="font-medium font-mono text-sm break-all">
+                        {centralStatus?.appsDir || '/opt/wild-cloud/apps'}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               </div>
             </div>
           </div>
-
-          <div className="flex gap-2 justify-end mt-4">
-            <Button onClick={() => console.log('Update service')}>
-              Update
-            </Button>
-            <Button onClick={() => console.log('Restart service')}>
-              Restart
-            </Button>
-            <Button onClick={() => console.log('View log')}>
-              View log
-            </Button>
-          </div>
-        </div>
+        )}
       </Card>
     </div>
   );
