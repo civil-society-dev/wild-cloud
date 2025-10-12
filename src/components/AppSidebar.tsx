@@ -153,7 +153,7 @@ export function AppSidebar() {
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
 
-                  <SidebarMenuSubItem>
+                  {/* <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
                       <NavLink to={`/instances/${instanceId}/dhcp`}>
                         <div className="p-1 rounded-md">
@@ -173,7 +173,7 @@ export function AppSidebar() {
                         <span className="truncate">PXE</span>
                       </NavLink>
                     </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
+                  </SidebarMenuSubItem> */}
 
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>

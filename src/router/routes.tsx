@@ -20,11 +20,22 @@ import { InfrastructurePage } from './pages/InfrastructurePage';
 import { ClusterPage } from './pages/ClusterPage';
 import { AppsPage } from './pages/AppsPage';
 import { AdvancedPage } from './pages/AdvancedPage';
+import { AssetsIsoPage } from './pages/AssetsIsoPage';
+import { AssetsPxePage } from './pages/AssetsPxePage';
 
 export const routes: RouteObject[] = [
   {
     path: '/',
     element: <LandingPage />,
+  },
+  // Centralized asset routes (not under instance context)
+  {
+    path: '/iso',
+    element: <AssetsIsoPage />,
+  },
+  {
+    path: '/pxe',
+    element: <AssetsPxePage />,
   },
   {
     path: '/instances/:instanceId',

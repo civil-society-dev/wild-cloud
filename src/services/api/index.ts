@@ -10,6 +10,7 @@ export { operationsApi } from './operations';
 export { dnsmasqApi } from './dnsmasq';
 export { utilitiesApi } from './utilities';
 export { pxeApi } from './pxe';
+export { assetsApi } from './assets';
 
 // React Query hooks
 export { useInstance, useInstanceOperations, useInstanceClusterHealth } from './hooks/useInstance';
@@ -17,3 +18,4 @@ export { useOperations, useOperation, useCancelOperation } from './hooks/useOper
 export { useClusterHealth, useClusterStatus, useClusterNodes } from './hooks/useCluster';
 export { useDashboardToken, useClusterVersions, useNodeIPs, useControlPlaneIP, useCopySecret } from './hooks/useUtilities';
 export { usePxeAssets, useDownloadPxeAsset, useDeletePxeAsset } from './hooks/usePxeAssets';
+export { useAssetList, useAsset, useAssetStatus, useDownloadAsset } from './hooks/useAssets';

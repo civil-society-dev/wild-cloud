@@ -7,3 +7,4 @@ export * from './cluster';
 export * from './app';
 export * from './service';
 export * from './pxe';
+export * from './asset';
