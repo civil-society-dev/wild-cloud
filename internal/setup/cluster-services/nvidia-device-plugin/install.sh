@@ -8,9 +8,9 @@ if [ -z "${WILD_INSTANCE}" ]; then
     exit 1
 fi
 
-# Ensure WILD_CENTRAL_DATA is set
-if [ -z "${WILD_CENTRAL_DATA}" ]; then
-    echo "❌ ERROR: WILD_CENTRAL_DATA is not set"
+# Ensure WILD_API_DATA_DIR is set
+if [ -z "${WILD_API_DATA_DIR}" ]; then
+    echo "❌ ERROR: WILD_API_DATA_DIR is not set"
     exit 1
 fi
 
@@ -20,7 +20,7 @@ if [ -z "${KUBECONFIG}" ]; then
     exit 1
 fi
 
-INSTANCE_DIR="${WILD_CENTRAL_DATA}/instances/${WILD_INSTANCE}"
+INSTANCE_DIR="${WILD_API_DATA_DIR}/instances/${WILD_INSTANCE}"
 CLUSTER_SETUP_DIR="${INSTANCE_DIR}/setup/cluster-services"
 NVIDIA_PLUGIN_DIR="${CLUSTER_SETUP_DIR}/nvidia-device-plugin"
 

@@ -9,14 +9,14 @@ if [ -z "${WILD_INSTANCE}" ]; then
     exit 1
 fi
 
-if [ -z "${WILD_CENTRAL_DATA}" ]; then
-    echo "❌ ERROR: WILD_CENTRAL_DATA environment variable is not set"
+if [ -z "${WILD_API_DATA_DIR}" ]; then
+    echo "❌ ERROR: WILD_API_DATA_DIR environment variable is not set"
     exit 1
 fi
 
 # Get the instance directory path
 get_instance_dir() {
-    echo "${WILD_CENTRAL_DATA}/instances/${WILD_INSTANCE}"
+    echo "${WILD_API_DATA_DIR}/instances/${WILD_INSTANCE}"
 }
 
 # Get the secrets file path

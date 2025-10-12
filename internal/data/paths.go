@@ -37,8 +37,8 @@ func (m *Manager) Initialize() error {
 		if err != nil {
 			return fmt.Errorf("failed to get current directory: %w", err)
 		}
-		if os.Getenv("WILD_CENTRAL_DATA") != "" {
-			dataDir = os.Getenv("WILD_CENTRAL_DATA")
+		if os.Getenv("WILD_API_DATA_DIR") != "" {
+			dataDir = os.Getenv("WILD_API_DATA_DIR")
 		} else {
 			dataDir = filepath.Join(cwd, "data")
 		}

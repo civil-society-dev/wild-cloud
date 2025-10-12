@@ -8,9 +8,9 @@ if [ -z "${WILD_INSTANCE}" ]; then
     exit 1
 fi
 
-# Ensure WILD_CENTRAL_DATA is set
-if [ -z "${WILD_CENTRAL_DATA}" ]; then
-    echo "❌ ERROR: WILD_CENTRAL_DATA is not set"
+# Ensure WILD_API_DATA_DIR is set
+if [ -z "${WILD_API_DATA_DIR}" ]; then
+    echo "❌ ERROR: WILD_API_DATA_DIR is not set"
     exit 1
 fi
 
@@ -20,7 +20,7 @@ if [ -z "${KUBECONFIG}" ]; then
     exit 1
 fi
 
-INSTANCE_DIR="${WILD_CENTRAL_DATA}/instances/${WILD_INSTANCE}"
+INSTANCE_DIR="${WILD_API_DATA_DIR}/instances/${WILD_INSTANCE}"
 CLUSTER_SETUP_DIR="${INSTANCE_DIR}/setup/cluster-services"
 CERT_MANAGER_DIR="${CLUSTER_SETUP_DIR}/cert-manager"
 
@@ -65,7 +65,7 @@ kubectl wait --for=condition=Available deployment/cert-manager-webhook -n cert-m
 # Create Cloudflare API token secret
 # Read token from Wild Central secrets file
 echo "🔐 Creating Cloudflare API token secret..."
-SECRETS_FILE="${WILD_CENTRAL_DATA}/instances/${WILD_INSTANCE}/secrets.yaml"
+SECRETS_FILE="${WILD_API_DATA_DIR}/instances/${WILD_INSTANCE}/secrets.yaml"
 CLOUDFLARE_API_TOKEN=$(yq '.cloudflare.token' "$SECRETS_FILE" 2>/dev/null)
 
 CLOUDFLARE_API_TOKEN=$(echo "$CLOUDFLARE_API_TOKEN")

@@ -554,7 +554,7 @@ func (m *Manager) Deploy(instanceName, serviceName, opID string, broadcaster *op
 	env := os.Environ()
 	env = append(env,
 		fmt.Sprintf("WILD_INSTANCE=%s", instanceName),
-		fmt.Sprintf("WILD_CENTRAL_DATA=%s", m.dataDir),
+		fmt.Sprintf("WILD_API_DATA_DIR=%s", m.dataDir),
 		fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath),
 	)
 	fmt.Printf("[DEBUG] Environment configured: WILD_INSTANCE=%s, KUBECONFIG=%s\n", instanceName, kubeconfigPath)

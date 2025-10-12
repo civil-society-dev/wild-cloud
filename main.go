@@ -19,7 +19,7 @@ func main() {
 	startTime = time.Now()
 
 	// Get data directory from environment or use default
-	dataDir := os.Getenv("WILD_CENTRAL_DATA")
+	dataDir := os.Getenv("WILD_API_DATA_DIR")
 	if dataDir == "" {
 		dataDir = "/var/lib/wild-central"
 	}
