@@ -8,7 +8,7 @@ import (
 // GetDaemonURL returns the daemon URL from environment or default
 func GetDaemonURL() string {
 	// Check environment variable first
-	if url := os.Getenv("WILD_DAEMON_URL"); url != "" {
+	if url := os.Getenv("WILD_API_URI"); url != "" {
 		return url
 	}
 

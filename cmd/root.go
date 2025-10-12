@@ -57,7 +57,7 @@ func Execute() {
 
 func init() {
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&daemonURL, "daemon-url", "", "Daemon URL (default: $WILD_DAEMON_URL or http://localhost:5055)")
+	rootCmd.PersistentFlags().StringVar(&daemonURL, "daemon-url", "", "Daemon URL (default: $WILD_API_URI or http://localhost:5055)")
 	rootCmd.PersistentFlags().StringVar(&instanceName, "instance", "", "Instance name (overrides current instance)")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json, yaml)")
 
