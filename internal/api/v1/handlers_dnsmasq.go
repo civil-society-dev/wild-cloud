@@ -49,6 +49,44 @@ func (api *API) DnsmasqRestart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DnsmasqGenerate generates the dnsmasq configuration without applying it (dry-run)
+func (api *API) DnsmasqGenerate(w http.ResponseWriter, r *http.Request) {
+	// Get all instances
+	instanceNames, err := api.instance.ListInstances()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list instances: %v", err))
+		return
+	}
+
+	// Load global config
+	globalConfigPath := api.getGlobalConfigPath()
+	globalCfg, err := config.LoadGlobalConfig(globalConfigPath)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to load global config: %v", err))
+		return
+	}
+
+	// Load all instance configs
+	var instanceConfigs []config.InstanceConfig
+	for _, name := range instanceNames {
+		instanceConfigPath := api.instance.GetInstanceConfigPath(name)
+		instanceCfg, err := config.LoadCloudConfig(instanceConfigPath)
+		if err != nil {
+			log.Printf("Warning: Could not load instance config for %s: %v", name, err)
+			continue
+		}
+		instanceConfigs = append(instanceConfigs, *instanceCfg)
+	}
+
+	// Generate config without writing or restarting
+	configContent := api.dnsmasq.Generate(globalCfg, instanceConfigs)
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "dnsmasq configuration generated (dry-run mode)",
+		"config":  configContent,
+	})
+}
+
 // DnsmasqUpdate regenerates and updates the dnsmasq configuration with all instances
 func (api *API) DnsmasqUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := api.updateDnsmasqForAllInstances(); err != nil {

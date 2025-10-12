@@ -101,17 +101,31 @@ type NodeConfig struct {
 }
 
 type InstanceConfig struct {
-	BaseDomain     string `yaml:"baseDomain" json:"baseDomain"`
-	Domain         string `yaml:"domain" json:"domain"`
-	InternalDomain string `yaml:"internalDomain" json:"internalDomain"`
-	Backup         struct {
-		Root string `yaml:"root" json:"root"`
-	} `yaml:"backup" json:"backup"`
-	DHCPRange string `yaml:"dhcpRange" json:"dhcpRange"`
-	NFS       struct {
-		Host      string `yaml:"host" json:"host"`
-		MediaPath string `yaml:"mediaPath" json:"mediaPath"`
-	} `yaml:"nfs" json:"nfs"`
+	Cloud struct {
+		Router struct {
+			IP string `yaml:"ip" json:"ip"`
+		} `yaml:"router" json:"router"`
+		DNS struct {
+			IP               string `yaml:"ip" json:"ip"`
+			ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
+		} `yaml:"dns" json:"dns"`
+		DHCPRange      string `yaml:"dhcpRange" json:"dhcpRange"`
+		Dnsmasq        struct {
+			Interface string `yaml:"interface" json:"interface"`
+		} `yaml:"dnsmasq" json:"dnsmasq"`
+		BaseDomain       string `yaml:"baseDomain" json:"baseDomain"`
+		Domain           string `yaml:"domain" json:"domain"`
+		InternalDomain   string `yaml:"internalDomain" json:"internalDomain"`
+		NFS              struct {
+			MediaPath       string `yaml:"mediaPath" json:"mediaPath"`
+			Host            string `yaml:"host" json:"host"`
+			StorageCapacity string `yaml:"storageCapacity" json:"storageCapacity"`
+		} `yaml:"nfs" json:"nfs"`
+		DockerRegistryHost string `yaml:"dockerRegistryHost" json:"dockerRegistryHost"`
+		Backup             struct {
+			Root string `yaml:"root" json:"root"`
+		} `yaml:"backup" json:"backup"`
+	} `yaml:"cloud" json:"cloud"`
 	Cluster struct {
 		Name           string `yaml:"name" json:"name"`
 		LoadBalancerIp string `yaml:"loadBalancerIp" json:"loadBalancerIp"`

@@ -37,8 +37,8 @@ func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.Ins
 
 	resolution_section := ""
 	for _, cloud := range clouds {
-		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Domain, cloud.Domain, cfg.Cluster.EndpointIP)
-		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.InternalDomain, cloud.InternalDomain, cfg.Cluster.EndpointIP)
+		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Cloud.Domain, cloud.Cloud.Domain, cfg.Cluster.EndpointIP)
+		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Cloud.InternalDomain, cloud.Cloud.InternalDomain, cfg.Cluster.EndpointIP)
 	}
 
 	template := `# Configuration file for dnsmasq.

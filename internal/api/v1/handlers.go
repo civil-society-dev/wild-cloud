@@ -161,6 +161,7 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/dnsmasq/status", api.DnsmasqStatus).Methods("GET")
 	r.HandleFunc("/api/v1/dnsmasq/config", api.DnsmasqGetConfig).Methods("GET")
 	r.HandleFunc("/api/v1/dnsmasq/restart", api.DnsmasqRestart).Methods("POST")
+	r.HandleFunc("/api/v1/dnsmasq/generate", api.DnsmasqGenerate).Methods("POST")
 	r.HandleFunc("/api/v1/dnsmasq/update", api.DnsmasqUpdate).Methods("POST")
 }
 
