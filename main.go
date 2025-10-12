@@ -5,14 +5,28 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 
 	v1 "github.com/wild-cloud/wild-central/daemon/internal/api/v1"
 )
 
 var startTime time.Time
+
+// splitAndTrim splits a string by delimiter and trims whitespace from each part
+func splitAndTrim(s string, sep string) []string {
+	parts := strings.Split(s, sep)
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
 
 func main() {
 	// Record start time
@@ -61,6 +75,55 @@ func main() {
 		api.StatusHandler(w, r, startTime, dataDir, appsDir)
 	}).Methods("GET")
 
+	// Configure CORS
+	// Default to development origins
+	allowedOrigins := []string{
+		"http://localhost:5173",  // Vite dev server
+		"http://localhost:5174",  // Alternative port
+		"http://localhost:3000",  // Common React dev port
+		"http://127.0.0.1:5173",
+		"http://127.0.0.1:5174",
+		"http://127.0.0.1:3000",
+	}
+
+	// Override with production origins if set
+	if corsOrigins := os.Getenv("WILD_CORS_ORIGINS"); corsOrigins != "" {
+		// Split comma-separated origins
+		allowedOrigins = []string{}
+		for _, origin := range splitAndTrim(corsOrigins, ",") {
+			allowedOrigins = append(allowedOrigins, origin)
+		}
+		log.Printf("CORS configured for production origins: %v", allowedOrigins)
+	} else {
+		log.Printf("CORS configured for development origins")
+	}
+
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins: allowedOrigins,
+		AllowedMethods: []string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+			http.MethodOptions,
+		},
+		AllowedHeaders: []string{
+			"Accept",
+			"Authorization",
+			"Content-Type",
+			"X-CSRF-Token",
+		},
+		ExposedHeaders: []string{
+			"Link",
+		},
+		AllowCredentials: true,
+		MaxAge:           300, // 5 minutes
+	})
+
+	// Wrap router with CORS middleware
+	handler := corsHandler.Handler(router)
+
 	// Default server settings
 	host := "0.0.0.0"
 	port := 5055
@@ -69,8 +132,9 @@ func main() {
 	log.Printf("Starting wild-central daemon on %s", addr)
 	log.Printf("Data directory: %s", dataDir)
 	log.Printf("Apps directory: %s", appsDir)
+	log.Printf("CORS enabled for development origins")
 
-	if err := http.ListenAndServe(addr, router); err != nil {
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
 }

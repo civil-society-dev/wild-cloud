@@ -139,44 +139,44 @@ func (m *Manager) ListDeployed(instanceName string) ([]DeployedApp, error) {
 
 		appName := entry.Name()
 
+		// Initialize app with basic info
+		app := DeployedApp{
+			Name:      appName,
+			Namespace: appName,
+			Status:    "added", // Default status: added but not deployed
+		}
+
+		// Try to get version from manifest
+		manifestPath := filepath.Join(appsDir, appName, "manifest.yaml")
+		if storage.FileExists(manifestPath) {
+			manifestData, _ := os.ReadFile(manifestPath)
+			var manifest struct {
+				Version string `yaml:"version"`
+			}
+			if yaml.Unmarshal(manifestData, &manifest) == nil {
+				app.Version = manifest.Version
+			}
+		}
+
 		// Check if namespace exists in cluster
 		checkCmd := exec.Command("kubectl", "get", "namespace", appName, "-o", "json")
 		tools.WithKubeconfig(checkCmd, kubeconfigPath)
 		output, err := checkCmd.CombinedOutput()
 
-		if err != nil {
-			// Namespace doesn't exist - app not deployed
-			continue
-		}
-
-		// Parse namespace status
-		var ns struct {
-			Status struct {
-				Phase string `json:"phase"`
-			} `json:"status"`
-		}
-		if err := yaml.Unmarshal(output, &ns); err == nil && ns.Status.Phase == "Active" {
-			// App is deployed - get more details
-			app := DeployedApp{
-				Name:      appName,
-				Namespace: appName,
-				Status:    "deployed",
+		if err == nil {
+			// Namespace exists - parse status
+			var ns struct {
+				Status struct {
+					Phase string `json:"phase"`
+				} `json:"status"`
 			}
-
-			// Try to get version from manifest
-			manifestPath := filepath.Join(appsDir, appName, "manifest.yaml")
-			if storage.FileExists(manifestPath) {
-				manifestData, _ := os.ReadFile(manifestPath)
-				var manifest struct {
-					Version string `yaml:"version"`
-				}
-				if yaml.Unmarshal(manifestData, &manifest) == nil {
-					app.Version = manifest.Version
-				}
+			if yaml.Unmarshal(output, &ns) == nil && ns.Status.Phase == "Active" {
+				// Namespace is active - app is deployed
+				app.Status = "deployed"
 			}
-
-			apps = append(apps, app)
 		}
+
+		apps = append(apps, app)
 	}
 
 	return apps, nil
