@@ -64,6 +64,7 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(dnsCmd)
 	rootCmd.AddCommand(instanceCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(secretCmd)
