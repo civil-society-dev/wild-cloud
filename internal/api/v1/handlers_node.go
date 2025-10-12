@@ -22,8 +22,9 @@ func (api *API) NodeDiscover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse request body - support both subnet and ip_list formats
 	var req struct {
+		Subnet string   `json:"subnet"`
 		IPList []string `json:"ip_list"`
 	}
 
@@ -32,14 +33,21 @@ func (api *API) NodeDiscover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.IPList) == 0 {
-		respondError(w, http.StatusBadRequest, "ip_list is required")
+	// If subnet provided, use it as a single "IP" for discovery
+	// The discovery manager will scan this subnet
+	var ipList []string
+	if req.Subnet != "" {
+		ipList = []string{req.Subnet}
+	} else if len(req.IPList) > 0 {
+		ipList = req.IPList
+	} else {
+		respondError(w, http.StatusBadRequest, "subnet or ip_list is required")
 		return
 	}
 
 	// Start discovery
 	discoveryMgr := discovery.NewManager(api.dataDir, instanceName)
-	if err := discoveryMgr.StartDiscovery(instanceName, req.IPList); err != nil {
+	if err := discoveryMgr.StartDiscovery(instanceName, ipList); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to start discovery: %v", err))
 		return
 	}

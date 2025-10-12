@@ -61,28 +61,27 @@ func NewAPI(dataDir, appsDir string) (*API, error) {
 	}, nil
 }
 
-// RegisterRoutes registers all API routes (Phase 1 + Phase 2)
 func (api *API) RegisterRoutes(r *mux.Router) {
-	// Phase 1: Instance management
+	// Instance management
 	r.HandleFunc("/api/v1/instances", api.CreateInstance).Methods("POST")
 	r.HandleFunc("/api/v1/instances", api.ListInstances).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}", api.GetInstance).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}", api.DeleteInstance).Methods("DELETE")
 
-	// Phase 1: Config management
+	// Config management
 	r.HandleFunc("/api/v1/instances/{name}/config", api.GetConfig).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/config", api.UpdateConfig).Methods("PUT")
 	r.HandleFunc("/api/v1/instances/{name}/config", api.ConfigUpdateBatch).Methods("PATCH")
 
-	// Phase 1: Secrets management
+	// Secrets management
 	r.HandleFunc("/api/v1/instances/{name}/secrets", api.GetSecrets).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/secrets", api.UpdateSecrets).Methods("PUT")
 
-	// Phase 1: Context management
+	// Context management
 	r.HandleFunc("/api/v1/context", api.GetContext).Methods("GET")
 	r.HandleFunc("/api/v1/context", api.SetContext).Methods("POST")
 
-	// Phase 2: Node management
+	// Node management
 	r.HandleFunc("/api/v1/instances/{name}/nodes/discover", api.NodeDiscover).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/nodes/detect", api.NodeDetect).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/discovery", api.NodeDiscoveryStatus).Methods("GET")
@@ -95,19 +94,25 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/nodes/{node}/apply", api.NodeApply).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/nodes/{node}", api.NodeDelete).Methods("DELETE")
 
-	// Phase 2: PXE asset management
-	r.HandleFunc("/api/v1/instances/{name}/pxe/assets", api.PXEListAssets).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/pxe/assets/download", api.PXEDownloadAsset).Methods("POST")
-	r.HandleFunc("/api/v1/instances/{name}/pxe/assets/{type}", api.PXEGetAsset).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/pxe/assets/{type}", api.PXEDeleteAsset).Methods("DELETE")
+	// Asset management
+	r.HandleFunc("/api/v1/assets", api.AssetsListSchematics).Methods("GET")
+	r.HandleFunc("/api/v1/assets/{schematicId}", api.AssetsGetSchematic).Methods("GET")
+	r.HandleFunc("/api/v1/assets/{schematicId}/download", api.AssetsDownload).Methods("POST")
+	r.HandleFunc("/api/v1/assets/{schematicId}/pxe/{assetType}", api.AssetsServePXE).Methods("GET")
+	r.HandleFunc("/api/v1/assets/{schematicId}/status", api.AssetsGetStatus).Methods("GET")
+	r.HandleFunc("/api/v1/assets/{schematicId}", api.AssetsDeleteSchematic).Methods("DELETE")
 
-	// Phase 2: Operations
+	// Instance-schematic relationship
+	r.HandleFunc("/api/v1/instances/{name}/schematic", api.SchematicGetInstanceSchematic).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/schematic", api.SchematicUpdateInstanceSchematic).Methods("PUT")
+
+	// Operations
 	r.HandleFunc("/api/v1/instances/{name}/operations", api.OperationList).Methods("GET")
 	r.HandleFunc("/api/v1/operations/{id}", api.OperationGet).Methods("GET")
 	r.HandleFunc("/api/v1/operations/{id}/stream", api.OperationStream).Methods("GET")
 	r.HandleFunc("/api/v1/operations/{id}/cancel", api.OperationCancel).Methods("POST")
 
-	// Phase 3: Cluster operations
+	// Cluster operations
 	r.HandleFunc("/api/v1/instances/{name}/cluster/config/generate", api.ClusterGenerateConfig).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/cluster/bootstrap", api.ClusterBootstrap).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/cluster/endpoints", api.ClusterConfigureEndpoints).Methods("POST")
@@ -118,7 +123,7 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/cluster/talosconfig", api.ClusterGetTalosconfig).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/cluster/reset", api.ClusterReset).Methods("POST")
 
-	// Phase 4: Services
+	// Services
 	r.HandleFunc("/api/v1/instances/{name}/services", api.ServicesList).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/services", api.ServicesInstall).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/services/install-all", api.ServicesInstallAll).Methods("POST")
@@ -134,7 +139,7 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/services/{service}/compile", api.ServicesCompile).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/services/{service}/deploy", api.ServicesDeploy).Methods("POST")
 
-	// Phase 4: Apps
+	// Apps
 	r.HandleFunc("/api/v1/apps", api.AppsListAvailable).Methods("GET")
 	r.HandleFunc("/api/v1/apps/{app}", api.AppsGetAvailable).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/apps", api.AppsListDeployed).Methods("GET")
@@ -143,12 +148,12 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}", api.AppsDelete).Methods("DELETE")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/status", api.AppsGetStatus).Methods("GET")
 
-	// Phase 5: Backup & Restore
+	// Backup & Restore
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup", api.BackupAppStart).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup", api.BackupAppList).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/restore", api.BackupAppRestore).Methods("POST")
 
-	// Phase 5: Utilities
+	// Utilities
 	r.HandleFunc("/api/v1/utilities/health", api.UtilitiesHealth).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/utilities/health", api.InstanceUtilitiesHealth).Methods("GET")
 	r.HandleFunc("/api/v1/utilities/dashboard/token", api.UtilitiesDashboardToken).Methods("GET")

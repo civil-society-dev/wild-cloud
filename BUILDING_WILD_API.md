@@ -7,6 +7,7 @@
 
 ## Principles
 
+- The API enables all of the functionaly needed by the CLI and the webapp. These clients should conform to the API. The API should not be designed around the needs of the CLI or webapp.
 - A wild cloud instance is primarily data (YAML files for config, secrets, and manifests).
 - Because a wild cloud instance is primarily data, a wild cloud instance can be managed by non-technical users through the webapp or by technical users by SSHing into the device (e.g. VSCode Remote SSH).
 - Like v.PoC, we should only use gomplate templates for distinguishing between cloud instances. However, **within** a cloud instance, there should be no templating. The templates are compiled when being copied into the instances. This allows transparency and simple management by the user.
