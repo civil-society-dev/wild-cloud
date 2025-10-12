@@ -70,6 +70,7 @@ func init() {
 	rootCmd.AddCommand(secretCmd)
 	rootCmd.AddCommand(nodeCmd)
 	rootCmd.AddCommand(pxeCmd)
+	rootCmd.AddCommand(isoCmd)
 	rootCmd.AddCommand(clusterCmd)
 	rootCmd.AddCommand(serviceCmd)
 	rootCmd.AddCommand(appCmd)

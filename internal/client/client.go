@@ -146,6 +146,15 @@ func (r *APIResponse) GetArray(key string) []interface{} {
 	return nil
 }
 
+// GetBool extracts boolean data from API response
+func (r *APIResponse) GetBool(key string) bool {
+	val := r.GetData(key)
+	if b, ok := val.(bool); ok {
+		return b
+	}
+	return false
+}
+
 // BaseURL returns the base URL of the client
 func (c *Client) BaseURL() string {
 	return c.baseURL
