@@ -2,8 +2,9 @@ export interface Service {
   name: string;
   description: string;
   version?: string;
-  status?: ServiceStatus;
+  status?: ServiceStatus | string; // Can be either an object or a string like 'deployed', 'not-deployed'
   deployed?: boolean;
+  namespace?: string;
 }
 
 export interface ServiceStatus {

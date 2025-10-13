@@ -24,6 +24,7 @@ export function ClusterServicesComponent() {
     switch (status) {
       case 'running':
       case 'ready':
+      case 'deployed':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'error':
         return <AlertCircle className="h-5 w-5 text-red-500" />;
@@ -36,19 +37,23 @@ export function ClusterServicesComponent() {
   };
 
   const getStatusBadge = (service: Service) => {
-    const status = service.status?.status || (service.deployed ? 'deployed' : 'available');
+    // Handle both old format (status as string) and new format (status as object)
+    const status = typeof service.status === 'string' ? service.status :
+                   service.status?.status || (service.deployed ? 'deployed' : 'available');
 
     const variants: Record<string, 'secondary' | 'default' | 'success' | 'destructive' | 'outline'> = {
+      'not-deployed': 'secondary',
       available: 'secondary',
       deploying: 'default',
       installing: 'default',
       running: 'success',
       ready: 'success',
+      deployed: 'success',
       error: 'destructive',
-      deployed: 'outline',
     };
 
     const labels: Record<string, string> = {
+      'not-deployed': 'Not Deployed',
       available: 'Available',
       deploying: 'Deploying',
       installing: 'Installing',
@@ -59,7 +64,7 @@ export function ClusterServicesComponent() {
     };
 
     return (
-      <Badge variant={variants[status]}>
+      <Badge variant={variants[status] || 'secondary'}>
         {labels[status] || status}
       </Badge>
     );
@@ -210,16 +215,18 @@ export function ClusterServicesComponent() {
                           {service.version}
                         </Badge>
                       )}
-                      {getStatusIcon(service.status?.status)}
+                      {getStatusIcon(typeof service.status === 'string' ? service.status : service.status?.status)}
                     </div>
                     <p className="text-sm text-muted-foreground">{service.description}</p>
-                    {service.status?.message && (
+                    {typeof service.status === 'object' && service.status?.message && (
                       <p className="text-xs text-muted-foreground mt-1">{service.status.message}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
                     {getStatusBadge(service)}
-                    {!service.deployed && (
+                    {((typeof service.status === 'string' && service.status === 'not-deployed') ||
+                      (!service.status || service.status === 'not-deployed') ||
+                      (typeof service.status === 'object' && service.status?.status === 'not-deployed')) && (
                       <Button
                         size="sm"
                         onClick={() => handleInstallService(service.name)}
@@ -228,7 +235,8 @@ export function ClusterServicesComponent() {
                         {isInstalling ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Install'}
                       </Button>
                     )}
-                    {service.deployed && (
+                    {((typeof service.status === 'string' && service.status === 'deployed') ||
+                      (typeof service.status === 'object' && service.status?.status === 'deployed')) && (
                       <Button
                         size="sm"
                         variant="destructive"
