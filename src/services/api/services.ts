@@ -2,7 +2,6 @@ import { apiClient } from './client';
 import type {
   ServiceListResponse,
   Service,
-  ServiceStatus,
   DetailedServiceStatus,
   ServiceManifest,
   ServiceInstallRequest,
