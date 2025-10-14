@@ -26,27 +26,27 @@ func NewManager(dataDir string) *Manager {
 
 // Asset represents a Talos boot asset
 type Asset struct {
-	Type       string `json:"type"`        // kernel, initramfs, iso
-	Path       string `json:"path"`        // Full path to asset file
-	Size       int64  `json:"size"`        // File size in bytes
-	SHA256     string `json:"sha256"`      // SHA256 hash
-	Downloaded bool   `json:"downloaded"`  // Whether asset exists
+	Type       string `json:"type"`       // kernel, initramfs, iso
+	Path       string `json:"path"`       // Full path to asset file
+	Size       int64  `json:"size"`       // File size in bytes
+	SHA256     string `json:"sha256"`     // SHA256 hash
+	Downloaded bool   `json:"downloaded"` // Whether asset exists
 }
 
 // Schematic represents a Talos schematic and its assets
 type Schematic struct {
-	SchematicID string   `json:"schematic_id"`
-	Version     string   `json:"version"`
-	Path        string   `json:"path"`
-	Assets      []Asset  `json:"assets"`
+	SchematicID string  `json:"schematic_id"`
+	Version     string  `json:"version"`
+	Path        string  `json:"path"`
+	Assets      []Asset `json:"assets"`
 }
 
 // AssetStatus represents download status for a schematic
 type AssetStatus struct {
-	SchematicID string            `json:"schematic_id"`
-	Version     string            `json:"version"`
-	Assets      map[string]Asset  `json:"assets"`
-	Complete    bool              `json:"complete"`
+	SchematicID string           `json:"schematic_id"`
+	Version     string           `json:"version"`
+	Assets      map[string]Asset `json:"assets"`
+	Complete    bool             `json:"complete"`
 }
 
 // GetAssetDir returns the asset directory for a schematic

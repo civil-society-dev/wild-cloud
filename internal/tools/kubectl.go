@@ -38,13 +38,13 @@ func (k *Kubectl) DeploymentExists(name, namespace string) bool {
 
 // PodInfo represents pod information from kubectl
 type PodInfo struct {
-	Name      string
-	Status    string
-	Ready     string
-	Restarts  int
-	Age       string
-	Node      string
-	IP        string
+	Name     string
+	Status   string
+	Ready    string
+	Restarts int
+	Age      string
+	Node     string
+	IP       string
 }
 
 // DeploymentInfo represents deployment information

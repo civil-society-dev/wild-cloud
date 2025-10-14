@@ -89,11 +89,11 @@ func (g *ConfigGenerator) RestartService() error {
 
 // ServiceStatus represents the status of the dnsmasq service
 type ServiceStatus struct {
-	Status             string    `json:"status"`
-	PID                int       `json:"pid"`
-	ConfigFile         string    `json:"config_file"`
-	InstancesConfigured int      `json:"instances_configured"`
-	LastRestart        time.Time `json:"last_restart"`
+	Status              string    `json:"status"`
+	PID                 int       `json:"pid"`
+	ConfigFile          string    `json:"config_file"`
+	InstancesConfigured int       `json:"instances_configured"`
+	LastRestart         time.Time `json:"last_restart"`
 }
 
 // GetStatus checks the status of the dnsmasq service

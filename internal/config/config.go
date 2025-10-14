@@ -109,14 +109,14 @@ type InstanceConfig struct {
 			IP               string `yaml:"ip" json:"ip"`
 			ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
 		} `yaml:"dns" json:"dns"`
-		DHCPRange      string `yaml:"dhcpRange" json:"dhcpRange"`
-		Dnsmasq        struct {
+		DHCPRange string `yaml:"dhcpRange" json:"dhcpRange"`
+		Dnsmasq   struct {
 			Interface string `yaml:"interface" json:"interface"`
 		} `yaml:"dnsmasq" json:"dnsmasq"`
-		BaseDomain       string `yaml:"baseDomain" json:"baseDomain"`
-		Domain           string `yaml:"domain" json:"domain"`
-		InternalDomain   string `yaml:"internalDomain" json:"internalDomain"`
-		NFS              struct {
+		BaseDomain     string `yaml:"baseDomain" json:"baseDomain"`
+		Domain         string `yaml:"domain" json:"domain"`
+		InternalDomain string `yaml:"internalDomain" json:"internalDomain"`
+		NFS            struct {
 			MediaPath       string `yaml:"mediaPath" json:"mediaPath"`
 			Host            string `yaml:"host" json:"host"`
 			StorageCapacity string `yaml:"storageCapacity" json:"storageCapacity"`
