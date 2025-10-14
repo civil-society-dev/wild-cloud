@@ -43,7 +43,19 @@ var dashboardTokenCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(resp.GetString("token"))
+		// API returns: {"success": true, "data": {"token": "..."}}
+		// Client parses this into Data map, so we need to get "data" then "token"
+		data := resp.GetMap("data")
+		if data == nil {
+			return fmt.Errorf("no data in response")
+		}
+
+		token, ok := data["token"].(string)
+		if !ok {
+			return fmt.Errorf("no token in response")
+		}
+
+		fmt.Println(token)
 		return nil
 	},
 }
