@@ -42,3 +42,77 @@
 ### Features
 
 - If WILD_CENTRAL_ENV environment variable is set to "development", the API should run in development mode.
+
+## Patterns
+
+### Instance-scoped Endpoints
+
+Instance-scoped endpoints follow a consistent pattern to ensure stateless, RESTful API design. The instance name is always included in the URL path, not retrieved from session state or context.
+
+#### Route Pattern
+
+```go
+// In handlers.go
+r.HandleFunc("/api/v1/instances/{name}/utilities/dashboard/token", api.UtilitiesDashboardToken).Methods("GET")
+```
+
+#### Handler Pattern
+
+```go
+// In handlers_utilities.go
+func (api *API) UtilitiesDashboardToken(w http.ResponseWriter, r *http.Request) {
+    // 1. Extract instance name from URL path parameters
+    vars := mux.Vars(r)
+    instanceName := vars["name"]
+
+    // 2. Validate instance exists
+    if err := api.instance.ValidateInstance(instanceName); err != nil {
+        respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+        return
+    }
+
+    // 3. Construct instance-specific paths
+    kubeconfigPath := filepath.Join(api.dataDir, "instances", instanceName, "kubeconfig")
+
+    // 4. Perform instance-specific operations
+    token, err := utilities.GetDashboardToken(kubeconfigPath)
+    if err != nil {
+        respondError(w, http.StatusInternalServerError, "Failed to get dashboard token")
+        return
+    }
+
+    // 5. Return response
+    respondJSON(w, http.StatusOK, map[string]interface{}{
+        "success": true,
+        "data":    token,
+    })
+}
+```
+
+#### Using Kubeconfig with kubectl/talosctl
+
+When making kubectl or talosctl calls for a specific instance, use the `tools.WithKubeconfig()` helper to set the KUBECONFIG environment variable:
+
+```go
+// In utilities.go or similar
+func GetDashboardToken(kubeconfigPath string) (*DashboardToken, error) {
+    cmd := exec.Command("kubectl", "-n", "kubernetes-dashboard", "create", "token", "dashboard-admin")
+    tools.WithKubeconfig(cmd, kubeconfigPath)
+    output, err := cmd.Output()
+    if err != nil {
+        return nil, fmt.Errorf("failed to create token: %w", err)
+    }
+
+    token := strings.TrimSpace(string(output))
+    return &DashboardToken{Token: token}, nil
+}
+```
+
+#### Key Principles
+
+1. **Instance name in URL**: Always include instance name as a path parameter (`{name}`)
+2. **Extract from mux.Vars()**: Get instance name from `mux.Vars(r)["name"]`, not from context
+3. **Validate instance**: Always validate the instance exists before operations
+4. **Construct paths explicitly**: Build instance-specific file paths from the instance name
+5. **Stateless handlers**: Handlers should not depend on session state or current context
+6. **Use tools helpers**: Use `tools.WithKubeconfig()` for kubectl/talosctl commands

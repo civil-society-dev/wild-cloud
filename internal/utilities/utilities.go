@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // HealthStatus represents cluster health information
@@ -127,15 +129,17 @@ func checkComponent(kubeconfigPath, namespace, selector string) error {
 }
 
 // GetDashboardToken retrieves or creates a Kubernetes dashboard token
-func GetDashboardToken() (*DashboardToken, error) {
+func GetDashboardToken(kubeconfigPath string) (*DashboardToken, error) {
 	// Check if service account exists
 	cmd := exec.Command("kubectl", "get", "serviceaccount", "-n", "kubernetes-dashboard", "dashboard-admin")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("dashboard-admin service account not found")
 	}
 
 	// Create token
 	cmd = exec.Command("kubectl", "-n", "kubernetes-dashboard", "create", "token", "dashboard-admin")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token: %w", err)
@@ -148,9 +152,10 @@ func GetDashboardToken() (*DashboardToken, error) {
 }
 
 // GetDashboardTokenFromSecret retrieves dashboard token from secret (fallback method)
-func GetDashboardTokenFromSecret() (*DashboardToken, error) {
+func GetDashboardTokenFromSecret(kubeconfigPath string) (*DashboardToken, error) {
 	cmd := exec.Command("kubectl", "-n", "kubernetes-dashboard", "get", "secret",
 		"dashboard-admin-token", "-o", "jsonpath={.data.token}")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token secret: %w", err)

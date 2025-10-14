@@ -50,12 +50,24 @@ func (api *API) InstanceUtilitiesHealth(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// UtilitiesDashboardToken returns a Kubernetes dashboard token
+// InstanceUtilitiesDashboardToken returns a Kubernetes dashboard token for a specific instance
 func (api *API) UtilitiesDashboardToken(w http.ResponseWriter, r *http.Request) {
-	token, err := utilities.GetDashboardToken()
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Get kubeconfig path for the instance
+	kubeconfigPath := filepath.Join(api.dataDir, "instances", instanceName, "kubeconfig")
+
+	token, err := utilities.GetDashboardToken(kubeconfigPath)
 	if err != nil {
 		// Try fallback method
-		token, err = utilities.GetDashboardTokenFromSecret()
+		token, err = utilities.GetDashboardTokenFromSecret(kubeconfigPath)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "Failed to get dashboard token")
 			return
