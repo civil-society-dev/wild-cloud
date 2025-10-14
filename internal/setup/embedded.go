@@ -19,11 +19,22 @@ var clusterServices = setupFS
 
 // ServiceManifest represents the wild-manifest.yaml structure
 type ServiceManifest struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-	Version     string `yaml:"version"`
-	Category    string `yaml:"category"`
-	// Add other fields as needed from wild-manifest.yaml
+	Name             string                      `yaml:"name"`
+	Description      string                      `yaml:"description"`
+	Version          string                      `yaml:"version"`
+	Category         string                      `yaml:"category"`
+	Namespace        string                      `yaml:"namespace"`
+	Dependencies     []string                    `yaml:"dependencies,omitempty"`
+	ConfigReferences []string                    `yaml:"configReferences,omitempty"`
+	ServiceConfig    map[string]ConfigDefinition `yaml:"serviceConfig,omitempty"`
+}
+
+// ConfigDefinition defines config that should be prompted during service setup
+type ConfigDefinition struct {
+	Path    string `yaml:"path"`
+	Prompt  string `yaml:"prompt"`
+	Default string `yaml:"default"`
+	Type    string `yaml:"type,omitempty"`
 }
 
 // ListServices returns all available cluster services

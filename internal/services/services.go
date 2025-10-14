@@ -37,10 +37,25 @@ func NewManager(dataDir string) *Manager {
 			manifest, err := setup.GetManifest(serviceName)
 			if err == nil {
 				// Convert setup.ServiceManifest to services.ServiceManifest
+				// Convert setup.ConfigDefinition map to services.ConfigDefinition map
+				serviceConfig := make(map[string]ConfigDefinition)
+				for key, cfg := range manifest.ServiceConfig {
+					serviceConfig[key] = ConfigDefinition{
+						Path:    cfg.Path,
+						Prompt:  cfg.Prompt,
+						Default: cfg.Default,
+						Type:    cfg.Type,
+					}
+				}
+
 				manifests[serviceName] = &ServiceManifest{
-					Name:        manifest.Name,
-					Description: manifest.Description,
-					Category:    manifest.Category,
+					Name:             manifest.Name,
+					Description:      manifest.Description,
+					Namespace:        manifest.Namespace,
+					Category:         manifest.Category,
+					Dependencies:     manifest.Dependencies,
+					ConfigReferences: manifest.ConfigReferences,
+					ServiceConfig:    serviceConfig,
 				}
 			}
 		}
@@ -60,6 +75,7 @@ type Service struct {
 	Version      string   `json:"version"`
 	Namespace    string   `json:"namespace"`
 	Dependencies []string `json:"dependencies,omitempty"`
+	HasConfig    bool     `json:"hasConfig"` // Whether service has configurable fields
 }
 
 // Base services in Wild Cloud (kept for reference/validation)
@@ -147,12 +163,14 @@ func (m *Manager) List(instanceName string) ([]Service, error) {
 		// Get service info from manifest if available
 		var namespace, description, version string
 		var dependencies []string
+		var hasConfig bool
 
 		if manifest, ok := m.manifests[name]; ok {
 			namespace = manifest.Namespace
 			description = manifest.Description
 			version = manifest.Category // Using category as version for now
 			dependencies = manifest.Dependencies
+			hasConfig = len(manifest.ServiceConfig) > 0
 		} else {
 			// Fall back to hardcoded map
 			namespace = name + "-system" // default
@@ -168,6 +186,7 @@ func (m *Manager) List(instanceName string) ([]Service, error) {
 			Description:  description,
 			Version:      version,
 			Dependencies: dependencies,
+			HasConfig:    hasConfig,
 		}
 
 		services = append(services, service)

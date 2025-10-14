@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v3"
 
+	"github.com/wild-cloud/wild-central/daemon/internal/contracts"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/services"
 )
@@ -225,11 +226,11 @@ func (api *API) ServicesGetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get status
+	// Get detailed status
 	servicesMgr := services.NewManager(api.dataDir)
-	status, err := servicesMgr.GetStatus(instanceName, serviceName)
+	status, err := servicesMgr.GetDetailedStatus(instanceName, serviceName)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get status: %v", err))
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Failed to get status: %v", err))
 		return
 	}
 
@@ -421,4 +422,111 @@ func (api *API) ServicesDeploy(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{
 		"message": fmt.Sprintf("Service %s deployed successfully", serviceName),
 	})
+}
+
+// ServicesGetLogs retrieves or streams service logs
+func (api *API) ServicesGetLogs(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	serviceName := vars["service"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Parse query parameters
+	query := r.URL.Query()
+	logsReq := contracts.ServiceLogsRequest{
+		Container: query.Get("container"),
+		Follow:    query.Get("follow") == "true",
+		Previous:  query.Get("previous") == "true",
+		Since:     query.Get("since"),
+	}
+
+	// Parse tail parameter
+	if tailStr := query.Get("tail"); tailStr != "" {
+		var tail int
+		if _, err := fmt.Sscanf(tailStr, "%d", &tail); err == nil {
+			logsReq.Tail = tail
+		}
+	}
+
+	// Validate parameters
+	if logsReq.Tail < 0 {
+		respondError(w, http.StatusBadRequest, "tail parameter must be positive")
+		return
+	}
+	if logsReq.Tail > 5000 {
+		respondError(w, http.StatusBadRequest, "tail parameter cannot exceed 5000")
+		return
+	}
+	if logsReq.Previous && logsReq.Follow {
+		respondError(w, http.StatusBadRequest, "previous and follow cannot be used together")
+		return
+	}
+
+	servicesMgr := services.NewManager(api.dataDir)
+
+	// Stream logs with SSE if follow=true
+	if logsReq.Follow {
+		// Set SSE headers
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("X-Accel-Buffering", "no")
+
+		// Stream logs
+		if err := servicesMgr.StreamLogs(instanceName, serviceName, logsReq, w); err != nil {
+			// Log error but can't send response (SSE already started)
+			fmt.Printf("Error streaming logs: %v\n", err)
+		}
+		return
+	}
+
+	// Get buffered logs
+	logsResp, err := servicesMgr.GetLogs(instanceName, serviceName, logsReq)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get logs: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, logsResp)
+}
+
+// ServicesUpdateConfig updates service configuration
+func (api *API) ServicesUpdateConfig(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	serviceName := vars["service"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Parse request body
+	var update contracts.ServiceConfigUpdate
+	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
+		return
+	}
+
+	// Validate request
+	if update.Config == nil || len(update.Config) == 0 {
+		respondError(w, http.StatusBadRequest, "config field is required and must not be empty")
+		return
+	}
+
+	// Update config
+	servicesMgr := services.NewManager(api.dataDir)
+	response, err := servicesMgr.UpdateConfig(instanceName, serviceName, update, api.broadcaster)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update config: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, response)
 }
