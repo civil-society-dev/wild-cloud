@@ -24,13 +24,16 @@ var versionCmd = &cobra.Command{
 
 		// If connected to daemon, show cluster versions
 		if apiClient != nil {
-			resp, err := apiClient.Get("/api/v1/utilities/version")
+			inst, err := getInstanceName()
 			if err == nil {
-				if k8s, ok := resp.Data["kubernetes"].(string); ok {
-					fmt.Printf("Kubernetes: %s\n", k8s)
-				}
-				if talos, ok := resp.Data["talos"].(string); ok && talos != "" {
-					fmt.Printf("Talos: %s\n", talos)
+				resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/utilities/version", inst))
+				if err == nil {
+					if k8s, ok := resp.Data["kubernetes"].(string); ok {
+						fmt.Printf("Kubernetes: %s\n", k8s)
+					}
+					if talos, ok := resp.Data["talos"].(string); ok && talos != "" {
+						fmt.Printf("Talos: %s\n", talos)
+					}
 				}
 			}
 		}

@@ -26,7 +26,7 @@ var operationGetCmd = &cobra.Command{
 			return err
 		}
 
-		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/operations/%s?instance=%s", args[0], inst))
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/operations/%s", inst, args[0]))
 		if err != nil {
 			return err
 		}
@@ -43,7 +43,12 @@ var operationListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List operations",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resp, err := apiClient.Get("/api/v1/operations")
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/operations", inst))
 		if err != nil {
 			return err
 		}
@@ -90,7 +95,7 @@ func streamOperationOutput(opID string) error {
 	}
 
 	// Connect to SSE stream
-	url := fmt.Sprintf("%s/api/v1/operations/%s/stream?instance=%s", baseURL, opID, inst)
+	url := fmt.Sprintf("%s/api/v1/instances/%s/operations/%s/stream", baseURL, inst, opID)
 	client := sse.NewClient(url)
 	events := make(chan *sse.Event)
 
@@ -105,7 +110,7 @@ func streamOperationOutput(opID string) error {
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
-			resp, err := apiClient.Get(fmt.Sprintf("/api/v1/operations/%s?instance=%s", opID, inst))
+			resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/operations/%s", inst, opID))
 			if err == nil {
 				status := resp.GetString("status")
 				if status == "completed" || status == "failed" {

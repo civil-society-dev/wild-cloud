@@ -72,7 +72,12 @@ var nodeIPCmd = &cobra.Command{
 	Use:   "node-ip",
 	Short: "Get control plane IP",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resp, err := apiClient.Get("/api/v1/utilities/controlplane/ip")
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/utilities/controlplane/ip", inst))
 		if err != nil {
 			return err
 		}
