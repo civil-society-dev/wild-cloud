@@ -24,6 +24,11 @@ export const utilitiesApi = {
     return response.data;
   },
 
+  async getInstanceDashboardToken(instanceName: string): Promise<{ token: string }> {
+    const response = await apiClient.get<{ data: { token: string }; success: boolean }>(`/api/v1/instances/${instanceName}/utilities/dashboard/token`);
+    return response.data;
+  },
+
   async getNodeIPs(): Promise<{ ips: string[] }> {
     return apiClient.get('/api/v1/utilities/nodes/ips');
   },

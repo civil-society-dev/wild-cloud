@@ -10,14 +10,14 @@ import {
 import { ConfigEditor } from "./ConfigEditor";
 import { Button, Input, Label } from "./ui";
 import { Check, Edit2, HelpCircle, X, ExternalLink, Copy } from "lucide-react";
-import { useDashboardToken } from "../services/api/hooks/useUtilities";
+import { useInstanceDashboardToken } from "../services/api/hooks/useUtilities";
 import { useInstance } from "../services/api";
 
 export function Advanced() {
   const { instanceId } = useParams<{ instanceId: string }>();
   const [copied, setCopied] = useState(false);
   const { data: instance } = useInstance(instanceId || '');
-  const { data: dashboardToken, isLoading: tokenLoading } = useDashboardToken();
+  const { data: dashboardToken, isLoading: tokenLoading } = useInstanceDashboardToken(instanceId || '');
 
   const [upstreamValue, setUpstreamValue] = useState("https://mywildcloud.org");
   const [editingUpstream, setEditingUpstream] = useState(false);

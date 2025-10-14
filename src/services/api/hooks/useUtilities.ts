@@ -9,6 +9,15 @@ export function useDashboardToken() {
   });
 }
 
+export function useInstanceDashboardToken(instanceId: string) {
+  return useQuery({
+    queryKey: ['instances', instanceId, 'utilities', 'dashboard', 'token'],
+    queryFn: () => utilitiesApi.getInstanceDashboardToken(instanceId),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    enabled: !!instanceId,
+  });
+}
+
 export function useClusterVersions() {
   return useQuery({
     queryKey: ['utilities', 'version'],
