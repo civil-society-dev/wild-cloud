@@ -38,7 +38,11 @@ var dashboardTokenCmd = &cobra.Command{
 	Use:   "token",
 	Short: "Get dashboard token",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resp, err := apiClient.Get("/api/v1/utilities/dashboard/token")
+		instanceName, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/utilities/dashboard/token", instanceName))
 		if err != nil {
 			return err
 		}
