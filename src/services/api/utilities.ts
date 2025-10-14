@@ -20,7 +20,8 @@ export const utilitiesApi = {
   },
 
   async getDashboardToken(): Promise<{ token: string }> {
-    return apiClient.get('/api/v1/utilities/dashboard/token');
+    const response = await apiClient.get<{ data: { token: string }; success: boolean }>('/api/v1/utilities/dashboard/token');
+    return response.data;
   },
 
   async getNodeIPs(): Promise<{ ips: string[] }> {

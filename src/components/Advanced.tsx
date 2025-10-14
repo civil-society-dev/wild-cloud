@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -8,12 +9,42 @@ import {
 } from "./ui/card";
 import { ConfigEditor } from "./ConfigEditor";
 import { Button, Input, Label } from "./ui";
-import { Check, Edit2, HelpCircle, X } from "lucide-react";
+import { Check, Edit2, HelpCircle, X, ExternalLink, Copy } from "lucide-react";
+import { useDashboardToken } from "../services/api/hooks/useUtilities";
+import { useInstance } from "../services/api";
 
 export function Advanced() {
+  const { instanceId } = useParams<{ instanceId: string }>();
+  const [copied, setCopied] = useState(false);
+  const { data: instance } = useInstance(instanceId || '');
+  const { data: dashboardToken, isLoading: tokenLoading } = useDashboardToken();
+
   const [upstreamValue, setUpstreamValue] = useState("https://mywildcloud.org");
   const [editingUpstream, setEditingUpstream] = useState(false);
   const [tempUpstream, setTempUpstream] = useState(upstreamValue);
+
+  const handleCopyToken = async () => {
+    if (dashboardToken?.token) {
+      try {
+        await navigator.clipboard.writeText(dashboardToken.token);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy token:', err);
+      }
+    }
+  };
+
+  const handleOpenDashboard = () => {
+    // Build dashboard URL from instance config
+    // Dashboard is available at: https://dashboard.{cloud.internalDomain}
+    const internalDomain = instance?.config?.cloud?.internalDomain;
+    const dashboardUrl = internalDomain
+      ? `https://dashboard.${internalDomain}`
+      : 'https://dashboard.internal.wild.cloud';
+    window.open(dashboardUrl, '_blank');
+  };
+
   const handleUpstreamEdit = () => {
     setTempUpstream(upstreamValue);
     setEditingUpstream(true);
@@ -51,6 +82,47 @@ export function Advanced() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Kubernetes Dashboard Access */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Kubernetes Dashboard</CardTitle>
+          <CardDescription>
+            Access the Kubernetes dashboard for advanced cluster management
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <Button onClick={handleOpenDashboard} disabled={!instance}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open Dashboard
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleCopyToken}
+              disabled={tokenLoading || !dashboardToken?.token}
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Token
+                </>
+              )}
+            </Button>
+          </div>
+          {instance?.config?.cloud?.internalDomain && (
+            <p className="text-xs text-muted-foreground mt-3">
+              Dashboard URL: https://dashboard.{instance.config.cloud.internalDomain}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Upstream Section */}
       <Card className="p-4 border-l-4 border-l-blue-500">
         <div className="flex items-center justify-between mb-3">
