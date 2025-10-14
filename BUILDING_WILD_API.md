@@ -89,9 +89,19 @@ func (api *API) UtilitiesDashboardToken(w http.ResponseWriter, r *http.Request) 
 }
 ```
 
-#### Using Kubeconfig with kubectl/talosctl
+#### Key Principles
 
-When making kubectl or talosctl calls for a specific instance, use the `tools.WithKubeconfig()` helper to set the KUBECONFIG environment variable:
+1. **Instance name in URL**: Always include instance name as a path parameter (`{name}`)
+2. **Extract from mux.Vars()**: Get instance name from `mux.Vars(r)["name"]`, not from context
+3. **Validate instance**: Always validate the instance exists before operations
+4. **Use path helpers**: Use `tools.GetKubeconfigPath()`, `tools.GetInstanceConfigPath()`, etc. instead of inline `filepath.Join()` constructions
+5. **Stateless handlers**: Handlers should not depend on session state or current context
+
+### kubectl and talosctl Commands
+
+When making kubectl or talosctl calls for a specific instance, always use the `tools` package helpers to set the correct context.
+
+#### Using kubectl with Instance Kubeconfig
 
 ```go
 // In utilities.go or similar
@@ -108,11 +118,25 @@ func GetDashboardToken(kubeconfigPath string) (*DashboardToken, error) {
 }
 ```
 
+#### Using talosctl with Instance Talosconfig
+
+```go
+// In cluster operations
+func GetClusterHealth(talosconfigPath string, nodeIP string) error {
+    cmd := exec.Command("talosctl", "health", "--nodes", nodeIP)
+    tools.WithTalosconfig(cmd, talosconfigPath)
+    output, err := cmd.Output()
+    if err != nil {
+        return fmt.Errorf("failed to check health: %w", err)
+    }
+    // Process output...
+    return nil
+}
+```
+
 #### Key Principles
 
-1. **Instance name in URL**: Always include instance name as a path parameter (`{name}`)
-2. **Extract from mux.Vars()**: Get instance name from `mux.Vars(r)["name"]`, not from context
-3. **Validate instance**: Always validate the instance exists before operations
-4. **Use path helpers**: Use `tools.GetKubeconfigPath()`, `tools.GetInstanceConfigPath()`, etc. instead of inline `filepath.Join()` constructions
-5. **Stateless handlers**: Handlers should not depend on session state or current context
-6. **Use tools helpers**: Use `tools.WithKubeconfig()` for kubectl/talosctl commands
+1. **Use tools helpers**: Always use `tools.WithKubeconfig()` or `tools.WithTalosconfig()` instead of manually setting environment variables
+2. **Get paths from tools package**: Use `tools.GetKubeconfigPath()` or `tools.GetTalosconfigPath()` to construct config paths
+3. **One config per command**: Each exec.Command should have its config set via the appropriate helper
+4. **Error handling**: Always check for command execution errors and provide context

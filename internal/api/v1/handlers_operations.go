@@ -17,12 +17,12 @@ import (
 // OperationGet returns operation status
 func (api *API) OperationGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	instanceName := vars["name"]
 	opID := vars["id"]
 
-	// Extract instance name from query param or header
-	instanceName := r.URL.Query().Get("instance")
-	if instanceName == "" {
-		respondError(w, http.StatusBadRequest, "instance parameter is required")
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
 		return
 	}
 
@@ -64,12 +64,12 @@ func (api *API) OperationList(w http.ResponseWriter, r *http.Request) {
 // OperationCancel cancels an operation
 func (api *API) OperationCancel(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	instanceName := vars["name"]
 	opID := vars["id"]
 
-	// Extract instance name from query param
-	instanceName := r.URL.Query().Get("instance")
-	if instanceName == "" {
-		respondError(w, http.StatusBadRequest, "instance parameter is required")
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
 		return
 	}
 
@@ -89,12 +89,12 @@ func (api *API) OperationCancel(w http.ResponseWriter, r *http.Request) {
 // OperationStream streams operation output via Server-Sent Events (SSE)
 func (api *API) OperationStream(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	instanceName := vars["name"]
 	opID := vars["id"]
 
-	// Extract instance name from query param
-	instanceName := r.URL.Query().Get("instance")
-	if instanceName == "" {
-		respondError(w, http.StatusBadRequest, "instance parameter is required")
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
 		return
 	}
 

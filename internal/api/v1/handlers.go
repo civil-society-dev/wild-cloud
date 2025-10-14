@@ -108,9 +108,9 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 
 	// Operations
 	r.HandleFunc("/api/v1/instances/{name}/operations", api.OperationList).Methods("GET")
-	r.HandleFunc("/api/v1/operations/{id}", api.OperationGet).Methods("GET")
-	r.HandleFunc("/api/v1/operations/{id}/stream", api.OperationStream).Methods("GET")
-	r.HandleFunc("/api/v1/operations/{id}/cancel", api.OperationCancel).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/operations/{id}", api.OperationGet).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/operations/{id}/stream", api.OperationStream).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/operations/{id}/cancel", api.OperationCancel).Methods("POST")
 
 	// Cluster operations
 	r.HandleFunc("/api/v1/instances/{name}/cluster/config/generate", api.ClusterGenerateConfig).Methods("POST")
@@ -156,13 +156,12 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/restore", api.BackupAppRestore).Methods("POST")
 
 	// Utilities
-	r.HandleFunc("/api/v1/utilities/health", api.UtilitiesHealth).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/utilities/health", api.InstanceUtilitiesHealth).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/utilities/dashboard/token", api.UtilitiesDashboardToken).Methods("GET")
-	r.HandleFunc("/api/v1/utilities/nodes/ips", api.UtilitiesNodeIPs).Methods("GET")
-	r.HandleFunc("/api/v1/utilities/controlplane/ip", api.UtilitiesControlPlaneIP).Methods("GET")
-	r.HandleFunc("/api/v1/utilities/secrets/{secret}/copy", api.UtilitiesSecretCopy).Methods("POST")
-	r.HandleFunc("/api/v1/utilities/version", api.UtilitiesVersion).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/utilities/nodes/ips", api.UtilitiesNodeIPs).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/utilities/controlplane/ip", api.UtilitiesControlPlaneIP).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/utilities/secrets/{secret}/copy", api.UtilitiesSecretCopy).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/utilities/version", api.UtilitiesVersion).Methods("GET")
 
 	// dnsmasq management
 	r.HandleFunc("/api/v1/dnsmasq/status", api.DnsmasqStatus).Methods("GET")

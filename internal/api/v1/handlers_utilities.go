@@ -10,20 +10,6 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/utilities"
 )
 
-// UtilitiesHealth returns cluster health status (legacy, no instance context)
-func (api *API) UtilitiesHealth(w http.ResponseWriter, r *http.Request) {
-	status, err := utilities.GetClusterHealth("")
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to get cluster health")
-		return
-	}
-
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"data":    status,
-	})
-}
-
 // InstanceUtilitiesHealth returns cluster health status for a specific instance
 func (api *API) InstanceUtilitiesHealth(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -82,7 +68,19 @@ func (api *API) UtilitiesDashboardToken(w http.ResponseWriter, r *http.Request) 
 
 // UtilitiesNodeIPs returns IP addresses for all cluster nodes
 func (api *API) UtilitiesNodeIPs(w http.ResponseWriter, r *http.Request) {
-	nodes, err := utilities.GetNodeIPs()
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Get kubeconfig path for this instance
+	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
+
+	nodes, err := utilities.GetNodeIPs(kubeconfigPath)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to get node IPs")
 		return
@@ -98,7 +96,19 @@ func (api *API) UtilitiesNodeIPs(w http.ResponseWriter, r *http.Request) {
 
 // UtilitiesControlPlaneIP returns the control plane IP
 func (api *API) UtilitiesControlPlaneIP(w http.ResponseWriter, r *http.Request) {
-	ip, err := utilities.GetControlPlaneIP()
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Get kubeconfig path for this instance
+	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
+
+	ip, err := utilities.GetControlPlaneIP(kubeconfigPath)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to get control plane IP")
 		return
@@ -115,7 +125,14 @@ func (api *API) UtilitiesControlPlaneIP(w http.ResponseWriter, r *http.Request) 
 // UtilitiesSecretCopy copies a secret between namespaces
 func (api *API) UtilitiesSecretCopy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	instanceName := vars["name"]
 	secretName := vars["secret"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
 
 	var req struct {
 		SourceNamespace      string `json:"source_namespace"`
@@ -132,7 +149,10 @@ func (api *API) UtilitiesSecretCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := utilities.CopySecretBetweenNamespaces(secretName, req.SourceNamespace, req.DestinationNamespace); err != nil {
+	// Get kubeconfig path for this instance
+	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
+
+	if err := utilities.CopySecretBetweenNamespaces(kubeconfigPath, secretName, req.SourceNamespace, req.DestinationNamespace); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to copy secret")
 		return
 	}
@@ -145,7 +165,19 @@ func (api *API) UtilitiesSecretCopy(w http.ResponseWriter, r *http.Request) {
 
 // UtilitiesVersion returns cluster and Talos versions
 func (api *API) UtilitiesVersion(w http.ResponseWriter, r *http.Request) {
-	k8sVersion, err := utilities.GetClusterVersion()
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Get kubeconfig path for this instance
+	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
+
+	k8sVersion, err := utilities.GetClusterVersion(kubeconfigPath)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to get cluster version")
 		return

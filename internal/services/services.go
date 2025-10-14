@@ -119,7 +119,8 @@ func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 
 	// Special case: NFS doesn't have a deployment, check for StorageClass instead
 	if serviceName == "nfs" {
-		cmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath, "get", "storageclass", "nfs", "-o", "name")
+		cmd := exec.Command("kubectl", "get", "storageclass", "nfs", "-o", "name")
+		tools.WithKubeconfig(cmd, kubeconfigPath)
 		if err := cmd.Run(); err == nil {
 			return "deployed"
 		}

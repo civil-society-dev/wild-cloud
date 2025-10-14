@@ -273,7 +273,8 @@ func (m *Manager) GetStatus(instanceName string) (*ClusterStatus, error) {
 	}
 
 	// Get node count and types using kubectl
-	cmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath, "get", "nodes", "-o", "json")
+	cmd := exec.Command("kubectl", "get", "nodes", "-o", "json")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		status.Status = "unreachable"
@@ -356,9 +357,9 @@ func (m *Manager) GetStatus(instanceName string) (*ClusterStatus, error) {
 	}
 
 	for _, svc := range services {
-		cmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath,
-			"get", "pods", "-n", svc.namespace, "-l", svc.selector,
+		cmd := exec.Command("kubectl", "get", "pods", "-n", svc.namespace, "-l", svc.selector,
 			"-o", "jsonpath={.items[*].status.phase}")
+		tools.WithKubeconfig(cmd, kubeconfigPath)
 		output, err := cmd.Output()
 		if err != nil || len(output) == 0 {
 			status.Services[svc.name] = "not_found"

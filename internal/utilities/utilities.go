@@ -84,12 +84,8 @@ func GetClusterHealth(kubeconfigPath string) (*HealthStatus, error) {
 
 // checkComponent checks if a component is running
 func checkComponent(kubeconfigPath, namespace, selector string) error {
-	args := []string{"get", "pods", "-n", namespace, "-l", selector, "-o", "json"}
-	if kubeconfigPath != "" {
-		args = append([]string{"--kubeconfig", kubeconfigPath}, args...)
-	}
-
-	cmd := exec.Command("kubectl", args...)
+	cmd := exec.Command("kubectl", "get", "pods", "-n", namespace, "-l", selector, "-o", "json")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to get pods: %w", err)
@@ -172,8 +168,9 @@ func GetDashboardTokenFromSecret(kubeconfigPath string) (*DashboardToken, error)
 }
 
 // GetNodeIPs returns IP addresses for all cluster nodes
-func GetNodeIPs() ([]*NodeIP, error) {
+func GetNodeIPs(kubeconfigPath string) ([]*NodeIP, error) {
 	cmd := exec.Command("kubectl", "get", "nodes", "-o", "json")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nodes: %w", err)
@@ -217,9 +214,10 @@ func GetNodeIPs() ([]*NodeIP, error) {
 }
 
 // GetControlPlaneIP returns the IP of the first control plane node
-func GetControlPlaneIP() (string, error) {
+func GetControlPlaneIP(kubeconfigPath string) (string, error) {
 	cmd := exec.Command("kubectl", "get", "nodes", "-l", "node-role.kubernetes.io/control-plane",
 		"-o", "jsonpath={.items[0].status.addresses[?(@.type==\"InternalIP\")].address}")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get control plane IP: %w", err)
@@ -234,9 +232,10 @@ func GetControlPlaneIP() (string, error) {
 }
 
 // CopySecretBetweenNamespaces copies a secret from one namespace to another
-func CopySecretBetweenNamespaces(secretName, srcNamespace, dstNamespace string) error {
+func CopySecretBetweenNamespaces(kubeconfigPath, secretName, srcNamespace, dstNamespace string) error {
 	// Get secret from source namespace
 	cmd := exec.Command("kubectl", "get", "secret", "-n", srcNamespace, secretName, "-o", "json")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to get secret from %s: %w", srcNamespace, err)
@@ -264,6 +263,7 @@ func CopySecretBetweenNamespaces(secretName, srcNamespace, dstNamespace string) 
 
 	// Apply to destination namespace
 	cmd = exec.Command("kubectl", "apply", "-f", "-")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	cmd.Stdin = strings.NewReader(string(secretJSON))
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to apply secret to %s: %w\nOutput: %s", dstNamespace, err, string(output))
@@ -273,8 +273,9 @@ func CopySecretBetweenNamespaces(secretName, srcNamespace, dstNamespace string) 
 }
 
 // GetClusterVersion returns the Kubernetes cluster version
-func GetClusterVersion() (string, error) {
+func GetClusterVersion(kubeconfigPath string) (string, error) {
 	cmd := exec.Command("kubectl", "version", "-o", "json")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get cluster version: %w", err)
