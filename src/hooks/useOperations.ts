@@ -12,19 +12,19 @@ export function useOperations(instanceName: string | null | undefined) {
   });
 }
 
-export function useOperation(operationId: string | null | undefined) {
+export function useOperation(instanceName: string | null | undefined, operationId: string | null | undefined) {
   const [operation, setOperation] = useState<Operation | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!operationId) return;
+    if (!instanceName || !operationId) return;
 
     // Fetch initial state
-    operationsApi.get(operationId).then(setOperation).catch(setError);
+    operationsApi.get(instanceName, operationId).then(setOperation).catch(setError);
 
     // Set up SSE stream
-    const eventSource = operationsApi.createStream(operationId);
+    const eventSource = operationsApi.createStream(instanceName, operationId);
 
     eventSource.onmessage = (event) => {
       try {
@@ -54,14 +54,14 @@ export function useOperation(operationId: string | null | undefined) {
     return () => {
       eventSource.close();
     };
-  }, [operationId, queryClient]);
+  }, [instanceName, operationId, queryClient]);
 
   const cancelMutation = useMutation({
     mutationFn: () => {
-      if (!operation?.instance_name) {
-        throw new Error('Cannot cancel operation: instance name not available');
+      if (!instanceName || !operationId) {
+        throw new Error('Cannot cancel operation: instance name or operation ID not available');
       }
-      return operationsApi.cancel(operationId!, operation.instance_name);
+      return operationsApi.cancel(instanceName, operationId);
     },
     onSuccess: () => {
       // Operation state will be updated via SSE

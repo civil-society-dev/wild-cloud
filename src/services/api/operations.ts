@@ -6,18 +6,17 @@ export const operationsApi = {
     return apiClient.get(`/api/v1/instances/${instanceName}/operations`);
   },
 
-  async get(operationId: string, instanceName?: string): Promise<Operation> {
-    const params = instanceName ? `?instance=${instanceName}` : '';
-    return apiClient.get(`/api/v1/operations/${operationId}${params}`);
+  async get(instanceName: string, operationId: string): Promise<Operation> {
+    return apiClient.get(`/api/v1/instances/${instanceName}/operations/${operationId}`);
   },
 
-  async cancel(operationId: string, instanceName: string): Promise<{ message: string }> {
-    return apiClient.post(`/api/v1/operations/${operationId}/cancel?instance=${instanceName}`);
+  async cancel(instanceName: string, operationId: string): Promise<{ message: string }> {
+    return apiClient.post(`/api/v1/instances/${instanceName}/operations/${operationId}/cancel`);
   },
 
   // SSE stream for operation updates
-  createStream(operationId: string): EventSource {
+  createStream(instanceName: string, operationId: string): EventSource {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055';
-    return new EventSource(`${baseUrl}/api/v1/operations/${operationId}/stream`);
+    return new EventSource(`${baseUrl}/api/v1/instances/${instanceName}/operations/${operationId}/stream`);
   },
 };

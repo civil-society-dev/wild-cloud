@@ -26,11 +26,11 @@ export const useOperations = (instanceName: string, filter?: 'running' | 'comple
   });
 };
 
-export const useOperation = (operationId: string) => {
+export const useOperation = (instanceName: string, operationId: string) => {
   return useQuery<Operation>({
-    queryKey: ['operation', operationId],
-    queryFn: () => operationsApi.get(operationId),
-    enabled: !!operationId,
+    queryKey: ['operation', instanceName, operationId],
+    queryFn: () => operationsApi.get(instanceName, operationId),
+    enabled: !!instanceName && !!operationId,
     refetchInterval: (query) => {
       // Stop polling if operation is completed, failed, or cancelled
       const status = query.state.data?.status;
@@ -47,12 +47,12 @@ export const useCancelOperation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ operationId, instanceName }: { operationId: string; instanceName: string }) =>
-      operationsApi.cancel(operationId, instanceName),
-    onSuccess: (_, { operationId }) => {
+    mutationFn: ({ instanceName, operationId }: { instanceName: string; operationId: string }) =>
+      operationsApi.cancel(instanceName, operationId),
+    onSuccess: (_, { instanceName, operationId }) => {
       // Invalidate operation queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['operation', operationId] });
-      queryClient.invalidateQueries({ queryKey: ['operations'] });
+      queryClient.invalidateQueries({ queryKey: ['operation', instanceName, operationId] });
+      queryClient.invalidateQueries({ queryKey: ['operations', instanceName] });
     },
   });
 };

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useParams } from 'react-router';
 import { UtilityCard, CopyableValue } from '../../components/UtilityCard';
 import { Button } from '../../components/ui/button';
 import {
@@ -18,18 +19,25 @@ import {
 } from '../../services/api/hooks/useUtilities';
 
 export function UtilitiesPage() {
+  const { instanceId } = useParams<{ instanceId: string }>();
   const [secretToCopy, setSecretToCopy] = useState('');
-  const [targetInstance, setTargetInstance] = useState('');
+  const [sourceNamespace, setSourceNamespace] = useState('');
+  const [destinationNamespace, setDestinationNamespace] = useState('');
 
-  const dashboardToken = useDashboardToken();
-  const versions = useClusterVersions();
-  const nodeIPs = useNodeIPs();
-  const controlPlaneIP = useControlPlaneIP();
+  const dashboardToken = useDashboardToken(instanceId || '');
+  const versions = useClusterVersions(instanceId || '');
+  const nodeIPs = useNodeIPs(instanceId || '');
+  const controlPlaneIP = useControlPlaneIP(instanceId || '');
   const copySecret = useCopySecret();
 
   const handleCopySecret = () => {
-    if (secretToCopy && targetInstance) {
-      copySecret.mutate({ secret: secretToCopy, targetInstance });
+    if (secretToCopy && sourceNamespace && destinationNamespace && instanceId) {
+      copySecret.mutate({
+        instanceName: instanceId,
+        secret: secretToCopy,
+        sourceNamespace,
+        destinationNamespace
+      });
     }
   };
 
@@ -130,7 +138,7 @@ export function UtilitiesPage() {
         {/* Secret Copy Utility */}
         <UtilityCard
           title="Copy Secret"
-          description="Copy a secret between namespaces or instances"
+          description="Copy a secret between namespaces"
           icon={<Copy className="h-5 w-5 text-primary" />}
         >
           <div className="space-y-4">
@@ -146,19 +154,31 @@ export function UtilitiesPage() {
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">
-                Target Instance/Namespace
+                Source Namespace
+              </label>
+              <input
+                type="text"
+                placeholder="e.g., default"
+                value={sourceNamespace}
+                onChange={(e) => setSourceNamespace(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg bg-background"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Destination Namespace
               </label>
               <input
                 type="text"
                 placeholder="e.g., production"
-                value={targetInstance}
-                onChange={(e) => setTargetInstance(e.target.value)}
+                value={destinationNamespace}
+                onChange={(e) => setDestinationNamespace(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg bg-background"
               />
             </div>
             <Button
               onClick={handleCopySecret}
-              disabled={!secretToCopy || !targetInstance || copySecret.isPending}
+              disabled={!secretToCopy || !sourceNamespace || !destinationNamespace || copySecret.isPending}
               className="w-full"
             >
               {copySecret.isPending ? 'Copying...' : 'Copy Secret'}

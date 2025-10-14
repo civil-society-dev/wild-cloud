@@ -5,6 +5,7 @@ import { Loader2, CheckCircle, AlertCircle, XCircle, Clock } from 'lucide-react'
 import { useOperation } from '../../hooks/useOperations';
 
 interface OperationProgressProps {
+  instanceName: string;
   operationId: string;
   onComplete?: () => void;
   onError?: (error: string) => void;
@@ -12,12 +13,13 @@ interface OperationProgressProps {
 }
 
 export function OperationProgress({
+  instanceName,
   operationId,
   onComplete,
   onError,
   showDetails = true
 }: OperationProgressProps) {
-  const { operation, error, isLoading, cancel, isCancelling } = useOperation(operationId);
+  const { operation, error, isLoading, cancel, isCancelling } = useOperation(instanceName, operationId);
 
   // Handle operation completion
   if (operation?.status === 'completed' && onComplete) {

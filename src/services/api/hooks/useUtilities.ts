@@ -1,44 +1,39 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { utilitiesApi } from '../utilities';
 
-export function useDashboardToken() {
+export function useDashboardToken(instanceName: string) {
   return useQuery({
-    queryKey: ['utilities', 'dashboard', 'token'],
-    queryFn: utilitiesApi.getDashboardToken,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-}
-
-export function useInstanceDashboardToken(instanceId: string) {
-  return useQuery({
-    queryKey: ['instances', instanceId, 'utilities', 'dashboard', 'token'],
-    queryFn: () => utilitiesApi.getInstanceDashboardToken(instanceId),
+    queryKey: ['instances', instanceName, 'utilities', 'dashboard', 'token'],
+    queryFn: () => utilitiesApi.getDashboardToken(instanceName),
     staleTime: 30 * 60 * 1000, // 30 minutes
-    enabled: !!instanceId,
+    enabled: !!instanceName,
   });
 }
 
-export function useClusterVersions() {
+export function useClusterVersions(instanceName: string) {
   return useQuery({
-    queryKey: ['utilities', 'version'],
-    queryFn: utilitiesApi.getVersion,
+    queryKey: ['instances', instanceName, 'utilities', 'version'],
+    queryFn: () => utilitiesApi.getVersion(instanceName),
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !!instanceName,
   });
 }
 
-export function useNodeIPs() {
+export function useNodeIPs(instanceName: string) {
   return useQuery({
-    queryKey: ['utilities', 'nodes', 'ips'],
-    queryFn: utilitiesApi.getNodeIPs,
+    queryKey: ['instances', instanceName, 'utilities', 'nodes', 'ips'],
+    queryFn: () => utilitiesApi.getNodeIPs(instanceName),
     staleTime: 30 * 1000, // 30 seconds
+    enabled: !!instanceName,
   });
 }
 
-export function useControlPlaneIP() {
+export function useControlPlaneIP(instanceName: string) {
   return useQuery({
-    queryKey: ['utilities', 'controlplane', 'ip'],
-    queryFn: utilitiesApi.getControlPlaneIP,
+    queryKey: ['instances', instanceName, 'utilities', 'controlplane', 'ip'],
+    queryFn: () => utilitiesApi.getControlPlaneIP(instanceName),
     staleTime: 60 * 1000, // 1 minute
+    enabled: !!instanceName,
   });
 }
 
@@ -46,8 +41,12 @@ export function useCopySecret() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ secret, targetInstance }: { secret: string; targetInstance: string }) =>
-      utilitiesApi.copySecret(secret, targetInstance),
+    mutationFn: ({ instanceName, secret, sourceNamespace, destinationNamespace }: {
+      instanceName: string;
+      secret: string;
+      sourceNamespace: string;
+      destinationNamespace: string;
+    }) => utilitiesApi.copySecret(instanceName, secret, sourceNamespace, destinationNamespace),
     onSuccess: () => {
       // Invalidate secrets queries
       queryClient.invalidateQueries({ queryKey: ['secrets'] });
