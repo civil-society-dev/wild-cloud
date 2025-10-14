@@ -9,6 +9,7 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/context"
 	"github.com/wild-cloud/wild-central/daemon/internal/secrets"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // Manager handles instance lifecycle operations
@@ -38,18 +39,21 @@ type Instance struct {
 }
 
 // GetInstancePath returns the path to an instance directory
+// Deprecated: Use tools.GetInstancePath instead
 func (m *Manager) GetInstancePath(name string) string {
-	return filepath.Join(m.dataDir, "instances", name)
+	return tools.GetInstancePath(m.dataDir, name)
 }
 
 // GetInstanceConfigPath returns the path to an instance's config file
+// Deprecated: Use tools.GetInstanceConfigPath instead
 func (m *Manager) GetInstanceConfigPath(name string) string {
-	return filepath.Join(m.GetInstancePath(name), "config.yaml")
+	return tools.GetInstanceConfigPath(m.dataDir, name)
 }
 
 // GetInstanceSecretsPath returns the path to an instance's secrets file
+// Deprecated: Use tools.GetInstanceSecretsPath instead
 func (m *Manager) GetInstanceSecretsPath(name string) string {
-	return filepath.Join(m.GetInstancePath(name), "secrets.yaml")
+	return tools.GetInstanceSecretsPath(m.dataDir, name)
 }
 
 // InstanceExists checks if an instance exists
@@ -71,7 +75,7 @@ func (m *Manager) CreateInstance(name string) error {
 	}
 
 	// Acquire lock for instance creation
-	lockPath := filepath.Join(m.dataDir, "instances", ".lock")
+	lockPath := tools.GetInstancesLockPath(m.dataDir)
 	return storage.WithLock(lockPath, func() error {
 		// Create instance directory
 		if err := storage.EnsureDir(instancePath, 0755); err != nil {
@@ -123,7 +127,7 @@ func (m *Manager) DeleteInstance(name string) error {
 	}
 
 	// Acquire lock for instance deletion
-	lockPath := filepath.Join(m.dataDir, "instances", ".lock")
+	lockPath := tools.GetInstancesLockPath(m.dataDir)
 	return storage.WithLock(lockPath, func() error {
 		// Remove instance directory
 		if err := os.RemoveAll(instancePath); err != nil {
@@ -136,7 +140,7 @@ func (m *Manager) DeleteInstance(name string) error {
 
 // ListInstances returns a list of all instance names
 func (m *Manager) ListInstances() ([]string, error) {
-	instancesDir := filepath.Join(m.dataDir, "instances")
+	instancesDir := tools.GetInstancesPath(m.dataDir)
 
 	// Ensure instances directory exists
 	if !storage.FileExists(instancesDir) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // Manager handles current instance context tracking
@@ -53,7 +54,7 @@ func (m *Manager) SetCurrentContext(instanceName string) error {
 	}
 
 	// Verify instance exists
-	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
 	if !storage.FileExists(instancePath) {
 		return fmt.Errorf("instance %s does not exist", instanceName)
 	}
@@ -101,7 +102,7 @@ func (m *Manager) ValidateContext() error {
 		return err
 	}
 
-	instancePath := filepath.Join(m.dataDir, "instances", contextName)
+	instancePath := tools.GetInstancePath(m.dataDir, contextName)
 	if !storage.FileExists(instancePath) {
 		return fmt.Errorf("current context %s points to non-existent instance", contextName)
 	}
@@ -116,7 +117,7 @@ func (m *Manager) GetCurrentInstancePath() (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(m.dataDir, "instances", contextName), nil
+	return tools.GetInstancePath(m.dataDir, contextName), nil
 }
 
 // GetCurrentInstanceConfigPath returns the path to the current instance's config file

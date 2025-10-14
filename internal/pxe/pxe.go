@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // Manager handles PXE boot asset management
@@ -35,7 +36,7 @@ type Asset struct {
 
 // GetPXEDir returns the PXE directory for an instance
 func (m *Manager) GetPXEDir(instanceName string) string {
-	return filepath.Join(m.dataDir, "instances", instanceName, "pxe")
+	return tools.GetInstancePXEPath(m.dataDir, instanceName)
 }
 
 // ListAssets returns available PXE assets for an instance

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"path/filepath"
 
 	"github.com/gorilla/mux"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 	"github.com/wild-cloud/wild-central/daemon/internal/utilities"
 )
 
@@ -36,7 +36,7 @@ func (api *API) InstanceUtilitiesHealth(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get kubeconfig path for this instance
-	kubeconfigPath := filepath.Join(api.dataDir, "instances", instanceName, "kubeconfig")
+	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 
 	status, err := utilities.GetClusterHealth(kubeconfigPath)
 	if err != nil {
@@ -62,7 +62,7 @@ func (api *API) UtilitiesDashboardToken(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get kubeconfig path for the instance
-	kubeconfigPath := filepath.Join(api.dataDir, "instances", instanceName, "kubeconfig")
+	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 
 	token, err := utilities.GetDashboardToken(kubeconfigPath)
 	if err != nil {

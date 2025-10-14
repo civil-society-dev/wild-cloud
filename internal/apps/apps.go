@@ -115,7 +115,7 @@ func (m *Manager) Get(appName string) (*App, error) {
 // ListDeployed lists deployed apps for an instance
 func (m *Manager) ListDeployed(instanceName string) ([]DeployedApp, error) {
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
-	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
 	appsDir := filepath.Join(instancePath, "apps")
 
 	apps := []DeployedApp{}
@@ -190,9 +190,9 @@ func (m *Manager) Add(instanceName, appName string, config map[string]string) er
 		return fmt.Errorf("app %s not found at %s", appName, manifestPath)
 	}
 
-	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
-	configFile := filepath.Join(instancePath, "config.yaml")
-	secretsFile := filepath.Join(instancePath, "secrets.yaml")
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
+	configFile := tools.GetInstanceConfigPath(m.dataDir, instanceName)
+	secretsFile := tools.GetInstanceSecretsPath(m.dataDir, instanceName)
 	appDestDir := filepath.Join(instancePath, "apps", appName)
 
 	// Check instance config exists
@@ -306,8 +306,8 @@ func (m *Manager) Add(instanceName, appName string, config map[string]string) er
 // Deploy deploys an app to the cluster
 func (m *Manager) Deploy(instanceName, appName string) error {
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
-	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
-	secretsFile := filepath.Join(instancePath, "secrets.yaml")
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
+	secretsFile := tools.GetInstanceSecretsPath(m.dataDir, instanceName)
 
 	// Get compiled app manifests from instance directory
 	appDir := filepath.Join(instancePath, "apps", appName)
@@ -369,9 +369,9 @@ func (m *Manager) Deploy(instanceName, appName string) error {
 // Delete removes an app from the cluster and configuration
 func (m *Manager) Delete(instanceName, appName string) error {
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
-	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
-	configFile := filepath.Join(instancePath, "config.yaml")
-	secretsFile := filepath.Join(instancePath, "secrets.yaml")
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
+	configFile := tools.GetInstanceConfigPath(m.dataDir, instanceName)
+	secretsFile := tools.GetInstanceSecretsPath(m.dataDir, instanceName)
 
 	// Get compiled app manifests from instance directory
 	appDir := filepath.Join(instancePath, "apps", appName)
@@ -425,7 +425,7 @@ func (m *Manager) Delete(instanceName, appName string) error {
 // GetStatus returns the status of a deployed app
 func (m *Manager) GetStatus(instanceName, appName string) (*DeployedApp, error) {
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
-	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
 	appDir := filepath.Join(instancePath, "apps", appName)
 
 	app := &DeployedApp{

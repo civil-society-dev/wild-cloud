@@ -35,3 +35,53 @@ func GetTalosconfigPath(dataDir, instanceName string) string {
 func GetKubeconfigPath(dataDir, instanceName string) string {
 	return filepath.Join(dataDir, "instances", instanceName, "kubeconfig")
 }
+
+// GetInstancePath returns the path to an instance directory
+func GetInstancePath(dataDir, instanceName string) string {
+	return filepath.Join(dataDir, "instances", instanceName)
+}
+
+// GetInstanceConfigPath returns the path to an instance's config file
+func GetInstanceConfigPath(dataDir, instanceName string) string {
+	return filepath.Join(dataDir, "instances", instanceName, "config.yaml")
+}
+
+// GetInstanceSecretsPath returns the path to an instance's secrets file
+func GetInstanceSecretsPath(dataDir, instanceName string) string {
+	return filepath.Join(dataDir, "instances", instanceName, "secrets.yaml")
+}
+
+// GetInstanceTalosPath returns the path to an instance's talos directory
+func GetInstanceTalosPath(dataDir, instanceName string) string {
+	return filepath.Join(dataDir, "instances", instanceName, "talos")
+}
+
+// GetInstancePXEPath returns the path to an instance's PXE directory
+func GetInstancePXEPath(dataDir, instanceName string) string {
+	return filepath.Join(dataDir, "instances", instanceName, "pxe")
+}
+
+// GetInstanceOperationsPath returns the path to an instance's operations directory
+func GetInstanceOperationsPath(dataDir, instanceName string) string {
+	return filepath.Join(dataDir, "instances", instanceName, "operations")
+}
+
+// GetInstanceBackupsPath returns the path to an instance's backups directory
+func GetInstanceBackupsPath(dataDir, instanceName string) string {
+	return filepath.Join(dataDir, "instances", instanceName, "backups")
+}
+
+// GetInstanceDiscoveryPath returns the path to an instance's discovery directory
+func GetInstanceDiscoveryPath(dataDir, instanceName string) string {
+	return filepath.Join(dataDir, "instances", instanceName, "discovery")
+}
+
+// GetInstancesPath returns the path to the instances directory
+func GetInstancesPath(dataDir string) string {
+	return filepath.Join(dataDir, "instances")
+}
+
+// GetInstancesLockPath returns the path to the instances directory lock file
+func GetInstancesLockPath(dataDir string) string {
+	return filepath.Join(dataDir, "instances", ".lock")
+}

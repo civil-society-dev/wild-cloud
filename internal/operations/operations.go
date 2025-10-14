@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // Manager handles async operation tracking
@@ -38,7 +39,7 @@ type Operation struct {
 
 // GetOperationsDir returns the operations directory for an instance
 func (m *Manager) GetOperationsDir(instanceName string) string {
-	return filepath.Join(m.dataDir, "instances", instanceName, "operations")
+	return tools.GetInstanceOperationsPath(m.dataDir, instanceName)
 }
 
 // generateID generates a unique operation ID

@@ -48,7 +48,7 @@ type ClusterStatus struct {
 
 // GetTalosDir returns the talos directory for an instance
 func (m *Manager) GetTalosDir(instanceName string) string {
-	return filepath.Join(m.dataDir, "instances", instanceName, "talos")
+	return tools.GetInstanceTalosPath(m.dataDir, instanceName)
 }
 
 // GetGeneratedDir returns the generated config directory
@@ -99,8 +99,7 @@ func (m *Manager) GenerateConfig(instanceName string, config *ClusterConfig) err
 // Bootstrap bootstraps the cluster on the specified node
 func (m *Manager) Bootstrap(instanceName, nodeName string) error {
 	// Get node configuration to find the target IP
-	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
-	configPath := filepath.Join(instancePath, "config.yaml")
+	configPath := tools.GetInstanceConfigPath(m.dataDir, instanceName)
 
 	yq := tools.NewYQ()
 
@@ -183,8 +182,7 @@ func (m *Manager) retrieveKubeconfigFromCluster(instanceName, nodeIP string, tim
 
 // RegenerateKubeconfig regenerates the kubeconfig by retrieving it from the cluster
 func (m *Manager) RegenerateKubeconfig(instanceName string) error {
-	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
-	configPath := filepath.Join(instancePath, "config.yaml")
+	configPath := tools.GetInstanceConfigPath(m.dataDir, instanceName)
 
 	yq := tools.NewYQ()
 
@@ -206,8 +204,7 @@ func (m *Manager) RegenerateKubeconfig(instanceName string) error {
 
 // ConfigureEndpoints updates talosconfig to use VIP and retrieves kubeconfig
 func (m *Manager) ConfigureEndpoints(instanceName string, includeNodes bool) error {
-	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
-	configPath := filepath.Join(instancePath, "config.yaml")
+	configPath := tools.GetInstanceConfigPath(m.dataDir, instanceName)
 	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
 
 	yq := tools.NewYQ()

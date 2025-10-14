@@ -264,7 +264,7 @@ func (m *Manager) Delete(instanceName, serviceName string) error {
 	}
 
 	// Get manifests file from embedded setup or instance directory
-	instanceServiceDir := filepath.Join(m.dataDir, "instances", instanceName, "setup", "cluster-services", serviceName)
+	instanceServiceDir := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName), "setup", "cluster-services", serviceName)
 	manifestsFile := filepath.Join(instanceServiceDir, "manifests.yaml")
 
 	if !storage.FileExists(manifestsFile) {
@@ -332,7 +332,7 @@ func (m *Manager) Fetch(instanceName, serviceName string) error {
 	}
 
 	// 2. Create instance service directory
-	instanceDir := filepath.Join(m.dataDir, "instances", instanceName,
+	instanceDir := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName),
 		"setup", "cluster-services", serviceName)
 	if err := os.MkdirAll(instanceDir, 0755); err != nil {
 		return fmt.Errorf("failed to create service directory: %w", err)
@@ -376,7 +376,7 @@ func (m *Manager) Fetch(instanceName, serviceName string) error {
 
 // serviceFilesExist checks if service files exist in the instance
 func (m *Manager) serviceFilesExist(instanceName, serviceName string) bool {
-	serviceDir := filepath.Join(m.dataDir, "instances", instanceName,
+	serviceDir := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName),
 		"setup", "cluster-services", serviceName)
 	installSh := filepath.Join(serviceDir, "install.sh")
 	return fileExists(installSh)
@@ -422,7 +422,7 @@ func extractFS(fsys fs.FS, dst string) error {
 
 // Compile processes gomplate templates into final Kubernetes manifests
 func (m *Manager) Compile(instanceName, serviceName string) error {
-	instanceDir := filepath.Join(m.dataDir, "instances", instanceName)
+	instanceDir := tools.GetInstancePath(m.dataDir, instanceName)
 	serviceDir := filepath.Join(instanceDir, "setup", "cluster-services", serviceName)
 	templateDir := filepath.Join(serviceDir, "kustomize.template")
 	outputDir := filepath.Join(serviceDir, "kustomize")
@@ -500,7 +500,7 @@ func (m *Manager) Compile(instanceName, serviceName string) error {
 func (m *Manager) Deploy(instanceName, serviceName, opID string, broadcaster *operations.Broadcaster) error {
 	fmt.Printf("[DEBUG] Deploy() called for service=%s instance=%s opID=%s\n", serviceName, instanceName, opID)
 
-	instanceDir := filepath.Join(m.dataDir, "instances", instanceName)
+	instanceDir := tools.GetInstancePath(m.dataDir, instanceName)
 	serviceDir := filepath.Join(instanceDir, "setup", "cluster-services", serviceName)
 	installScript := filepath.Join(serviceDir, "install.sh")
 
@@ -596,8 +596,7 @@ func (m *Manager) validateConfig(instanceName, serviceName string) error {
 	}
 
 	// Load instance config
-	instanceDir := filepath.Join(m.dataDir, "instances", instanceName)
-	configFile := filepath.Join(instanceDir, "config.yaml")
+	configFile := tools.GetInstanceConfigPath(m.dataDir, instanceName)
 
 	configData, err := os.ReadFile(configFile)
 	if err != nil {

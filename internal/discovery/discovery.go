@@ -24,7 +24,7 @@ type Manager struct {
 // NewManager creates a new discovery manager
 func NewManager(dataDir string, instanceName string) *Manager {
 	// Get talosconfig path for the instance
-	talosconfigPath := filepath.Join(dataDir, "instances", instanceName, "setup", "cluster-nodes", "generated", "talosconfig")
+	talosconfigPath := tools.GetTalosconfigPath(dataDir, instanceName)
 
 	return &Manager{
 		dataDir:  dataDir,
@@ -53,7 +53,7 @@ type DiscoveryStatus struct {
 
 // GetDiscoveryDir returns the discovery directory for an instance
 func (m *Manager) GetDiscoveryDir(instanceName string) string {
-	return filepath.Join(m.dataDir, "instances", instanceName, "discovery")
+	return tools.GetInstanceDiscoveryPath(m.dataDir, instanceName)
 }
 
 // GetDiscoveryStatusPath returns the path to discovery status file

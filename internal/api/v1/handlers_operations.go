@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // OperationGet returns operation status
@@ -110,7 +111,7 @@ func (api *API) OperationStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if operation is already completed
-	statusFile := filepath.Join(api.dataDir, "instances", instanceName, "operations", opID+".json")
+	statusFile := filepath.Join(tools.GetInstanceOperationsPath(api.dataDir, instanceName), opID+".json")
 	isCompleted := false
 	if data, err := os.ReadFile(statusFile); err == nil {
 		var op map[string]interface{}
@@ -122,7 +123,7 @@ func (api *API) OperationStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send existing log file content first (if exists)
-	logPath := filepath.Join(api.dataDir, "instances", instanceName, "operations", opID, "output.log")
+	logPath := filepath.Join(tools.GetInstanceOperationsPath(api.dataDir, instanceName), opID, "output.log")
 	if _, err := os.Stat(logPath); err == nil {
 		file, err := os.Open(logPath)
 		if err == nil {

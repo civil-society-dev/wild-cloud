@@ -46,7 +46,7 @@ func NewManager(dataDir string) *Manager {
 
 // GetBackupDir returns the backup directory for an instance
 func (m *Manager) GetBackupDir(instanceName string) string {
-	return filepath.Join(m.dataDir, "instances", instanceName, "backups")
+	return tools.GetInstanceBackupsPath(m.dataDir, instanceName)
 }
 
 // GetStagingDir returns the staging directory for backups

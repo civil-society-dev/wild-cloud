@@ -59,7 +59,7 @@ type ApplyOptions struct {
 
 // GetInstancePath returns the path to an instance's nodes directory
 func (m *Manager) GetInstancePath(instanceName string) string {
-	return filepath.Join(m.dataDir, "instances", instanceName)
+	return tools.GetInstancePath(m.dataDir, instanceName)
 }
 
 // List returns all nodes for an instance

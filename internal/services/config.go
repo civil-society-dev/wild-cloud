@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -11,6 +10,7 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/contracts"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // UpdateConfig updates service configuration and optionally redeploys
@@ -27,8 +27,7 @@ func (m *Manager) UpdateConfig(instanceName, serviceName string, update contract
 	}
 
 	// 2. Load instance config
-	instanceDir := filepath.Join(m.dataDir, "instances", instanceName)
-	configPath := filepath.Join(instanceDir, "config.yaml")
+	configPath := tools.GetInstanceConfigPath(m.dataDir, instanceName)
 
 	if !storage.FileExists(configPath) {
 		return nil, fmt.Errorf("config file not found for instance %s", instanceName)

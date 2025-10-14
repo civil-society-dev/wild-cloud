@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -19,6 +18,7 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/instance"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/secrets"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // API holds all dependencies for API handlers
@@ -37,7 +37,7 @@ type API struct {
 // Note: Setup files (cluster-services, cluster-nodes, etc.) are now embedded in the binary
 func NewAPI(dataDir, appsDir string) (*API, error) {
 	// Ensure base directories exist
-	instancesDir := filepath.Join(dataDir, "instances")
+	instancesDir := tools.GetInstancesPath(dataDir)
 	if err := os.MkdirAll(instancesDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create instances directory: %w", err)
 	}

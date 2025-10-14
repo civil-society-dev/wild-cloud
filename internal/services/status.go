@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -91,8 +90,7 @@ func (m *Manager) GetDetailedStatus(instanceName, serviceName string) (*contract
 	}
 
 	// 5. Load current config values
-	instanceDir := filepath.Join(m.dataDir, "instances", instanceName)
-	configPath := filepath.Join(instanceDir, "config.yaml")
+	configPath := tools.GetInstanceConfigPath(m.dataDir, instanceName)
 	configValues := make(map[string]interface{})
 
 	if storage.FileExists(configPath) {

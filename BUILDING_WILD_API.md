@@ -71,8 +71,8 @@ func (api *API) UtilitiesDashboardToken(w http.ResponseWriter, r *http.Request) 
         return
     }
 
-    // 3. Construct instance-specific paths
-    kubeconfigPath := filepath.Join(api.dataDir, "instances", instanceName, "kubeconfig")
+    // 3. Construct instance-specific paths using tools helpers
+    kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 
     // 4. Perform instance-specific operations
     token, err := utilities.GetDashboardToken(kubeconfigPath)
@@ -113,6 +113,6 @@ func GetDashboardToken(kubeconfigPath string) (*DashboardToken, error) {
 1. **Instance name in URL**: Always include instance name as a path parameter (`{name}`)
 2. **Extract from mux.Vars()**: Get instance name from `mux.Vars(r)["name"]`, not from context
 3. **Validate instance**: Always validate the instance exists before operations
-4. **Construct paths explicitly**: Build instance-specific file paths from the instance name
+4. **Use path helpers**: Use `tools.GetKubeconfigPath()`, `tools.GetInstanceConfigPath()`, etc. instead of inline `filepath.Join()` constructions
 5. **Stateless handlers**: Handlers should not depend on session state or current context
 6. **Use tools helpers**: Use `tools.WithKubeconfig()` for kubectl/talosctl commands

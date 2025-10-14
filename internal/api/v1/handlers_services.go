@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -14,6 +13,7 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/contracts"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/services"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // ServicesList lists all base services
@@ -297,7 +297,7 @@ func (api *API) ServicesGetInstanceConfig(w http.ResponseWriter, r *http.Request
 	}
 
 	// Load instance config as map for dynamic path extraction
-	configPath := filepath.Join(api.dataDir, "instances", instanceName, "config.yaml")
+	configPath := tools.GetInstanceConfigPath(api.dataDir, instanceName)
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read instance config: %v", err))

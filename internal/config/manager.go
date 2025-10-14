@@ -152,16 +152,19 @@ func (m *Manager) CopyConfig(srcPath, dstPath string) error {
 }
 
 // GetInstanceConfigPath returns the path to an instance's config file
+// Deprecated: Use tools.GetInstanceConfigPath instead
 func GetInstanceConfigPath(dataDir, instanceName string) string {
-	return filepath.Join(dataDir, "instances", instanceName, "config.yaml")
+	return tools.GetInstanceConfigPath(dataDir, instanceName)
 }
 
 // GetInstanceSecretsPath returns the path to an instance's secrets file
+// Deprecated: Use tools.GetInstanceSecretsPath instead
 func GetInstanceSecretsPath(dataDir, instanceName string) string {
-	return filepath.Join(dataDir, "instances", instanceName, "secrets.yaml")
+	return tools.GetInstanceSecretsPath(dataDir, instanceName)
 }
 
 // GetInstancePath returns the path to an instance directory
+// Deprecated: Use tools.GetInstancePath instead
 func GetInstancePath(dataDir, instanceName string) string {
-	return filepath.Join(dataDir, "instances", instanceName)
+	return tools.GetInstancePath(dataDir, instanceName)
 }
