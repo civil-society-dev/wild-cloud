@@ -3,8 +3,10 @@ import type {
   ServiceListResponse,
   Service,
   ServiceStatus,
+  DetailedServiceStatus,
   ServiceManifest,
   ServiceInstallRequest,
+  ServiceConfigUpdateRequest,
   OperationResponse,
 } from './types';
 
@@ -30,12 +32,30 @@ export const servicesApi = {
     return apiClient.delete(`/api/v1/instances/${instanceName}/services/${serviceName}`);
   },
 
-  async getStatus(instanceName: string, serviceName: string): Promise<ServiceStatus> {
+  async getStatus(instanceName: string, serviceName: string): Promise<DetailedServiceStatus> {
     return apiClient.get(`/api/v1/instances/${instanceName}/services/${serviceName}/status`);
   },
 
   async getConfig(instanceName: string, serviceName: string): Promise<Record<string, unknown>> {
-    return apiClient.get(`/api/v1/instances/${instanceName}/services/${serviceName}/config`);
+    const response = await apiClient.get<{ config: Record<string, unknown> }>(
+      `/api/v1/instances/${instanceName}/services/${serviceName}/config`
+    );
+    return response.config;
+  },
+
+  async updateConfig(instanceName: string, serviceName: string, request: ServiceConfigUpdateRequest): Promise<OperationResponse> {
+    return apiClient.patch(`/api/v1/instances/${instanceName}/services/${serviceName}/config`, request);
+  },
+
+  // Service logs
+  getLogsUrl(instanceName: string, serviceName: string, tail?: number, follow?: boolean, container?: string): string {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055';
+    const params = new URLSearchParams();
+    if (tail) params.append('tail', tail.toString());
+    if (follow) params.append('follow', 'true');
+    if (container) params.append('container', container);
+    const queryString = params.toString();
+    return `${baseUrl}/api/v1/instances/${instanceName}/services/${serviceName}/logs${queryString ? '?' + queryString : ''}`;
   },
 
   // Service lifecycle

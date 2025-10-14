@@ -8,7 +8,6 @@ import { OperationsPage } from './pages/OperationsPage';
 import { ClusterHealthPage } from './pages/ClusterHealthPage';
 import { ClusterAccessPage } from './pages/ClusterAccessPage';
 import { SecretsPage } from './pages/SecretsPage';
-import { BaseServicesPage } from './pages/BaseServicesPage';
 import { UtilitiesPage } from './pages/UtilitiesPage';
 import { CloudPage } from './pages/CloudPage';
 import { CentralPage } from './pages/CentralPage';
@@ -28,7 +27,6 @@ export const routes: RouteObject[] = [
     path: '/',
     element: <LandingPage />,
   },
-  // Centralized asset routes (not under instance context)
   {
     path: '/iso',
     element: <AssetsIsoPage />,
@@ -64,10 +62,6 @@ export const routes: RouteObject[] = [
       {
         path: 'secrets',
         element: <SecretsPage />,
-      },
-      {
-        path: 'services',
-        element: <BaseServicesPage />,
       },
       {
         path: 'utilities',

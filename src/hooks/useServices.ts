@@ -74,6 +74,34 @@ export function useServiceStatus(instanceName: string | null | undefined, servic
   });
 }
 
+export function useServiceConfig(instanceName: string | null | undefined, serviceName: string | null | undefined) {
+  const queryClient = useQueryClient();
+
+  const configQuery = useQuery({
+    queryKey: ['instances', instanceName, 'services', serviceName, 'config'],
+    queryFn: () => servicesApi.getConfig(instanceName!, serviceName!),
+    enabled: !!instanceName && !!serviceName,
+  });
+
+  const updateConfigMutation = useMutation({
+    mutationFn: (request: { config: Record<string, any>; redeploy?: boolean }) =>
+      servicesApi.updateConfig(instanceName!, serviceName!, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services', serviceName, 'config'] });
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services', serviceName, 'status'] });
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services'] });
+    },
+  });
+
+  return {
+    config: configQuery.data,
+    isLoading: configQuery.isLoading,
+    error: configQuery.error,
+    updateConfig: updateConfigMutation.mutateAsync,
+    isUpdating: updateConfigMutation.isPending,
+  };
+}
+
 export function useServiceManifest(serviceName: string | null | undefined) {
   return useQuery({
     queryKey: ['services', serviceName, 'manifest'],

@@ -1,5 +1,5 @@
 import { NavLink, useParams } from 'react-router';
-import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Wifi, HardDrive, Usb } from 'lucide-react';
+import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Usb } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   Sidebar,

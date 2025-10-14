@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -5,6 +6,9 @@ import { Container, Shield, Network, Database, CheckCircle, AlertCircle, Termina
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useServices } from '../hooks/useServices';
 import type { Service } from '../services/api';
+import { ServiceDetailModal } from './services/ServiceDetailModal';
+import { ServiceConfigEditor } from './services/ServiceConfigEditor';
+import { Dialog, DialogContent } from './ui/dialog';
 
 export function ClusterServicesComponent() {
   const { currentInstance } = useInstanceContext();
@@ -19,6 +23,9 @@ export function ClusterServicesComponent() {
     deleteService,
     isDeleting
   } = useServices(currentInstance);
+
+  const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [configService, setConfigService] = useState<string | null>(null);
 
   const getStatusIcon = (status?: string) => {
     switch (status) {
@@ -237,14 +244,32 @@ export function ClusterServicesComponent() {
                     )}
                     {((typeof service.status === 'string' && service.status === 'deployed') ||
                       (typeof service.status === 'object' && service.status?.status === 'deployed')) && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteService(service.name)}
-                        disabled={isDeleting}
-                      >
-                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedService(service.name)}
+                        >
+                          View
+                        </Button>
+                        {service.hasConfig && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfigService(service.name)}
+                          >
+                            Configure
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteService(service.name)}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -285,6 +310,31 @@ export function ClusterServicesComponent() {
           </div>
         </div>
       </Card>
+
+      {selectedService && (
+        <ServiceDetailModal
+          instanceName={currentInstance}
+          serviceName={selectedService}
+          open={!!selectedService}
+          onClose={() => setSelectedService(null)}
+        />
+      )}
+
+      {configService && (
+        <Dialog open={!!configService} onOpenChange={(open) => !open && setConfigService(null)}>
+          <DialogContent className="sm:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-y-auto w-full">
+            <ServiceConfigEditor
+              instanceName={currentInstance}
+              serviceName={configService}
+              manifest={services.find(s => s.name === configService)}
+              onClose={() => setConfigService(null)}
+              onSuccess={() => {
+                setConfigService(null);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
