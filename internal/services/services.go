@@ -346,7 +346,7 @@ func (m *Manager) Fetch(instanceName, serviceName string) error {
 
 	// Extract README.md if it exists
 	if readmeData, err := setup.GetServiceFile(serviceName, "README.md"); err == nil {
-		os.WriteFile(filepath.Join(instanceDir, "README.md"), readmeData, 0644)
+		_ = os.WriteFile(filepath.Join(instanceDir, "README.md"), readmeData, 0644)
 	}
 
 	// Extract install.sh if it exists
@@ -359,7 +359,7 @@ func (m *Manager) Fetch(instanceName, serviceName string) error {
 
 	// Extract wild-manifest.yaml
 	if manifestData, err := setup.GetServiceFile(serviceName, "wild-manifest.yaml"); err == nil {
-		os.WriteFile(filepath.Join(instanceDir, "wild-manifest.yaml"), manifestData, 0644)
+		_ = os.WriteFile(filepath.Join(instanceDir, "wild-manifest.yaml"), manifestData, 0644)
 	}
 
 	// Extract kustomize.template directory
@@ -392,52 +392,6 @@ func fileExists(path string) bool {
 func dirExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
-}
-
-func copyFile(src, dst string) error {
-	input, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(dst, input, 0644)
-}
-
-func copyFileIfExists(src, dst string) error {
-	if !fileExists(src) {
-		return nil
-	}
-	return copyFile(src, dst)
-}
-
-func copyDir(src, dst string) error {
-	// Create destination directory
-	if err := os.MkdirAll(dst, 0755); err != nil {
-		return err
-	}
-
-	// Read source directory
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	// Copy each entry
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		if entry.IsDir() {
-			if err := copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		} else {
-			if err := copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 // extractFS extracts files from an fs.FS to a destination directory

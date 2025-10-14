@@ -89,10 +89,7 @@ func main() {
 	// Override with production origins if set
 	if corsOrigins := os.Getenv("WILD_CORS_ORIGINS"); corsOrigins != "" {
 		// Split comma-separated origins
-		allowedOrigins = []string{}
-		for _, origin := range splitAndTrim(corsOrigins, ",") {
-			allowedOrigins = append(allowedOrigins, origin)
-		}
+		allowedOrigins = splitAndTrim(corsOrigins, ",")
 		log.Printf("CORS configured for production origins: %v", allowedOrigins)
 	} else {
 		log.Printf("CORS configured for development origins")

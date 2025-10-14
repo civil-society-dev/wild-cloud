@@ -105,20 +105,20 @@ func (api *API) ServicesInstall(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if r := recover(); r != nil {
 				fmt.Printf("[ERROR] Service install goroutine panic: %v\n", r)
-				opsMgr.Update(instanceName, opID, "failed", fmt.Sprintf("Internal error: %v", r), 0)
+				_ = opsMgr.Update(instanceName, opID, "failed", fmt.Sprintf("Internal error: %v", r), 0)
 			}
 		}()
 
 		fmt.Printf("[DEBUG] Service install goroutine started: service=%s instance=%s opID=%s\n", req.Name, instanceName, opID)
 		servicesMgr := services.NewManager(api.dataDir)
-		opsMgr.UpdateStatus(instanceName, opID, "running")
+		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := servicesMgr.Install(instanceName, req.Name, req.Fetch, req.Deploy, opID, api.broadcaster); err != nil {
 			fmt.Printf("[DEBUG] Service install failed: %v\n", err)
-			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
+			_ = opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
 		} else {
 			fmt.Printf("[DEBUG] Service install completed successfully\n")
-			opsMgr.Update(instanceName, opID, "completed", "Service installed", 100)
+			_ = opsMgr.Update(instanceName, opID, "completed", "Service installed", 100)
 		}
 	}()
 
@@ -161,12 +161,12 @@ func (api *API) ServicesInstallAll(w http.ResponseWriter, r *http.Request) {
 	// Install in background
 	go func() {
 		servicesMgr := services.NewManager(api.dataDir)
-		opsMgr.UpdateStatus(instanceName, opID, "running")
+		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := servicesMgr.InstallAll(instanceName, req.Fetch, req.Deploy, opID, api.broadcaster); err != nil {
-			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
+			_ = opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
 		} else {
-			opsMgr.Update(instanceName, opID, "completed", "All services installed", 100)
+			_ = opsMgr.Update(instanceName, opID, "completed", "All services installed", 100)
 		}
 	}()
 
@@ -199,12 +199,12 @@ func (api *API) ServicesDelete(w http.ResponseWriter, r *http.Request) {
 	// Delete in background
 	go func() {
 		servicesMgr := services.NewManager(api.dataDir)
-		opsMgr.UpdateStatus(instanceName, opID, "running")
+		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := servicesMgr.Delete(instanceName, serviceName); err != nil {
-			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
+			_ = opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
 		} else {
-			opsMgr.Update(instanceName, opID, "completed", "Service deleted", 100)
+			_ = opsMgr.Update(instanceName, opID, "completed", "Service deleted", 100)
 		}
 	}()
 
@@ -515,7 +515,7 @@ func (api *API) ServicesUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request
-	if update.Config == nil || len(update.Config) == 0 {
+	if len(update.Config) == 0 {
 		respondError(w, http.StatusBadRequest, "config field is required and must not be empty")
 		return
 	}

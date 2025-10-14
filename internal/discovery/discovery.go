@@ -127,7 +127,7 @@ func (m *Manager) runDiscovery(instanceName string, ipList []string) {
 
 		status, _ := m.GetDiscoveryStatus(instanceName)
 		status.Active = false
-		m.writeDiscoveryStatus(instanceName, status)
+		_ = m.writeDiscoveryStatus(instanceName, status)
 	}()
 
 	// Discover nodes by probing each IP
@@ -146,7 +146,7 @@ func (m *Manager) runDiscovery(instanceName string, ipList []string) {
 		m.discoveryMu.Lock()
 		status, _ := m.GetDiscoveryStatus(instanceName)
 		status.NodesFound = discoveredNodes
-		m.writeDiscoveryStatus(instanceName, status)
+		_ = m.writeDiscoveryStatus(instanceName, status)
 		m.discoveryMu.Unlock()
 	}
 }

@@ -96,7 +96,7 @@ func WithLock(lockPath string, fn func() error) error {
 	if err != nil {
 		return err
 	}
-	defer lock.Release()
+	defer func() { _ = lock.Release() }()
 
 	return fn()
 }

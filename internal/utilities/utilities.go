@@ -38,7 +38,7 @@ func GetClusterHealth(kubeconfigPath string) (*HealthStatus, error) {
 	}
 
 	// Check MetalLB
-	if err := checkComponent(kubeconfigPath, "MetalLB", "metallb-system", "app=metallb"); err != nil {
+	if err := checkComponent(kubeconfigPath, "metallb-system", "app=metallb"); err != nil {
 		status.Components["metallb"] = "unhealthy"
 		status.Issues = append(status.Issues, fmt.Sprintf("MetalLB: %v", err))
 		status.Overall = "degraded"
@@ -47,7 +47,7 @@ func GetClusterHealth(kubeconfigPath string) (*HealthStatus, error) {
 	}
 
 	// Check Traefik
-	if err := checkComponent(kubeconfigPath, "Traefik", "traefik", "app.kubernetes.io/name=traefik"); err != nil {
+	if err := checkComponent(kubeconfigPath, "traefik", "app.kubernetes.io/name=traefik"); err != nil {
 		status.Components["traefik"] = "unhealthy"
 		status.Issues = append(status.Issues, fmt.Sprintf("Traefik: %v", err))
 		status.Overall = "degraded"
@@ -56,7 +56,7 @@ func GetClusterHealth(kubeconfigPath string) (*HealthStatus, error) {
 	}
 
 	// Check cert-manager
-	if err := checkComponent(kubeconfigPath, "cert-manager", "cert-manager", "app.kubernetes.io/instance=cert-manager"); err != nil {
+	if err := checkComponent(kubeconfigPath, "cert-manager", "app.kubernetes.io/instance=cert-manager"); err != nil {
 		status.Components["cert-manager"] = "unhealthy"
 		status.Issues = append(status.Issues, fmt.Sprintf("cert-manager: %v", err))
 		status.Overall = "degraded"
@@ -65,7 +65,7 @@ func GetClusterHealth(kubeconfigPath string) (*HealthStatus, error) {
 	}
 
 	// Check Longhorn
-	if err := checkComponent(kubeconfigPath, "Longhorn", "longhorn-system", "app=longhorn-manager"); err != nil {
+	if err := checkComponent(kubeconfigPath, "longhorn-system", "app=longhorn-manager"); err != nil {
 		status.Components["longhorn"] = "unhealthy"
 		status.Issues = append(status.Issues, fmt.Sprintf("Longhorn: %v", err))
 		status.Overall = "degraded"
@@ -81,7 +81,7 @@ func GetClusterHealth(kubeconfigPath string) (*HealthStatus, error) {
 }
 
 // checkComponent checks if a component is running
-func checkComponent(kubeconfigPath, name, namespace, selector string) error {
+func checkComponent(kubeconfigPath, namespace, selector string) error {
 	args := []string{"get", "pods", "-n", namespace, "-l", selector, "-o", "json"}
 	if kubeconfigPath != "" {
 		args = append([]string{"--kubeconfig", kubeconfigPath}, args...)

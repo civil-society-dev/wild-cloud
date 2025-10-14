@@ -159,10 +159,10 @@ func (t *Talosctl) GetDisks(nodeIP string, insecure bool) ([]DiskInfo, error) {
 	return disks, nil
 }
 
-// GetLinks queries network interfaces from a node
-func (t *Talosctl) GetLinks(nodeIP string, insecure bool) ([]map[string]interface{}, error) {
+// getResourceJSON executes a talosctl get command and returns parsed JSON array
+func (t *Talosctl) getResourceJSON(resourceType, nodeIP string, insecure bool) ([]map[string]interface{}, error) {
 	args := []string{
-		"get", "links",
+		"get", resourceType,
 		"--nodes", nodeIP,
 		"-o", "json",
 	}
@@ -171,7 +171,7 @@ func (t *Talosctl) GetLinks(nodeIP string, insecure bool) ([]map[string]interfac
 		args = append(args, "--insecure")
 	}
 
-	// Use jq to slurp the NDJSON into an array (like v.PoC does with jq -s)
+	// Use jq to slurp the NDJSON into an array
 	talosCmd := exec.Command("talosctl", args...)
 	jqCmd := exec.Command("jq", "-s", ".")
 
@@ -184,59 +184,29 @@ func (t *Talosctl) GetLinks(nodeIP string, insecure bool) ([]map[string]interfac
 
 	output, err := jqCmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to process links JSON: %w\nOutput: %s", err, string(output))
+		return nil, fmt.Errorf("failed to process %s JSON: %w\nOutput: %s", resourceType, err, string(output))
 	}
 
 	if err := talosCmd.Wait(); err != nil {
-		return nil, fmt.Errorf("talosctl get links failed: %w", err)
+		return nil, fmt.Errorf("talosctl get %s failed: %w", resourceType, err)
 	}
 
 	var result []map[string]interface{}
 	if err := json.Unmarshal(output, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse links JSON: %w", err)
+		return nil, fmt.Errorf("failed to parse %s JSON: %w", resourceType, err)
 	}
 
 	return result, nil
 }
 
+// GetLinks queries network interfaces from a node
+func (t *Talosctl) GetLinks(nodeIP string, insecure bool) ([]map[string]interface{}, error) {
+	return t.getResourceJSON("links", nodeIP, insecure)
+}
+
 // GetRoutes queries routing table from a node
 func (t *Talosctl) GetRoutes(nodeIP string, insecure bool) ([]map[string]interface{}, error) {
-	args := []string{
-		"get", "routes",
-		"--nodes", nodeIP,
-		"-o", "json",
-	}
-
-	if insecure {
-		args = append(args, "--insecure")
-	}
-
-	// Use jq to slurp the NDJSON into an array (like v.PoC does with jq -s)
-	talosCmd := exec.Command("talosctl", args...)
-	jqCmd := exec.Command("jq", "-s", ".")
-
-	// Pipe talosctl output to jq
-	jqCmd.Stdin, _ = talosCmd.StdoutPipe()
-
-	if err := talosCmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start talosctl: %w", err)
-	}
-
-	output, err := jqCmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed to process routes JSON: %w\nOutput: %s", err, string(output))
-	}
-
-	if err := talosCmd.Wait(); err != nil {
-		return nil, fmt.Errorf("talosctl get routes failed: %w", err)
-	}
-
-	var result []map[string]interface{}
-	if err := json.Unmarshal(output, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse routes JSON: %w", err)
-	}
-
-	return result, nil
+	return t.getResourceJSON("routes", nodeIP, insecure)
 }
 
 // GetDefaultInterface finds the interface with the default route

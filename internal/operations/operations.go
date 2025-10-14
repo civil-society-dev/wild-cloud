@@ -230,7 +230,7 @@ func (m *Manager) Cleanup(instanceName string, olderThan time.Duration) error {
 	for _, op := range ops {
 		if (op.Status == "completed" || op.Status == "failed" || op.Status == "cancelled") &&
 			!op.EndedAt.IsZero() && op.EndedAt.Before(cutoff) {
-			m.Delete(instanceName, op.ID)
+			_ = m.Delete(instanceName, op.ID)
 		}
 	}
 

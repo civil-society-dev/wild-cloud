@@ -27,15 +27,15 @@ func (api *API) BackupAppStart(w http.ResponseWriter, r *http.Request) {
 
 	// Run backup in background
 	go func() {
-		opMgr.UpdateProgress(instanceName, opID, 10, "Starting backup")
+		_ = opMgr.UpdateProgress(instanceName, opID, 10, "Starting backup")
 
 		info, err := mgr.BackupApp(instanceName, appName)
 		if err != nil {
-			opMgr.Update(instanceName, opID, "failed", err.Error(), 100)
+			_ = opMgr.Update(instanceName, opID, "failed", err.Error(), 100)
 			return
 		}
 
-		opMgr.Update(instanceName, opID, "completed", "Backup completed", 100)
+		_ = opMgr.Update(instanceName, opID, "completed", "Backup completed", 100)
 		_ = info // Metadata saved in backup.json
 	}()
 
@@ -92,14 +92,14 @@ func (api *API) BackupAppRestore(w http.ResponseWriter, r *http.Request) {
 
 	// Run restore in background
 	go func() {
-		opMgr.UpdateProgress(instanceName, opID, 10, "Starting restore")
+		_ = opMgr.UpdateProgress(instanceName, opID, 10, "Starting restore")
 
 		if err := mgr.RestoreApp(instanceName, appName, opts); err != nil {
-			opMgr.Update(instanceName, opID, "failed", err.Error(), 100)
+			_ = opMgr.Update(instanceName, opID, "failed", err.Error(), 100)
 			return
 		}
 
-		opMgr.Update(instanceName, opID, "completed", "Restore completed", 100)
+		_ = opMgr.Update(instanceName, opID, "completed", "Restore completed", 100)
 	}()
 
 	respondJSON(w, http.StatusAccepted, map[string]interface{}{

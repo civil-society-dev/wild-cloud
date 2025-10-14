@@ -292,12 +292,9 @@ func (api *API) GetConfig(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, configMap)
 }
 
-// UpdateConfig updates instance configuration
-func (api *API) UpdateConfig(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	name := vars["name"]
-
-	if err := api.instance.ValidateInstance(name); err != nil {
+// updateYAMLFile updates a YAML file with the provided key-value pairs
+func (api *API) updateYAMLFile(w http.ResponseWriter, r *http.Request, instanceName, fileType string, updateFunc func(string, string, string) error) {
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
 		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
 		return
 	}
@@ -314,20 +311,38 @@ func (api *API) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	configPath := api.instance.GetInstanceConfigPath(name)
+	var filePath string
+	if fileType == "config" {
+		filePath = api.instance.GetInstanceConfigPath(instanceName)
+	} else {
+		filePath = api.instance.GetInstanceSecretsPath(instanceName)
+	}
 
 	// Update each key-value pair
 	for key, value := range updates {
 		valueStr := fmt.Sprintf("%v", value)
-		if err := api.config.SetConfigValue(configPath, key, valueStr); err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update config key %s: %v", key, err))
+		if err := updateFunc(filePath, key, valueStr); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update %s key %s: %v", fileType, key, err))
 			return
 		}
 	}
 
+	// Capitalize first letter of fileType for message
+	fileTypeCap := fileType
+	if len(fileType) > 0 {
+		fileTypeCap = string(fileType[0]-32) + fileType[1:]
+	}
+
 	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "Config updated successfully",
+		"message": fmt.Sprintf("%s updated successfully", fileTypeCap),
 	})
+}
+
+// UpdateConfig updates instance configuration
+func (api *API) UpdateConfig(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	name := vars["name"]
+	api.updateYAMLFile(w, r, name, "config", api.config.SetConfigValue)
 }
 
 // GetSecrets retrieves instance secrets (redacted by default)
@@ -375,39 +390,7 @@ func (api *API) GetSecrets(w http.ResponseWriter, r *http.Request) {
 func (api *API) UpdateSecrets(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
-
-	if err := api.instance.ValidateInstance(name); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "Failed to read request body")
-		return
-	}
-
-	var updates map[string]interface{}
-	if err := yaml.Unmarshal(body, &updates); err != nil {
-		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid YAML: %v", err))
-		return
-	}
-
-	// Get secrets file path
-	secretsPath := api.instance.GetInstanceSecretsPath(name)
-
-	// Update each secret
-	for key, value := range updates {
-		valueStr := fmt.Sprintf("%v", value)
-		if err := api.secrets.SetSecret(secretsPath, key, valueStr); err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update secret %s: %v", key, err))
-			return
-		}
-	}
-
-	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "Secrets updated successfully",
-	})
+	api.updateYAMLFile(w, r, name, "secrets", api.secrets.SetSecret)
 }
 
 // GetContext retrieves current context
@@ -487,7 +470,7 @@ func (api *API) StatusHandler(w http.ResponseWriter, r *http.Request, startTime 
 func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func respondError(w http.ResponseWriter, status int, message string) {

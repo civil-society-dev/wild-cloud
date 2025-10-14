@@ -535,16 +535,6 @@ func (m *Manager) extractEmbeddedTemplates(destDir string) error {
 	return nil
 }
 
-// copyFile copies a file from src to dst
-func (m *Manager) copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(dst, data, 0644)
-}
-
 // updateNodeStatus updates node status flags in config.yaml
 func (m *Manager) updateNodeStatus(instanceName string, node *Node) error {
 	instancePath := m.GetInstancePath(instanceName)

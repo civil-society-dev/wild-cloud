@@ -106,42 +106,50 @@ func (api *API) AppsAdd(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// AppsDeploy deploys an app to the cluster
-func (api *API) AppsDeploy(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
-
+// startAppOperation starts an app operation (deploy or delete) in the background
+func (api *API) startAppOperation(w http.ResponseWriter, instanceName, appName, operationType, successMessage string, operation func(*apps.Manager, string, string) error) {
 	// Validate instance exists
 	if err := api.instance.ValidateInstance(instanceName); err != nil {
 		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
 		return
 	}
 
-	// Start deploy operation
+	// Start operation
 	opsMgr := operations.NewManager(api.dataDir)
-	opID, err := opsMgr.Start(instanceName, "deploy_app", appName)
+	opID, err := opsMgr.Start(instanceName, operationType, appName)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to start operation: %v", err))
 		return
 	}
 
-	// Deploy in background
+	// Execute operation in background
 	go func() {
 		appsMgr := apps.NewManager(api.dataDir, api.appsDir)
-		opsMgr.UpdateStatus(instanceName, opID, "running")
+		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
 
-		if err := appsMgr.Deploy(instanceName, appName); err != nil {
-			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
+		if err := operation(appsMgr, instanceName, appName); err != nil {
+			_ = opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
 		} else {
-			opsMgr.Update(instanceName, opID, "completed", "App deployed", 100)
+			_ = opsMgr.Update(instanceName, opID, "completed", successMessage, 100)
 		}
 	}()
 
 	respondJSON(w, http.StatusAccepted, map[string]string{
 		"operation_id": opID,
-		"message":      "App deployment initiated",
+		"message":      fmt.Sprintf("App %s initiated", operationType),
 	})
+}
+
+// AppsDeploy deploys an app to the cluster
+func (api *API) AppsDeploy(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	appName := vars["app"]
+
+	api.startAppOperation(w, instanceName, appName, "deploy_app", "App deployed",
+		func(mgr *apps.Manager, instance, app string) error {
+			return mgr.Deploy(instance, app)
+		})
 }
 
 // AppsDelete deletes an app
@@ -150,36 +158,10 @@ func (api *API) AppsDelete(w http.ResponseWriter, r *http.Request) {
 	instanceName := vars["name"]
 	appName := vars["app"]
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Start delete operation
-	opsMgr := operations.NewManager(api.dataDir)
-	opID, err := opsMgr.Start(instanceName, "delete_app", appName)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to start operation: %v", err))
-		return
-	}
-
-	// Delete in background
-	go func() {
-		appsMgr := apps.NewManager(api.dataDir, api.appsDir)
-		opsMgr.UpdateStatus(instanceName, opID, "running")
-
-		if err := appsMgr.Delete(instanceName, appName); err != nil {
-			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
-		} else {
-			opsMgr.Update(instanceName, opID, "completed", "App deleted", 100)
-		}
-	}()
-
-	respondJSON(w, http.StatusAccepted, map[string]string{
-		"operation_id": opID,
-		"message":      "App deletion initiated",
-	})
+	api.startAppOperation(w, instanceName, appName, "delete_app", "App deleted",
+		func(mgr *apps.Manager, instance, app string) error {
+			return mgr.Delete(instance, app)
+		})
 }
 
 // AppsGetStatus returns app status

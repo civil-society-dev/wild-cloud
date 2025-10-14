@@ -323,7 +323,7 @@ func (m *Manager) Deploy(instanceName, appName string) error {
 	applyNsCmd := exec.Command("kubectl", "apply", "-f", "-")
 	applyNsCmd.Stdin = bytes.NewReader(namespaceYaml)
 	tools.WithKubeconfig(applyNsCmd, kubeconfigPath)
-	applyNsCmd.CombinedOutput() // Ignore errors - namespace might already exist
+	_, _ = applyNsCmd.CombinedOutput() // Ignore errors - namespace might already exist
 
 	// Create Kubernetes secrets from secrets.yaml
 	if storage.FileExists(secretsFile) {
@@ -334,7 +334,7 @@ func (m *Manager) Deploy(instanceName, appName string) error {
 			// Delete existing secret if it exists (to update it)
 			deleteCmd := exec.Command("kubectl", "delete", "secret", fmt.Sprintf("%s-secrets", appName), "-n", appName, "--ignore-not-found")
 			tools.WithKubeconfig(deleteCmd, kubeconfigPath)
-			deleteCmd.CombinedOutput()
+			_, _ = deleteCmd.CombinedOutput()
 
 			// Create secret from literals
 			createSecretCmd := exec.Command("kubectl", "create", "secret", "generic", fmt.Sprintf("%s-secrets", appName), "-n", appName)
@@ -390,7 +390,7 @@ func (m *Manager) Delete(instanceName, appName string) error {
 	// Wait for namespace deletion to complete (timeout after 60s)
 	waitCmd := exec.Command("kubectl", "wait", "--for=delete", "namespace", appName, "--timeout=60s")
 	tools.WithKubeconfig(waitCmd, kubeconfigPath)
-	waitCmd.CombinedOutput() // Ignore errors - namespace might not exist
+	_, _ = waitCmd.CombinedOutput() // Ignore errors - namespace might not exist
 
 	// Delete local app configuration directory
 	if err := os.RemoveAll(appDir); err != nil {

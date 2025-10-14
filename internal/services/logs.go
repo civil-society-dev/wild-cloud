@@ -217,7 +217,7 @@ func (m *Manager) StreamLogs(instanceName, serviceName string, opts contracts.Se
 				Container: opts.Container,
 				Timestamp: time.Now(),
 			}
-			writeSSEEvent(writer, event)
+			_ = writeSSEEvent(writer, event)
 		}
 	}()
 
@@ -246,14 +246,14 @@ func (m *Manager) StreamLogs(instanceName, serviceName string, opts contracts.Se
 
 	// Wait for completion or error
 	err = <-done
-	cmd.Process.Kill()
+	_ = cmd.Process.Kill()
 
 	// Send end event
 	endEvent := contracts.ServiceLogsSSEEvent{
 		Type:      "end",
 		Timestamp: time.Now(),
 	}
-	writeSSEEvent(writer, endEvent)
+	_ = writeSSEEvent(writer, endEvent)
 
 	return err
 }

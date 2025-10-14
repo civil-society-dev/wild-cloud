@@ -101,12 +101,12 @@ func (api *API) ClusterBootstrap(w http.ResponseWriter, r *http.Request) {
 	// Bootstrap in background
 	go func() {
 		clusterMgr := cluster.NewManager(api.dataDir)
-		opsMgr.UpdateStatus(instanceName, opID, "running")
+		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := clusterMgr.Bootstrap(instanceName, req.Node); err != nil {
-			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
+			_ = opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
 		} else {
-			opsMgr.Update(instanceName, opID, "completed", "Bootstrap completed", 100)
+			_ = opsMgr.Update(instanceName, opID, "completed", "Bootstrap completed", 100)
 		}
 	}()
 
@@ -315,12 +315,12 @@ func (api *API) ClusterReset(w http.ResponseWriter, r *http.Request) {
 	// Reset in background
 	go func() {
 		clusterMgr := cluster.NewManager(api.dataDir)
-		opsMgr.UpdateStatus(instanceName, opID, "running")
+		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := clusterMgr.Reset(instanceName, req.Confirm); err != nil {
-			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
+			_ = opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
 		} else {
-			opsMgr.Update(instanceName, opID, "completed", "Cluster reset completed", 100)
+			_ = opsMgr.Update(instanceName, opID, "completed", "Cluster reset completed", 100)
 		}
 	}()
 
