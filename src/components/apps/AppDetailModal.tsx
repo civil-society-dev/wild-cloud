@@ -51,10 +51,12 @@ export function AppDetailModal({
   const { data: eventsData } = useAppEvents(instanceName, appName, 20);
   const { data: readmeContent, isLoading: readmeLoading } = useAppReadme(instanceName, appName);
 
-  const getPodStatusColor = (status: string) => {
-    if (status.toLowerCase().includes('running')) return 'text-green-600 dark:text-green-400';
-    if (status.toLowerCase().includes('pending')) return 'text-yellow-600 dark:text-yellow-400';
-    if (status.toLowerCase().includes('failed')) return 'text-red-600 dark:text-red-400';
+  const getPodStatusColor = (status: string | undefined) => {
+    if (!status) return 'text-muted-foreground';
+    const lowerStatus = status.toLowerCase();
+    if (lowerStatus.includes('running')) return 'text-green-600 dark:text-green-400';
+    if (lowerStatus.includes('pending')) return 'text-yellow-600 dark:text-yellow-400';
+    if (lowerStatus.includes('failed')) return 'text-red-600 dark:text-red-400';
     return 'text-muted-foreground';
   };
 
