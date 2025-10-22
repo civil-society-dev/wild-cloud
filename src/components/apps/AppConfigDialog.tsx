@@ -37,6 +37,15 @@ export function AppConfigDialog({
     if (app && open) {
       const initialConfig: Record<string, string> = {};
 
+      // Debug logging to diagnose the issue
+      console.log('[AppConfigDialog] App data:', {
+        name: app.name,
+        hasDefaultConfig: !!app.defaultConfig,
+        defaultConfigKeys: app.defaultConfig ? Object.keys(app.defaultConfig) : [],
+        hasExistingConfig: !!existingConfig,
+        existingConfigKeys: existingConfig ? Object.keys(existingConfig) : [],
+      });
+
       // Start with default config
       if (app.defaultConfig) {
         Object.entries(app.defaultConfig).forEach(([key, value]) => {

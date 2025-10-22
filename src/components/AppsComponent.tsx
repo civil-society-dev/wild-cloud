@@ -20,16 +20,21 @@ import {
   Archive,
   RotateCcw,
   Settings,
+  Eye,
 } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useAvailableApps, useDeployedApps, useAppBackups } from '../hooks/useApps';
 import { BackupRestoreModal } from './BackupRestoreModal';
 import { AppConfigDialog } from './apps/AppConfigDialog';
+import { AppDetailModal } from './apps/AppDetailModal';
 import type { App } from '../services/api';
 
 interface MergedApp extends App {
   deploymentStatus?: 'added' | 'deployed';
+  url?: string;
 }
+
+type TabView = 'available' | 'installed';
 
 export function AppsComponent() {
   const { currentInstance } = useInstanceContext();
@@ -46,6 +51,7 @@ export function AppsComponent() {
     isDeleting
   } = useDeployedApps(currentInstance);
 
+  const [activeTab, setActiveTab] = useState<TabView>('available');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
@@ -53,6 +59,8 @@ export function AppsComponent() {
   const [backupModalOpen, setBackupModalOpen] = useState(false);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [selectedAppForBackup, setSelectedAppForBackup] = useState<string | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedAppForDetail, setSelectedAppForDetail] = useState<string | null>(null);
 
   // Fetch backups for the selected app
   const {
@@ -64,17 +72,26 @@ export function AppsComponent() {
     isRestoring,
   } = useAppBackups(currentInstance, selectedAppForBackup);
 
-  // Merge available and deployed apps
-  // DeployedApps now includes status: 'added' | 'deployed'
+  // Merge available and deployed apps with URL from deployment
   const applications: MergedApp[] = (availableAppsData?.apps || []).map(app => {
     const deployedApp = deployedApps.find(d => d.name === app.name);
     return {
       ...app,
-      deploymentStatus: deployedApp?.status as 'added' | 'deployed' | undefined, // 'added' or 'deployed' from API
+      deploymentStatus: deployedApp?.status as 'added' | 'deployed' | undefined,
+      url: deployedApp?.url,
     };
   });
 
   const isLoading = loadingAvailable || loadingDeployed;
+
+  // Filter for available apps (not added or deployed)
+  const availableApps = applications.filter(app => !app.deploymentStatus);
+
+  // Filter for installed apps (added or deployed)
+  const installedApps = applications.filter(app => app.deploymentStatus);
+
+  // Count running apps - apps that are deployed (not just added)
+  const runningApps = installedApps.filter(app => app.deploymentStatus === 'deployed').length;
 
   const getStatusIcon = (status?: string) => {
     switch (status) {
@@ -88,6 +105,8 @@ export function AppsComponent() {
         return <AlertCircle className="h-5 w-5 text-yellow-500" />;
       case 'added':
         return <Settings className="h-5 w-5 text-blue-500" />;
+      case 'deployed':
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'available':
         return <Download className="h-5 w-5 text-muted-foreground" />;
       default:
@@ -145,12 +164,37 @@ export function AppsComponent() {
     }
   };
 
-  const handleAppAction = (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore') => {
+  // Separate component for app icon with error handling
+  const AppIcon = ({ app }: { app: MergedApp }) => {
+    const [imageError, setImageError] = useState(false);
+
+    return (
+      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+        {app.icon && !imageError ? (
+          <img
+            src={app.icon}
+            alt={app.name}
+            className="h-full w-full object-contain p-1"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          getCategoryIcon(app.category)
+        )}
+      </div>
+    );
+  };
+
+  const handleAppAction = (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore' | 'view') => {
     if (!currentInstance) return;
 
     switch (action) {
       case 'configure':
-        // Open config dialog for adding or reconfiguring app
+        console.log('[AppsComponent] Configuring app:', {
+          name: app.name,
+          hasDefaultConfig: !!app.defaultConfig,
+          defaultConfigKeys: app.defaultConfig ? Object.keys(app.defaultConfig) : [],
+          fullApp: app,
+        });
         setSelectedAppForConfig(app);
         setConfigDialogOpen(true);
         break;
@@ -170,19 +214,21 @@ export function AppsComponent() {
         setSelectedAppForBackup(app.name);
         setRestoreModalOpen(true);
         break;
+      case 'view':
+        setSelectedAppForDetail(app.name);
+        setDetailModalOpen(true);
+        break;
     }
   };
 
   const handleConfigSave = (config: Record<string, string>) => {
     if (!selectedAppForConfig) return;
 
-    // Call addApp with the configuration
     addApp({
       name: selectedAppForConfig.name,
       config: config,
     });
 
-    // Close dialog
     setConfigDialogOpen(false);
     setSelectedAppForConfig(null);
   };
@@ -199,14 +245,14 @@ export function AppsComponent() {
 
   const categories = ['all', 'database', 'web', 'security', 'monitoring', 'communication', 'storage'];
 
-  const filteredApps = applications.filter(app => {
+  const appsToDisplay = activeTab === 'available' ? availableApps : installedApps;
+
+  const filteredApps = appsToDisplay.filter(app => {
     const matchesSearch = app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          app.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || app.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
-
-  const runningApps = applications.filter(app => app.status?.status === 'running').length;
 
   // Show message if no instance is selected
   if (!currentInstance) {
@@ -248,12 +294,12 @@ export function AppsComponent() {
               What are Apps in your Personal Cloud?
             </h3>
             <p className="text-pink-800 dark:text-pink-200 mb-3 leading-relaxed">
-              Apps are the useful programs that make your personal cloud valuable - like having a personal Netflix 
-              (media server), Google Drive (file storage), or Gmail (email server) running on your own hardware. 
+              Apps are the useful programs that make your personal cloud valuable - like having a personal Netflix
+              (media server), Google Drive (file storage), or Gmail (email server) running on your own hardware.
               Instead of relying on big tech companies, you control your data and services.
             </p>
             <p className="text-pink-700 dark:text-pink-300 mb-4 text-sm">
-              Your cluster can run databases, web servers, photo galleries, password managers, backup services, and much more. 
+              Your cluster can run databases, web servers, photo galleries, password managers, backup services, and much more.
               Each app runs in its own secure container, so they don't interfere with each other and can be easily managed.
             </p>
             <Button variant="outline" size="sm" className="text-pink-700 border-pink-300 hover:bg-pink-100 dark:text-pink-300 dark:border-pink-700 dark:hover:bg-pink-900/20">
@@ -277,6 +323,22 @@ export function AppsComponent() {
           </div>
         </div>
 
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6 border-b pb-4">
+          <Button
+            variant={activeTab === 'available' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('available')}
+          >
+            Available Apps ({availableApps.length})
+          </Button>
+          <Button
+            variant={activeTab === 'installed' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('installed')}
+          >
+            Installed Apps ({installedApps.length})
+          </Button>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -288,14 +350,14 @@ export function AppsComponent() {
               className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto">
             {categories.map(category => (
               <Button
                 key={category}
                 variant={selectedCategory === category ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedCategory(category)}
-                className="capitalize"
+                className="capitalize whitespace-nowrap"
               >
                 {category}
               </Button>
@@ -311,7 +373,7 @@ export function AppsComponent() {
                 Loading apps...
               </span>
             ) : (
-              `${runningApps} applications running • ${applications.length} total available`
+              `${runningApps} applications running • ${installedApps.length} installed • ${availableApps.length} available`
             )}
           </div>
         </div>
@@ -322,14 +384,45 @@ export function AppsComponent() {
           <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
           <p className="text-muted-foreground">Loading applications...</p>
         </Card>
+      ) : activeTab === 'available' ? (
+        // Available Apps Grid
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredApps.map((app) => (
+            <Card key={app.name} className="p-4 hover:shadow-lg transition-shadow">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <AppIcon app={app} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-medium truncate">{app.name}</h3>
+                    </div>
+                    {app.version && (
+                      <Badge variant="outline" className="text-xs mb-2">
+                        {app.version}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground line-clamp-2">{app.description}</p>
+                <Button
+                  size="sm"
+                  onClick={() => handleAppAction(app, 'configure')}
+                  disabled={isAdding}
+                  className="w-full"
+                >
+                  {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Configure & Add'}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        // Installed Apps List
+        <div className="space-y-3">
           {filteredApps.map((app) => (
             <Card key={app.name} className="p-4">
               <div className="flex items-start gap-3">
-                <div className="p-2 bg-muted rounded-lg">
-                  {getCategoryIcon(app.category)}
-                </div>
+                <AppIcon app={app} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-medium truncate">{app.name}</h3>
@@ -338,9 +431,22 @@ export function AppsComponent() {
                         {app.version}
                       </Badge>
                     )}
-                    {getStatusIcon(app.status?.status)}
+                    {getStatusIcon(app.status?.status || app.deploymentStatus)}
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">{app.description}</p>
+
+                  {/* Show ingress URL if available */}
+                  {app.url && (
+                    <a
+                      href={app.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline mb-2"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      {app.url}
+                    </a>
+                  )}
 
                   {app.status?.status === 'running' && (
                     <div className="space-y-1 text-xs text-muted-foreground">
@@ -350,31 +456,14 @@ export function AppsComponent() {
                       {app.status.replicas && (
                         <div>Replicas: {app.status.replicas}</div>
                       )}
-                      {app.status.resources && (
-                        <div>
-                          Resources: {app.status.resources.cpu} CPU, {app.status.resources.memory} RAM
-                        </div>
-                      )}
                     </div>
-                  )}
-                  {app.status?.message && (
-                    <p className="text-xs text-muted-foreground mt-1">{app.status.message}</p>
                   )}
                 </div>
 
                 <div className="flex flex-col gap-2">
                   {getStatusBadge(app)}
                   <div className="flex flex-col gap-1">
-                    {/* Available: not added yet */}
-                    {!app.deploymentStatus && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleAppAction(app, 'configure')}
-                        disabled={isAdding}
-                      >
-                        {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Configure & Add'}
-                      </Button>
-                    )}
+                    {/* Available: not added yet - shouldn't show here */}
 
                     {/* Added: in config but not deployed */}
                     {app.deploymentStatus === 'added' && (
@@ -408,6 +497,14 @@ export function AppsComponent() {
                     {/* Deployed: running in Kubernetes */}
                     {app.deploymentStatus === 'deployed' && (
                       <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAppAction(app, 'view')}
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         {app.status?.status === 'running' && (
                           <>
                             <Button
@@ -455,7 +552,9 @@ export function AppsComponent() {
           <p className="text-muted-foreground mb-4">
             {searchTerm || selectedCategory !== 'all'
               ? 'Try adjusting your search or category filter'
-              : 'No applications available to display'
+              : activeTab === 'available'
+              ? 'All available apps have been installed'
+              : 'No apps are currently installed'
             }
           </p>
         </Card>
@@ -498,6 +597,19 @@ export function AppsComponent() {
         onSave={handleConfigSave}
         isSaving={isAdding}
       />
+
+      {/* App Detail Modal */}
+      {selectedAppForDetail && currentInstance && (
+        <AppDetailModal
+          instanceName={currentInstance}
+          appName={selectedAppForDetail}
+          open={detailModalOpen}
+          onClose={() => {
+            setDetailModalOpen(false);
+            setSelectedAppForDetail(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from './ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { useTheme } from '../contexts/ThemeContext';
+import { InstanceSwitcher } from './InstanceSwitcher';
 
 export function AppSidebar() {
   const { theme, setTheme } = useTheme();
@@ -61,14 +62,16 @@ export function AppSidebar() {
   return (
     <Sidebar variant="sidebar" collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2">
+        <div className="flex items-center gap-2 px-2 pb-2">
           <div className="p-1 bg-primary/10 rounded-lg">
             <CloudLightning className="h-6 w-6 text-primary" />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <h2 className="text-lg font-bold text-foreground">Wild Cloud</h2>
-            <p className="text-sm text-muted-foreground">{instanceId}</p>
           </div>
+        </div>
+        <div className="px-2 group-data-[collapsible=icon]:px-2">
+          <InstanceSwitcher />
         </div>
       </SidebarHeader>
 
