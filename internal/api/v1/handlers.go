@@ -150,6 +150,13 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}", api.AppsDelete).Methods("DELETE")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/status", api.AppsGetStatus).Methods("GET")
 
+	// Enhanced app endpoints
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/enhanced", api.AppsGetEnhanced).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/runtime", api.AppsGetEnhancedStatus).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/logs", api.AppsGetLogs).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/events", api.AppsGetEvents).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/readme", api.AppsGetReadme).Methods("GET")
+
 	// Backup & Restore
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup", api.BackupAppStart).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup", api.BackupAppList).Methods("GET")

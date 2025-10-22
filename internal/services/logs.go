@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/contracts"
@@ -41,7 +40,7 @@ func (m *Manager) GetLogs(instanceName, serviceName string, opts contracts.Servi
 		podName, err = kubectl.GetFirstPodName(namespace)
 		if err != nil {
 			// Check if it's because there are no pods
-			pods, _ := kubectl.GetPods(namespace)
+			pods, _ := kubectl.GetPods(namespace, false)
 			if len(pods) == 0 {
 				// Return empty logs response instead of error when no pods exist
 				return &contracts.ServiceLogsResponse{
@@ -61,7 +60,7 @@ func (m *Manager) GetLogs(instanceName, serviceName string, opts contracts.Servi
 		}
 	} else {
 		// Find pod with specified container
-		pods, err := kubectl.GetPods(namespace)
+		pods, err := kubectl.GetPods(namespace, false)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list pods: %w", err)
 		}
@@ -83,19 +82,24 @@ func (m *Manager) GetLogs(instanceName, serviceName string, opts contracts.Servi
 
 	// 5. Get logs
 	logOpts := tools.LogOptions{
-		Container: opts.Container,
-		Tail:      opts.Tail,
-		Previous:  opts.Previous,
-		Since:     opts.Since,
+		Container:    opts.Container,
+		Tail:         opts.Tail,
+		Previous:     opts.Previous,
+		Since:        opts.Since,
+		SinceSeconds: 0,
 	}
 
-	logs, err := kubectl.GetLogs(namespace, podName, logOpts)
+	logEntries, err := kubectl.GetLogs(namespace, podName, logOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get logs: %w", err)
 	}
 
-	// 6. Parse logs into lines
-	lines := strings.Split(strings.TrimSpace(logs), "\n")
+	// 6. Convert structured logs to string lines
+	lines := make([]string, 0, len(logEntries))
+	for _, entry := range logEntries {
+		lines = append(lines, entry.Message)
+	}
+
 	truncated := false
 	if len(lines) > opts.Tail {
 		lines = lines[len(lines)-opts.Tail:]
@@ -139,7 +143,7 @@ func (m *Manager) StreamLogs(instanceName, serviceName string, opts contracts.Se
 		podName, err = kubectl.GetFirstPodName(namespace)
 		if err != nil {
 			// Check if it's because there are no pods
-			pods, _ := kubectl.GetPods(namespace)
+			pods, _ := kubectl.GetPods(namespace, false)
 			if len(pods) == 0 {
 				// Send a message event indicating no pods
 				fmt.Fprintf(writer, "data: No pods found for service. The service may not be deployed yet.\n\n")
@@ -157,7 +161,7 @@ func (m *Manager) StreamLogs(instanceName, serviceName string, opts contracts.Se
 			opts.Container = containers[0]
 		}
 	} else {
-		pods, err := kubectl.GetPods(namespace)
+		pods, err := kubectl.GetPods(namespace, false)
 		if err != nil {
 			return fmt.Errorf("failed to list pods: %w", err)
 		}

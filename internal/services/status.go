@@ -72,7 +72,7 @@ func (m *Manager) GetDetailedStatus(instanceName, serviceName string) (*contract
 	}
 
 	// 4. Get pod information
-	podInfos, err := kubectl.GetPods(namespace)
+	podInfos, err := kubectl.GetPods(namespace, false)
 	pods := make([]contracts.PodStatus, 0, len(podInfos))
 
 	if err == nil {

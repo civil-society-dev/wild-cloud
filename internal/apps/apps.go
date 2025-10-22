@@ -2,6 +2,7 @@ package apps
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,12 +32,15 @@ func NewManager(dataDir, appsDir string) *Manager {
 
 // App represents an application
 type App struct {
-	Name         string            `json:"name" yaml:"name"`
-	Description  string            `json:"description" yaml:"description"`
-	Version      string            `json:"version" yaml:"version"`
-	Category     string            `json:"category" yaml:"category"`
-	Dependencies []string          `json:"dependencies" yaml:"dependencies"`
-	Config       map[string]string `json:"config,omitempty" yaml:"config,omitempty"`
+	Name            string                 `json:"name" yaml:"name"`
+	Description     string                 `json:"description" yaml:"description"`
+	Version         string                 `json:"version" yaml:"version"`
+	Category        string                 `json:"category,omitempty" yaml:"category,omitempty"`
+	Icon            string                 `json:"icon,omitempty" yaml:"icon,omitempty"`
+	Dependencies    []string               `json:"dependencies" yaml:"dependencies"`
+	Config          map[string]string      `json:"config,omitempty" yaml:"config,omitempty"`
+	DefaultConfig   map[string]interface{} `json:"defaultConfig,omitempty" yaml:"defaultConfig,omitempty"`
+	RequiredSecrets []string               `json:"requiredSecrets,omitempty" yaml:"requiredSecrets,omitempty"`
 }
 
 // DeployedApp represents a deployed application instance
@@ -78,12 +82,30 @@ func (m *Manager) ListAvailable() ([]App, error) {
 			continue
 		}
 
-		var app App
-		if err := yaml.Unmarshal(data, &app); err != nil {
+		var manifest AppManifest
+		if err := yaml.Unmarshal(data, &manifest); err != nil {
 			continue
 		}
 
-		app.Name = entry.Name() // Use directory name as app name
+		// Convert manifest to App struct
+		app := App{
+			Name:            entry.Name(), // Use directory name as app name
+			Description:     manifest.Description,
+			Version:         manifest.Version,
+			Category:        manifest.Category,
+			Icon:            manifest.Icon,
+			DefaultConfig:   manifest.DefaultConfig,
+			RequiredSecrets: manifest.RequiredSecrets,
+		}
+
+		// Extract dependencies from Requires field
+		if len(manifest.Requires) > 0 {
+			app.Dependencies = make([]string, len(manifest.Requires))
+			for i, dep := range manifest.Requires {
+				app.Dependencies[i] = dep.Name
+			}
+		}
+
 		apps = append(apps, app)
 	}
 
@@ -103,13 +125,31 @@ func (m *Manager) Get(appName string) (*App, error) {
 		return nil, fmt.Errorf("failed to read app file: %w", err)
 	}
 
-	var app App
-	if err := yaml.Unmarshal(data, &app); err != nil {
+	var manifest AppManifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
 		return nil, fmt.Errorf("failed to parse app file: %w", err)
 	}
 
-	app.Name = appName
-	return &app, nil
+	// Convert manifest to App struct
+	app := &App{
+		Name:            appName,
+		Description:     manifest.Description,
+		Version:         manifest.Version,
+		Category:        manifest.Category,
+		Icon:            manifest.Icon,
+		DefaultConfig:   manifest.DefaultConfig,
+		RequiredSecrets: manifest.RequiredSecrets,
+	}
+
+	// Extract dependencies from Requires field
+	if len(manifest.Requires) > 0 {
+		app.Dependencies = make([]string, len(manifest.Requires))
+		for i, dep := range manifest.Requires {
+			app.Dependencies[i] = dep.Name
+		}
+	}
+
+	return app, nil
 }
 
 // ListDeployed lists deployed apps for an instance
@@ -173,6 +213,66 @@ func (m *Manager) ListDeployed(instanceName string) ([]DeployedApp, error) {
 			if yaml.Unmarshal(output, &ns) == nil && ns.Status.Phase == "Active" {
 				// Namespace is active - app is deployed
 				app.Status = "deployed"
+
+				// Get ingress URL if available
+				// Try Traefik IngressRoute first
+				ingressCmd := exec.Command("kubectl", "get", "ingressroute", "-n", appName, "-o", "json")
+				tools.WithKubeconfig(ingressCmd, kubeconfigPath)
+				ingressOutput, err := ingressCmd.CombinedOutput()
+
+				if err == nil {
+					var ingressList struct {
+						Items []struct {
+							Spec struct {
+								Routes []struct {
+									Match string `json:"match"`
+								} `json:"routes"`
+							} `json:"spec"`
+						} `json:"items"`
+					}
+					if json.Unmarshal(ingressOutput, &ingressList) == nil && len(ingressList.Items) > 0 {
+						// Extract host from the first route match (format: Host(`example.com`))
+						if len(ingressList.Items[0].Spec.Routes) > 0 {
+							match := ingressList.Items[0].Spec.Routes[0].Match
+							// Parse Host(`domain.com`) format
+							if strings.Contains(match, "Host(`") {
+								start := strings.Index(match, "Host(`") + 6
+								end := strings.Index(match[start:], "`")
+								if end > 0 {
+									host := match[start : start+end]
+									app.URL = "https://" + host
+								}
+							}
+						}
+					}
+				}
+
+				// If no IngressRoute, try standard Ingress
+				if app.URL == "" {
+					ingressCmd := exec.Command("kubectl", "get", "ingress", "-n", appName, "-o", "json")
+					tools.WithKubeconfig(ingressCmd, kubeconfigPath)
+					ingressOutput, err := ingressCmd.CombinedOutput()
+
+					if err == nil {
+						var ingressList struct {
+							Items []struct {
+								Spec struct {
+									Rules []struct {
+										Host string `json:"host"`
+									} `json:"rules"`
+								} `json:"spec"`
+							} `json:"items"`
+						}
+						if json.Unmarshal(ingressOutput, &ingressList) == nil && len(ingressList.Items) > 0 {
+							if len(ingressList.Items[0].Spec.Rules) > 0 {
+								host := ingressList.Items[0].Spec.Rules[0].Host
+								if host != "" {
+									app.URL = "https://" + host
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 
@@ -525,4 +625,215 @@ func (m *Manager) GetStatus(instanceName, appName string) (*DeployedApp, error) 
 	}
 
 	return app, nil
+}
+
+// GetEnhanced returns enhanced app information with runtime status
+func (m *Manager) GetEnhanced(instanceName, appName string) (*EnhancedApp, error) {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
+	configFile := tools.GetInstanceConfigPath(m.dataDir, instanceName)
+	appDir := filepath.Join(instancePath, "apps", appName)
+
+	enhanced := &EnhancedApp{
+		Name:      appName,
+		Status:    "not-added",
+		Namespace: appName,
+	}
+
+	// Check if app was added to instance
+	if !storage.FileExists(appDir) {
+		return enhanced, nil
+	}
+
+	enhanced.Status = "not-deployed"
+
+	// Load manifest
+	manifestPath := filepath.Join(appDir, "manifest.yaml")
+	if storage.FileExists(manifestPath) {
+		manifestData, _ := os.ReadFile(manifestPath)
+		var manifest AppManifest
+		if yaml.Unmarshal(manifestData, &manifest) == nil {
+			enhanced.Version = manifest.Version
+			enhanced.Description = manifest.Description
+			enhanced.Icon = manifest.Icon
+			enhanced.Manifest = &manifest
+		}
+	}
+
+	// Note: README content is now served via dedicated /readme endpoint
+	// No need to populate readme/documentation fields here
+
+	// Load config
+	yq := tools.NewYQ()
+	configJSON, err := yq.Get(configFile, fmt.Sprintf(".apps.%s | @json", appName))
+	if err == nil && configJSON != "" && configJSON != "null" {
+		var config map[string]string
+		if json.Unmarshal([]byte(configJSON), &config) == nil {
+			enhanced.Config = config
+		}
+	}
+
+	// Check if namespace exists
+	checkNsCmd := exec.Command("kubectl", "get", "namespace", appName, "-o", "json")
+	tools.WithKubeconfig(checkNsCmd, kubeconfigPath)
+	nsOutput, err := checkNsCmd.CombinedOutput()
+	if err != nil {
+		// Namespace doesn't exist - not deployed
+		return enhanced, nil
+	}
+
+	// Parse namespace to check if it's active
+	var ns struct {
+		Status struct {
+			Phase string `json:"phase"`
+		} `json:"status"`
+	}
+	if err := json.Unmarshal(nsOutput, &ns); err != nil || ns.Status.Phase != "Active" {
+		return enhanced, nil
+	}
+
+	enhanced.Status = "deployed"
+
+	// Get URL (ingress)
+	enhanced.URL = m.getAppURL(kubeconfigPath, appName)
+
+	// Get runtime status
+	runtime, err := m.getRuntimeStatus(kubeconfigPath, appName)
+	if err == nil {
+		enhanced.Runtime = runtime
+
+		// Update status based on runtime
+		if runtime.Pods != nil && len(runtime.Pods) > 0 {
+			allRunning := true
+			allReady := true
+			for _, pod := range runtime.Pods {
+				if pod.Status != "Running" {
+					allRunning = false
+				}
+				// Check ready ratio
+				parts := strings.Split(pod.Ready, "/")
+				if len(parts) == 2 && parts[0] != parts[1] {
+					allReady = false
+				}
+			}
+
+			if allRunning && allReady {
+				enhanced.Status = "running"
+			} else if allRunning {
+				enhanced.Status = "starting"
+			} else {
+				enhanced.Status = "unhealthy"
+			}
+		}
+	}
+
+	return enhanced, nil
+}
+
+// GetEnhancedStatus returns just the runtime status for an app
+func (m *Manager) GetEnhancedStatus(instanceName, appName string) (*RuntimeStatus, error) {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
+	// Check if namespace exists
+	checkNsCmd := exec.Command("kubectl", "get", "namespace", appName, "-o", "json")
+	tools.WithKubeconfig(checkNsCmd, kubeconfigPath)
+	if err := checkNsCmd.Run(); err != nil {
+		return nil, fmt.Errorf("namespace not found or not deployed")
+	}
+
+	return m.getRuntimeStatus(kubeconfigPath, appName)
+}
+
+// getRuntimeStatus fetches runtime information from kubernetes
+func (m *Manager) getRuntimeStatus(kubeconfigPath, namespace string) (*RuntimeStatus, error) {
+	kubectl := tools.NewKubectl(kubeconfigPath)
+
+	runtime := &RuntimeStatus{}
+
+	// Get pods (with detailed info for app status display)
+	pods, err := kubectl.GetPods(namespace, true)
+	if err == nil {
+		runtime.Pods = pods
+	}
+
+	// Get replicas
+	replicas, err := kubectl.GetReplicas(namespace)
+	if err == nil && (replicas.Desired > 0 || replicas.Current > 0) {
+		runtime.Replicas = replicas
+	}
+
+	// Get resources
+	resources, err := kubectl.GetResources(namespace)
+	if err == nil {
+		runtime.Resources = resources
+	}
+
+	// Get recent events (last 10)
+	events, err := kubectl.GetRecentEvents(namespace, 10)
+	if err == nil {
+		runtime.RecentEvents = events
+	}
+
+	return runtime, nil
+}
+
+// getAppURL extracts the ingress URL for an app
+func (m *Manager) getAppURL(kubeconfigPath, appName string) string {
+	// Try Traefik IngressRoute first
+	ingressCmd := exec.Command("kubectl", "get", "ingressroute", "-n", appName, "-o", "json")
+	tools.WithKubeconfig(ingressCmd, kubeconfigPath)
+	ingressOutput, err := ingressCmd.CombinedOutput()
+
+	if err == nil {
+		var ingressList struct {
+			Items []struct {
+				Spec struct {
+					Routes []struct {
+						Match string `json:"match"`
+					} `json:"routes"`
+				} `json:"spec"`
+			} `json:"items"`
+		}
+		if json.Unmarshal(ingressOutput, &ingressList) == nil && len(ingressList.Items) > 0 {
+			if len(ingressList.Items[0].Spec.Routes) > 0 {
+				match := ingressList.Items[0].Spec.Routes[0].Match
+				// Parse Host(`domain.com`) format
+				if strings.Contains(match, "Host(`") {
+					start := strings.Index(match, "Host(`") + 6
+					end := strings.Index(match[start:], "`")
+					if end > 0 {
+						host := match[start : start+end]
+						return "https://" + host
+					}
+				}
+			}
+		}
+	}
+
+	// If no IngressRoute, try standard Ingress
+	ingressCmd = exec.Command("kubectl", "get", "ingress", "-n", appName, "-o", "json")
+	tools.WithKubeconfig(ingressCmd, kubeconfigPath)
+	ingressOutput, err = ingressCmd.CombinedOutput()
+
+	if err == nil {
+		var ingressList struct {
+			Items []struct {
+				Spec struct {
+					Rules []struct {
+						Host string `json:"host"`
+					} `json:"rules"`
+				} `json:"spec"`
+			} `json:"items"`
+		}
+		if json.Unmarshal(ingressOutput, &ingressList) == nil && len(ingressList.Items) > 0 {
+			if len(ingressList.Items[0].Spec.Rules) > 0 {
+				host := ingressList.Items[0].Spec.Rules[0].Host
+				if host != "" {
+					return "https://" + host
+				}
+			}
+		}
+	}
+
+	return ""
 }
