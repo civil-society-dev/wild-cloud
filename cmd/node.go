@@ -18,10 +18,17 @@ var nodeCmd = &cobra.Command{
 }
 
 var nodeDiscoverCmd = &cobra.Command{
-	Use:   "discover <ip>...",
+	Use:   "discover [subnet]",
 	Short: "Discover nodes on network",
-	Long:  "Discover nodes on the network by scanning the provided IP addresses or ranges",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Discover nodes on the network by scanning a subnet or auto-detecting local networks.
+
+If a subnet is provided (e.g., 192.168.1.0/24), only that subnet will be scanned.
+If no subnet is provided, all local networks will be automatically detected and scanned.
+
+Examples:
+  wild node discover                    # Auto-detect local networks
+  wild node discover 192.168.1.0/24     # Scan specific subnet`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		inst, err := getInstanceName()
 		if err != nil {
@@ -41,10 +48,16 @@ var nodeDiscoverCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Printf("Starting discovery for %d IP(s)...\n", len(args))
-		_, err = apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes/discover", inst), map[string]interface{}{
-			"ip_list": args,
-		})
+		// Build request body
+		body := map[string]interface{}{}
+		if len(args) > 0 {
+			body["subnet"] = args[0]
+			fmt.Printf("Starting discovery for subnet %s...\n", args[0])
+		} else {
+			fmt.Println("Starting discovery (auto-detecting local networks)...")
+		}
+
+		_, err = apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes/discover", inst), body)
 		if err != nil {
 			return err
 		}
