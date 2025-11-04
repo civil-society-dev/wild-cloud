@@ -12,18 +12,14 @@ export function useNodes(instanceName: string | null | undefined) {
   });
 
   const discoverMutation = useMutation({
-    mutationFn: (subnet: string) => nodesApi.discover(instanceName!, subnet),
+    mutationFn: (subnet?: string) => nodesApi.discover(instanceName!, subnet),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'discovery'] });
     },
   });
 
   const detectMutation = useMutation({
-    mutationFn: (ip?: string) => nodesApi.detect(instanceName!, ip),
-  });
-
-  const autoDetectMutation = useMutation({
-    mutationFn: () => nodesApi.autoDetect(instanceName!),
+    mutationFn: (ip: string) => nodesApi.detect(instanceName!, ip),
   });
 
   const addMutation = useMutation({
@@ -88,10 +84,6 @@ export function useNodes(instanceName: string | null | undefined) {
     isDetecting: detectMutation.isPending,
     detectResult: detectMutation.data,
     detectError: detectMutation.error,
-    autoDetect: autoDetectMutation.mutate,
-    isAutoDetecting: autoDetectMutation.isPending,
-    autoDetectResult: autoDetectMutation.data,
-    autoDetectError: autoDetectMutation.error,
     getHardware: getHardwareMutation.mutateAsync,
     isGettingHardware: getHardwareMutation.isPending,
     getHardwareError: getHardwareMutation.error,

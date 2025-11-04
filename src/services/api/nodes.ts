@@ -35,17 +35,13 @@ export const nodesApi = {
   },
 
   // Discovery
-  async discover(instanceName: string, subnet: string): Promise<OperationResponse> {
-    return apiClient.post(`/api/v1/instances/${instanceName}/nodes/discover`, { subnet });
+  async discover(instanceName: string, subnet?: string): Promise<OperationResponse> {
+    const body = subnet ? { subnet } : {};
+    return apiClient.post(`/api/v1/instances/${instanceName}/nodes/discover`, body);
   },
 
-  async detect(instanceName: string, ip?: string): Promise<OperationResponse> {
-    const body = ip ? { ip } : {};
-    return apiClient.post(`/api/v1/instances/${instanceName}/nodes/detect`, body);
-  },
-
-  async autoDetect(instanceName: string): Promise<{ networks: string[]; nodes: any[]; count: number }> {
-    return apiClient.post(`/api/v1/instances/${instanceName}/nodes/auto-detect`);
+  async detect(instanceName: string, ip: string): Promise<HardwareInfo> {
+    return apiClient.post(`/api/v1/instances/${instanceName}/nodes/detect`, { ip });
   },
 
   async discoveryStatus(instanceName: string): Promise<DiscoveryStatus> {

@@ -47,7 +47,7 @@ export function ClusterNodesComponent() {
     status: clusterStatus
   } = useCluster(currentInstance);
 
-  const [discoverSubnet, setDiscoverSubnet] = useState('192.168.8.0/24');
+  const [discoverSubnet, setDiscoverSubnet] = useState('');
   const [addNodeIp, setAddNodeIp] = useState('');
   const [discoverError, setDiscoverError] = useState<string | null>(null);
   const [detectError, setDetectError] = useState<string | null>(null);
@@ -92,9 +92,9 @@ export function ClusterNodesComponent() {
     if (prevDiscoveryActive === true && isActive === false && discoveryStatus) {
       const count = discoveryStatus.nodes_found?.length || 0;
       if (count === 0) {
-        setDiscoverSuccess(`Discovery complete! No nodes were found in the subnet.`);
+        setDiscoverSuccess(`Discovery complete! No nodes were found.`);
       } else {
-        setDiscoverSuccess(`Discovery complete! Found ${count} node${count !== 1 ? 's' : ''} in subnet.`);
+        setDiscoverSuccess(`Discovery complete! Found ${count} node${count !== 1 ? 's' : ''}.`);
       }
       setDiscoverError(null);
       refetch();
@@ -224,7 +224,8 @@ export function ClusterNodesComponent() {
   const handleDiscover = () => {
     setDiscoverError(null);
     setDiscoverSuccess(null);
-    discover(discoverSubnet);
+    // Pass subnet only if it's not empty, otherwise auto-detect
+    discover(discoverSubnet || undefined);
   };
 
 
@@ -421,7 +422,7 @@ export function ClusterNodesComponent() {
                 Discover Nodes on Network
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Scan a subnet to find nodes in maintenance mode
+                Scan a specific subnet or leave empty to auto-detect all local networks
               </p>
 
               <div className="flex gap-3 mb-4">
@@ -429,7 +430,7 @@ export function ClusterNodesComponent() {
                   type="text"
                   value={discoverSubnet}
                   onChange={(e) => setDiscoverSubnet(e.target.value)}
-                  placeholder="192.168.8.0/24"
+                  placeholder="192.168.1.0/24 (optional - leave empty to auto-detect)"
                   className="flex-1"
                 />
                 <Button
