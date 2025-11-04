@@ -20,11 +20,22 @@ type Manager struct {
 }
 
 // NewManager creates a new node manager
-func NewManager(dataDir string) *Manager {
+func NewManager(dataDir string, instanceName string) *Manager {
+	var talosctl *tools.Talosctl
+
+	// If instanceName is provided, use instance-specific talosconfig
+	// Otherwise, create basic talosctl (will use --insecure mode)
+	if instanceName != "" {
+		talosconfigPath := tools.GetTalosconfigPath(dataDir, instanceName)
+		talosctl = tools.NewTalosconfigWithConfig(talosconfigPath)
+	} else {
+		talosctl = tools.NewTalosctl()
+	}
+
 	return &Manager{
 		dataDir:   dataDir,
 		configMgr: config.NewManager(),
-		talosctl:  tools.NewTalosctl(),
+		talosctl:  talosctl,
 	}
 }
 
@@ -254,12 +265,14 @@ func (m *Manager) Delete(instanceName, nodeIdentifier string) error {
 	configPath := filepath.Join(instancePath, "config.yaml")
 
 	// Delete node from config.yaml
-	// Path: cluster.nodes.active.{hostname}
-	nodePath := fmt.Sprintf("cluster.nodes.active.%s", node.Hostname)
+	// Path: .cluster.nodes.active["hostname"]
+	// Use bracket notation to safely handle hostnames with special characters
+	nodePath := fmt.Sprintf(".cluster.nodes.active[\"%s\"]", node.Hostname)
 
 	yq := tools.NewYQ()
 	// Use yq to delete the node
-	_, err = yq.Exec("eval", "-i", fmt.Sprintf("del(%s)", nodePath), configPath)
+	delExpr := fmt.Sprintf("del(%s)", nodePath)
+	_, err = yq.Exec("eval", "-i", delExpr, configPath)
 	if err != nil {
 		return fmt.Errorf("failed to delete node: %w", err)
 	}
@@ -268,10 +281,20 @@ func (m *Manager) Delete(instanceName, nodeIdentifier string) error {
 }
 
 // DetectHardware queries node hardware information via talosctl
+// Automatically detects maintenance mode by trying insecure first, then secure
 func (m *Manager) DetectHardware(nodeIP string) (*HardwareInfo, error) {
-	// Query node with insecure flag (maintenance mode)
-	insecure := true
+	// Try insecure first (maintenance mode)
+	hwInfo, err := m.detectHardwareWithMode(nodeIP, true)
+	if err == nil {
+		return hwInfo, nil
+	}
 
+	// Fall back to secure (configured node)
+	return m.detectHardwareWithMode(nodeIP, false)
+}
+
+// detectHardwareWithMode queries node hardware with specified connection mode
+func (m *Manager) detectHardwareWithMode(nodeIP string, insecure bool) (*HardwareInfo, error) {
 	// Try to get default interface (with default route)
 	iface, err := m.talosctl.GetDefaultInterface(nodeIP, insecure)
 	if err != nil {
@@ -299,9 +322,10 @@ func (m *Manager) DetectHardware(nodeIP string) (*HardwareInfo, error) {
 		Interface:       iface,
 		Disks:           disks,
 		SelectedDisk:    selectedDisk,
-		MaintenanceMode: true,
+		MaintenanceMode: insecure, // If we used insecure, it's in maintenance mode
 	}, nil
 }
+
 
 // Apply generates configuration and applies it to node
 // This follows the wild-node-apply flow:
@@ -380,9 +404,9 @@ func (m *Manager) Apply(instanceName, nodeIdentifier string, opts ApplyOptions) 
 	// Determine which IP to use and whether node is in maintenance mode
 	//
 	// Three scenarios:
-	// 1. Production node (currentIP empty/same, maintenance=false): use targetIP, no --insecure
+	// 1. Production node (already applied, maintenance=false): use targetIP, no --insecure
 	// 2. IP changing (currentIP != targetIP): use currentIP, --insecure (always maintenance)
-	// 3. Maintenance at target (maintenance=true, no IP change): use targetIP, --insecure
+	// 3. Fresh/maintenance node (never applied OR maintenance=true): use targetIP, --insecure
 	var deployIP string
 	var maintenanceMode bool
 
@@ -390,12 +414,13 @@ func (m *Manager) Apply(instanceName, nodeIdentifier string, opts ApplyOptions) 
 		// Scenario 2: IP is changing - node is at currentIP, moving to targetIP
 		deployIP = node.CurrentIP
 		maintenanceMode = true
-	} else if node.Maintenance {
-		// Scenario 3: Explicit maintenance mode, no IP change
+	} else if node.Maintenance || !node.Applied {
+		// Scenario 3: Explicit maintenance mode OR never been applied (fresh node)
+		// Fresh nodes need --insecure because they have self-signed certificates
 		deployIP = node.TargetIP
 		maintenanceMode = true
 	} else {
-		// Scenario 1: Production node at target IP
+		// Scenario 1: Production node at target IP (already applied, not in maintenance)
 		deployIP = node.TargetIP
 		maintenanceMode = false
 	}

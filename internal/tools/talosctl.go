@@ -1,10 +1,12 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Talosctl provides a thin wrapper around the talosctl command-line tool
@@ -92,8 +94,11 @@ func (t *Talosctl) GetDisks(nodeIP string, insecure bool) ([]DiskInfo, error) {
 		args = append(args, "--insecure")
 	}
 
+	// Build args with talosconfig if available
+	finalArgs := t.buildArgs(args)
+
 	// Use jq to slurp the NDJSON into an array (like v.PoC does with jq -s)
-	talosCmd := exec.Command("talosctl", args...)
+	talosCmd := exec.Command("talosctl", finalArgs...)
 	jqCmd := exec.Command("jq", "-s", ".")
 
 	// Pipe talosctl output to jq
@@ -171,8 +176,11 @@ func (t *Talosctl) getResourceJSON(resourceType, nodeIP string, insecure bool) (
 		args = append(args, "--insecure")
 	}
 
+	// Build args with talosconfig if available
+	finalArgs := t.buildArgs(args)
+
 	// Use jq to slurp the NDJSON into an array
-	talosCmd := exec.Command("talosctl", args...)
+	talosCmd := exec.Command("talosctl", finalArgs...)
 	jqCmd := exec.Command("jq", "-s", ".")
 
 	// Pipe talosctl output to jq
@@ -280,20 +288,45 @@ func (t *Talosctl) GetPhysicalInterface(nodeIP string, insecure bool) (string, e
 
 // GetVersion gets Talos version from a node
 func (t *Talosctl) GetVersion(nodeIP string, insecure bool) (string, error) {
-	args := t.buildArgs([]string{
-		"version",
-		"--nodes", nodeIP,
-		"--short",
-	})
+	var args []string
 
+	// When using insecure mode (for maintenance mode nodes), don't use talosconfig
+	// Insecure mode is for unconfigured nodes that don't have authentication set up
 	if insecure {
-		args = append(args, "--insecure")
+		args = []string{
+			"version",
+			"--nodes", nodeIP,
+			"--short",
+			"--insecure",
+		}
+	} else {
+		// For configured nodes, use talosconfig if available
+		args = t.buildArgs([]string{
+			"version",
+			"--nodes", nodeIP,
+			"--short",
+		})
 	}
 
-	cmd := exec.Command("talosctl", args...)
+	// Use context with timeout to prevent hanging on unreachable nodes
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "talosctl", args...)
 	output, err := cmd.CombinedOutput()
+	outputStr := string(output)
+
+	// Special case: In maintenance mode, talosctl version returns an error
+	// "API is not implemented in maintenance mode" but this means the node IS reachable
+	// and IS in maintenance mode, so we treat this as a success
+	if err != nil && strings.Contains(outputStr, "API is not implemented in maintenance mode") {
+		// Extract client version from output as the node version
+		// Since we can't get server version in maintenance mode
+		return "maintenance", nil
+	}
+
 	if err != nil {
-		return "", fmt.Errorf("talosctl version failed: %w\nOutput: %s", err, string(output))
+		return "", fmt.Errorf("talosctl version failed: %w\nOutput: %s", err, outputStr)
 	}
 
 	// Parse output to extract server version

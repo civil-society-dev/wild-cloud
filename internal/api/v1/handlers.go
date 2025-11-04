@@ -30,6 +30,7 @@ type API struct {
 	context     *context.Manager
 	instance    *instance.Manager
 	dnsmasq     *dnsmasq.ConfigGenerator
+	opsMgr      *operations.Manager     // Operations manager
 	broadcaster *operations.Broadcaster // SSE broadcaster for operation output
 }
 
@@ -57,6 +58,7 @@ func NewAPI(dataDir, appsDir string) (*API, error) {
 		context:     context.NewManager(dataDir),
 		instance:    instance.NewManager(dataDir),
 		dnsmasq:     dnsmasq.NewConfigGenerator(dnsmasqConfigPath),
+		opsMgr:      operations.NewManager(dataDir),
 		broadcaster: operations.NewBroadcaster(),
 	}, nil
 }
@@ -85,6 +87,7 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/nodes/discover", api.NodeDiscover).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/nodes/detect", api.NodeDetect).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/discovery", api.NodeDiscoveryStatus).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/discovery/cancel", api.NodeDiscoveryCancel).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/nodes/hardware/{ip}", api.NodeHardware).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/nodes/fetch-templates", api.NodeFetchTemplates).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/nodes", api.NodeAdd).Methods("POST")

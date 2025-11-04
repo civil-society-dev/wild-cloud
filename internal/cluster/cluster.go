@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
@@ -18,13 +20,15 @@ import (
 type Manager struct {
 	dataDir  string
 	talosctl *tools.Talosctl
+	opsMgr   *operations.Manager
 }
 
 // NewManager creates a new cluster manager
-func NewManager(dataDir string) *Manager {
+func NewManager(dataDir string, opsMgr *operations.Manager) *Manager {
 	return &Manager{
 		dataDir:  dataDir,
 		talosctl: tools.NewTalosctl(),
+		opsMgr:   opsMgr,
 	}
 }
 
@@ -96,11 +100,28 @@ func (m *Manager) GenerateConfig(instanceName string, config *ClusterConfig) err
 	return nil
 }
 
-// Bootstrap bootstraps the cluster on the specified node
-func (m *Manager) Bootstrap(instanceName, nodeName string) error {
-	// Get node configuration to find the target IP
-	configPath := tools.GetInstanceConfigPath(m.dataDir, instanceName)
+// Bootstrap bootstraps the cluster on the specified node with progress tracking
+func (m *Manager) Bootstrap(instanceName, nodeName string) (string, error) {
+	// Create operation for tracking
+	opID, err := m.opsMgr.Start(instanceName, "bootstrap", nodeName)
+	if err != nil {
+		return "", fmt.Errorf("failed to start bootstrap operation: %w", err)
+	}
 
+	// Run bootstrap asynchronously
+	go func() {
+		if err := m.runBootstrapWithTracking(instanceName, nodeName, opID); err != nil {
+			_ = m.opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
+		}
+	}()
+
+	return opID, nil
+}
+
+// runBootstrapWithTracking runs the bootstrap process with detailed progress tracking
+func (m *Manager) runBootstrapWithTracking(instanceName, nodeName, opID string) error {
+	ctx := context.Background()
+	configPath := tools.GetInstanceConfigPath(m.dataDir, instanceName)
 	yq := tools.NewYQ()
 
 	// Get node's target IP
@@ -114,17 +135,71 @@ func (m *Manager) Bootstrap(instanceName, nodeName string) error {
 		return fmt.Errorf("node %s does not have a target IP configured", nodeName)
 	}
 
-	// Get talosconfig path for this instance
+	// Get VIP
+	vipRaw, err := yq.Get(configPath, ".cluster.nodes.control.vip")
+	if err != nil {
+		return fmt.Errorf("failed to get VIP: %w", err)
+	}
+
+	vip := tools.CleanYQOutput(vipRaw)
+	if vip == "" || vip == "null" {
+		return fmt.Errorf("control plane VIP not configured")
+	}
+
+	// Step 0: Run talosctl bootstrap
+	if err := m.runBootstrapCommand(instanceName, nodeIP, opID); err != nil {
+		return err
+	}
+
+	// Step 1: Wait for etcd health
+	if err := m.waitForEtcd(ctx, instanceName, nodeIP, opID); err != nil {
+		return err
+	}
+
+	// Step 2: Wait for VIP assignment
+	if err := m.waitForVIP(ctx, instanceName, nodeIP, vip, opID); err != nil {
+		return err
+	}
+
+	// Step 3: Wait for control plane components
+	if err := m.waitForControlPlane(ctx, instanceName, nodeIP, opID); err != nil {
+		return err
+	}
+
+	// Step 4: Wait for API server on VIP
+	if err := m.waitForAPIServer(ctx, instanceName, vip, opID); err != nil {
+		return err
+	}
+
+	// Step 5: Configure cluster access
+	if err := m.configureClusterAccess(instanceName, vip, opID); err != nil {
+		return err
+	}
+
+	// Step 6: Verify node registration
+	if err := m.waitForNodeRegistration(ctx, instanceName, opID); err != nil {
+		return err
+	}
+
+	// Mark as completed
+	_ = m.opsMgr.Update(instanceName, opID, "completed", "Bootstrap completed successfully", 100)
+	return nil
+}
+
+// runBootstrapCommand executes the initial bootstrap command
+func (m *Manager) runBootstrapCommand(instanceName, nodeIP, opID string) error {
+	_ = m.opsMgr.UpdateBootstrapProgress(instanceName, opID, 0, "bootstrap", 1, 1, "Running talosctl bootstrap command")
+
 	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
 
-	// Set talosctl endpoint (with proper context via TALOSCONFIG env var)
+	// Set talosctl endpoint
 	cmdEndpoint := exec.Command("talosctl", "config", "endpoint", nodeIP)
 	tools.WithTalosconfig(cmdEndpoint, talosconfigPath)
 	if output, err := cmdEndpoint.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to set talosctl endpoint: %w\nOutput: %s", err, string(output))
 	}
 
-	// Bootstrap command (with proper context via TALOSCONFIG env var)
+	// Bootstrap command
 	cmd := exec.Command("talosctl", "bootstrap", "--nodes", nodeIP)
 	tools.WithTalosconfig(cmd, talosconfigPath)
 	output, err := cmd.CombinedOutput()
@@ -132,14 +207,150 @@ func (m *Manager) Bootstrap(instanceName, nodeName string) error {
 		return fmt.Errorf("failed to bootstrap cluster: %w\nOutput: %s", err, string(output))
 	}
 
-	// Retrieve kubeconfig after bootstrap (best-effort with retry)
-	log.Printf("Waiting for Kubernetes API server to become ready...")
-	if err := m.retrieveKubeconfigFromCluster(instanceName, nodeIP, 5*time.Minute); err != nil {
-		log.Printf("Warning: %v", err)
-		log.Printf("You can retrieve it manually later using: wild cluster kubeconfig --generate")
+	return nil
+}
+
+// waitForEtcd waits for etcd to become healthy
+func (m *Manager) waitForEtcd(ctx context.Context, instanceName, nodeIP, opID string) error {
+	maxAttempts := 30
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		_ = m.opsMgr.UpdateBootstrapProgress(instanceName, opID, 1, "etcd", attempt, maxAttempts, "Waiting for etcd to become healthy")
+
+		cmd := exec.Command("talosctl", "-n", nodeIP, "etcd", "status")
+		tools.WithTalosconfig(cmd, talosconfigPath)
+		output, err := cmd.CombinedOutput()
+
+		if err == nil && strings.Contains(string(output), nodeIP) {
+			return nil
+		}
+
+		if attempt < maxAttempts {
+			time.Sleep(10 * time.Second)
+		}
+	}
+
+	return fmt.Errorf("etcd did not become healthy after %d attempts", maxAttempts)
+}
+
+// waitForVIP waits for VIP to be assigned to the node
+func (m *Manager) waitForVIP(ctx context.Context, instanceName, nodeIP, vip, opID string) error {
+	maxAttempts := 90
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		_ = m.opsMgr.UpdateBootstrapProgress(instanceName, opID, 2, "vip", attempt, maxAttempts, "Waiting for VIP assignment")
+
+		cmd := exec.Command("talosctl", "-n", nodeIP, "get", "addresses")
+		tools.WithTalosconfig(cmd, talosconfigPath)
+		output, err := cmd.CombinedOutput()
+
+		if err == nil && strings.Contains(string(output), vip+"/32") {
+			return nil
+		}
+
+		if attempt < maxAttempts {
+			time.Sleep(10 * time.Second)
+		}
+	}
+
+	return fmt.Errorf("VIP was not assigned after %d attempts", maxAttempts)
+}
+
+// waitForControlPlane waits for control plane components to start
+func (m *Manager) waitForControlPlane(ctx context.Context, instanceName, nodeIP, opID string) error {
+	maxAttempts := 60
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		_ = m.opsMgr.UpdateBootstrapProgress(instanceName, opID, 3, "controlplane", attempt, maxAttempts, "Waiting for control plane components")
+
+		cmd := exec.Command("talosctl", "-n", nodeIP, "containers", "-k")
+		tools.WithTalosconfig(cmd, talosconfigPath)
+		output, err := cmd.CombinedOutput()
+
+		if err == nil && strings.Contains(string(output), "kube-") {
+			return nil
+		}
+
+		if attempt < maxAttempts {
+			time.Sleep(10 * time.Second)
+		}
+	}
+
+	return fmt.Errorf("control plane components did not start after %d attempts", maxAttempts)
+}
+
+// waitForAPIServer waits for Kubernetes API server to respond
+func (m *Manager) waitForAPIServer(ctx context.Context, instanceName, vip, opID string) error {
+	maxAttempts := 60
+	apiURL := fmt.Sprintf("https://%s:6443/healthz", vip)
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		_ = m.opsMgr.UpdateBootstrapProgress(instanceName, opID, 4, "apiserver", attempt, maxAttempts, "Waiting for Kubernetes API server")
+
+		cmd := exec.Command("curl", "-k", "-s", "--max-time", "5", apiURL)
+		output, err := cmd.CombinedOutput()
+
+		if err == nil && strings.Contains(string(output), "ok") {
+			return nil
+		}
+
+		if attempt < maxAttempts {
+			time.Sleep(10 * time.Second)
+		}
+	}
+
+	return fmt.Errorf("API server did not respond after %d attempts", maxAttempts)
+}
+
+// configureClusterAccess configures talosctl and kubectl to use the VIP
+func (m *Manager) configureClusterAccess(instanceName, vip, opID string) error {
+	_ = m.opsMgr.UpdateBootstrapProgress(instanceName, opID, 5, "configure", 1, 1, "Configuring cluster access")
+
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
+	// Set talosctl endpoint to VIP
+	cmdEndpoint := exec.Command("talosctl", "config", "endpoint", vip)
+	tools.WithTalosconfig(cmdEndpoint, talosconfigPath)
+	if output, err := cmdEndpoint.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set talosctl endpoint: %w\nOutput: %s", err, string(output))
+	}
+
+	// Retrieve kubeconfig
+	cmdKubeconfig := exec.Command("talosctl", "kubeconfig", "--nodes", vip, kubeconfigPath)
+	tools.WithTalosconfig(cmdKubeconfig, talosconfigPath)
+	if output, err := cmdKubeconfig.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to retrieve kubeconfig: %w\nOutput: %s", err, string(output))
 	}
 
 	return nil
+}
+
+// waitForNodeRegistration waits for the node to register with Kubernetes
+func (m *Manager) waitForNodeRegistration(ctx context.Context, instanceName, opID string) error {
+	maxAttempts := 10
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		_ = m.opsMgr.UpdateBootstrapProgress(instanceName, opID, 6, "nodes", attempt, maxAttempts, "Waiting for node registration")
+
+		cmd := exec.Command("kubectl", "get", "nodes")
+		tools.WithKubeconfig(cmd, kubeconfigPath)
+		output, err := cmd.CombinedOutput()
+
+		if err == nil && strings.Contains(string(output), "Ready") {
+			return nil
+		}
+
+		if attempt < maxAttempts {
+			time.Sleep(10 * time.Second)
+		}
+	}
+
+	return fmt.Errorf("node did not register after %d attempts", maxAttempts)
 }
 
 // retrieveKubeconfigFromCluster retrieves kubeconfig from the cluster with retry logic

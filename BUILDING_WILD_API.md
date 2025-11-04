@@ -38,6 +38,7 @@
 - Write unit tests for all functions and methods.
 - Make and use common modules. For example, one module should handle all interactions with talosctl. Another modules should handle all interactions with kubectl. 
 - If the code is getting long and complex, break it into smaller modules.
+- API requests and responses should be valid JSON. Object attributes should be standard JSON camel-cased.
 
 ### Features
 

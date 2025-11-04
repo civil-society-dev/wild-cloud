@@ -46,15 +46,15 @@ func (api *API) ClusterGenerateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create cluster config
-	config := cluster.ClusterConfig{
+	clusterConfig := cluster.ClusterConfig{
 		ClusterName: clusterName,
 		VIP:         vip,
 		Version:     version,
 	}
 
 	// Generate configuration
-	clusterMgr := cluster.NewManager(api.dataDir)
-	if err := clusterMgr.GenerateConfig(instanceName, &config); err != nil {
+	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
+	if err := clusterMgr.GenerateConfig(instanceName, &clusterConfig); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to generate config: %v", err))
 		return
 	}
@@ -90,25 +90,13 @@ func (api *API) ClusterBootstrap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Start bootstrap operation
-	opsMgr := operations.NewManager(api.dataDir)
-	opID, err := opsMgr.Start(instanceName, "bootstrap", req.Node)
+	// Bootstrap with progress tracking
+	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
+	opID, err := clusterMgr.Bootstrap(instanceName, req.Node)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to start operation: %v", err))
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to start bootstrap: %v", err))
 		return
 	}
-
-	// Bootstrap in background
-	go func() {
-		clusterMgr := cluster.NewManager(api.dataDir)
-		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
-
-		if err := clusterMgr.Bootstrap(instanceName, req.Node); err != nil {
-			_ = opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
-		} else {
-			_ = opsMgr.Update(instanceName, opID, "completed", "Bootstrap completed", 100)
-		}
-	}()
 
 	respondJSON(w, http.StatusAccepted, map[string]string{
 		"operation_id": opID,
@@ -138,7 +126,7 @@ func (api *API) ClusterConfigureEndpoints(w http.ResponseWriter, r *http.Request
 	}
 
 	// Configure endpoints
-	clusterMgr := cluster.NewManager(api.dataDir)
+	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	if err := clusterMgr.ConfigureEndpoints(instanceName, req.IncludeNodes); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to configure endpoints: %v", err))
 		return
@@ -161,7 +149,7 @@ func (api *API) ClusterGetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get status
-	clusterMgr := cluster.NewManager(api.dataDir)
+	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	status, err := clusterMgr.GetStatus(instanceName)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get status: %v", err))
@@ -183,7 +171,7 @@ func (api *API) ClusterHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get health checks
-	clusterMgr := cluster.NewManager(api.dataDir)
+	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	checks, err := clusterMgr.Health(instanceName)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get health: %v", err))
@@ -219,7 +207,7 @@ func (api *API) ClusterGetKubeconfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get kubeconfig
-	clusterMgr := cluster.NewManager(api.dataDir)
+	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	kubeconfig, err := clusterMgr.GetKubeconfig(instanceName)
 	if err != nil {
 		respondError(w, http.StatusNotFound, fmt.Sprintf("Kubeconfig not found: %v", err))
@@ -243,7 +231,7 @@ func (api *API) ClusterGenerateKubeconfig(w http.ResponseWriter, r *http.Request
 	}
 
 	// Regenerate kubeconfig from cluster
-	clusterMgr := cluster.NewManager(api.dataDir)
+	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	if err := clusterMgr.RegenerateKubeconfig(instanceName); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to generate kubeconfig: %v", err))
 		return
@@ -266,7 +254,7 @@ func (api *API) ClusterGetTalosconfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get talosconfig
-	clusterMgr := cluster.NewManager(api.dataDir)
+	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	talosconfig, err := clusterMgr.GetTalosconfig(instanceName)
 	if err != nil {
 		respondError(w, http.StatusNotFound, fmt.Sprintf("Talosconfig not found: %v", err))
@@ -314,7 +302,7 @@ func (api *API) ClusterReset(w http.ResponseWriter, r *http.Request) {
 
 	// Reset in background
 	go func() {
-		clusterMgr := cluster.NewManager(api.dataDir)
+		clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := clusterMgr.Reset(instanceName, req.Confirm); err != nil {
