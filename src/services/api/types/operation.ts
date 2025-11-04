@@ -1,3 +1,15 @@
+export interface BootstrapProgress {
+  current_step: number;
+  step_name: string;
+  attempt: number;
+  max_attempts: number;
+  step_description: string;
+}
+
+export interface OperationDetails {
+  bootstrap?: BootstrapProgress;
+}
+
 export interface Operation {
   id: string;
   instance_name: string;
@@ -9,6 +21,7 @@ export interface Operation {
   started: string;
   completed?: string;
   error?: string;
+  details?: OperationDetails;
 }
 
 export interface OperationListResponse {

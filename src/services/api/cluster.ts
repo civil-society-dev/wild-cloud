@@ -13,8 +13,8 @@ export const clusterApi = {
     return apiClient.post(`/api/v1/instances/${instanceName}/cluster/config/generate`, config);
   },
 
-  async bootstrap(instanceName: string, node: string): Promise<OperationResponse> {
-    return apiClient.post<OperationResponse>(`/api/v1/instances/${instanceName}/cluster/bootstrap`, { node });
+  async bootstrap(instanceName: string, nodeName: string): Promise<OperationResponse> {
+    return apiClient.post<OperationResponse>(`/api/v1/instances/${instanceName}/cluster/bootstrap`, { node_name: nodeName });
   },
 
   async configureEndpoints(instanceName: string, includeNodes = false): Promise<OperationResponse> {

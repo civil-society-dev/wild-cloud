@@ -135,15 +135,6 @@ export function CentralComponent() {
                   </div>
                 </Card>
 
-                <Card className="p-4 border-l-4 border-l-orange-500">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="h-5 w-5 text-orange-500 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground mb-1">Setup Files</div>
-                      <div className="font-medium capitalize">{centralStatus?.setupFiles || 'Unknown'}</div>
-                    </div>
-                  </div>
-                </Card>
               </div>
             </div>
 

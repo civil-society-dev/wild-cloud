@@ -74,6 +74,7 @@ const nodesConfigSchema = z.object({
 // Cluster configuration schema
 const clusterConfigSchema = z.object({
   endpointIp: ipAddressSchema,
+  hostnamePrefix: z.string().optional(),
   nodes: nodesConfigSchema,
 });
 
@@ -138,6 +139,7 @@ export const configFormSchema = z.object({
       (val) => ipAddressSchema.safeParse(val).success,
       'Must be a valid IP address'
     ),
+    hostnamePrefix: z.string().optional(),
     nodes: z.object({
       talos: z.object({
         version: z.string().min(1, 'Talos version is required').refine(
@@ -175,6 +177,7 @@ export const defaultConfigValues: ConfigFormData = {
   },
   cluster: {
     endpointIp: '192.168.8.60',
+    hostnamePrefix: '',
     nodes: {
       talos: {
         version: 'v1.8.0',

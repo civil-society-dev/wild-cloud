@@ -33,6 +33,7 @@ export interface CloudConfig {
 
 export interface TalosConfig {
   version: string;
+  schematicId?: string;
 }
 
 export interface NodesConfig {

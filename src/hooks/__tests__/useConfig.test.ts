@@ -6,7 +6,7 @@ import { useConfig } from '../useConfig';
 import { apiService } from '../../services/api-legacy';
 
 // Mock the API service
-vi.mock('../../services/api', () => ({
+vi.mock('../../services/api-legacy', () => ({
   apiService: {
     getConfig: vi.fn(),
     createConfig: vi.fn(),
@@ -56,7 +56,7 @@ describe('useConfig', () => {
       },
     };
 
-    vi.mocked(apiService.getConfig).mockResolvedValue(mockConfigResponse);
+    (apiService.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue(mockConfigResponse);
 
     const { result } = renderHook(() => useConfig(), {
       wrapper: createWrapper(),
@@ -81,7 +81,7 @@ describe('useConfig', () => {
       message: 'No configuration found',
     };
 
-    vi.mocked(apiService.getConfig).mockResolvedValue(mockConfigResponse);
+    (apiService.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue(mockConfigResponse);
 
     const { result } = renderHook(() => useConfig(), {
       wrapper: createWrapper(),
@@ -122,8 +122,8 @@ describe('useConfig', () => {
       },
     };
 
-    vi.mocked(apiService.getConfig).mockResolvedValue(mockConfigResponse);
-    vi.mocked(apiService.createConfig).mockResolvedValue(mockCreateResponse);
+    (apiService.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue(mockConfigResponse);
+    (apiService.createConfig as ReturnType<typeof vi.fn>).mockResolvedValue(mockCreateResponse);
 
     const { result } = renderHook(() => useConfig(), {
       wrapper: createWrapper(),
@@ -149,7 +149,7 @@ describe('useConfig', () => {
 
   it('should handle error when fetching config fails', async () => {
     const mockError = new Error('Network error');
-    vi.mocked(apiService.getConfig).mockRejectedValue(mockError);
+    (apiService.getConfig as ReturnType<typeof vi.fn>).mockRejectedValue(mockError);
 
     const { result } = renderHook(() => useConfig(), {
       wrapper: createWrapper(),

@@ -6,7 +6,7 @@ import { useStatus } from '../useStatus';
 import { apiService } from '../../services/api-legacy';
 
 // Mock the API service
-vi.mock('../../services/api', () => ({
+vi.mock('../../services/api-legacy', () => ({
   apiService: {
     getStatus: vi.fn(),
   },
@@ -40,7 +40,7 @@ describe('useStatus', () => {
       timestamp: '2024-01-01T00:00:00Z',
     };
 
-    vi.mocked(apiService.getStatus).mockResolvedValue(mockStatus);
+    (apiService.getStatus as ReturnType<typeof vi.fn>).mockResolvedValue(mockStatus);
 
     const { result } = renderHook(() => useStatus(), {
       wrapper: createWrapper(),
@@ -60,7 +60,7 @@ describe('useStatus', () => {
 
   it('should handle error when fetching status fails', async () => {
     const mockError = new Error('Network error');
-    vi.mocked(apiService.getStatus).mockRejectedValue(mockError);
+    (apiService.getStatus as ReturnType<typeof vi.fn>).mockRejectedValue(mockError);
 
     const { result } = renderHook(() => useStatus(), {
       wrapper: createWrapper(),
@@ -82,7 +82,7 @@ describe('useStatus', () => {
       timestamp: '2024-01-01T00:00:00Z',
     };
 
-    vi.mocked(apiService.getStatus).mockResolvedValue(mockStatus);
+    (apiService.getStatus as ReturnType<typeof vi.fn>).mockResolvedValue(mockStatus);
 
     const { result } = renderHook(() => useStatus(), {
       wrapper: createWrapper(),

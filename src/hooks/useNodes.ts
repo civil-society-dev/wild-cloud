@@ -13,16 +13,27 @@ export function useNodes(instanceName: string | null | undefined) {
 
   const discoverMutation = useMutation({
     mutationFn: (subnet: string) => nodesApi.discover(instanceName!, subnet),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'discovery'] });
+    },
   });
 
   const detectMutation = useMutation({
-    mutationFn: () => nodesApi.detect(instanceName!),
+    mutationFn: (ip?: string) => nodesApi.detect(instanceName!, ip),
+  });
+
+  const autoDetectMutation = useMutation({
+    mutationFn: () => nodesApi.autoDetect(instanceName!),
   });
 
   const addMutation = useMutation({
     mutationFn: (node: NodeAddRequest) => nodesApi.add(instanceName!, node),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'nodes'] });
+    },
+    onError: (error) => {
+      // Don't refetch on error to avoid showing inconsistent state
+      console.error('Failed to add node:', error);
     },
   });
 
@@ -39,6 +50,10 @@ export function useNodes(instanceName: string | null | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'nodes'] });
     },
+    onError: (error) => {
+      // Don't refetch on error to avoid showing inconsistent state
+      console.error('Failed to delete node:', error);
+    },
   });
 
   const applyMutation = useMutation({
@@ -49,6 +64,17 @@ export function useNodes(instanceName: string | null | undefined) {
     mutationFn: () => nodesApi.fetchTemplates(instanceName!),
   });
 
+  const cancelDiscoveryMutation = useMutation({
+    mutationFn: () => nodesApi.cancelDiscovery(instanceName!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'discovery'] });
+    },
+  });
+
+  const getHardwareMutation = useMutation({
+    mutationFn: (ip: string) => nodesApi.getHardware(instanceName!, ip),
+  });
+
   return {
     nodes: nodesQuery.data?.nodes || [],
     isLoading: nodesQuery.isLoading,
@@ -57,19 +83,32 @@ export function useNodes(instanceName: string | null | undefined) {
     discover: discoverMutation.mutate,
     isDiscovering: discoverMutation.isPending,
     discoverResult: discoverMutation.data,
+    discoverError: discoverMutation.error,
     detect: detectMutation.mutate,
     isDetecting: detectMutation.isPending,
     detectResult: detectMutation.data,
+    detectError: detectMutation.error,
+    autoDetect: autoDetectMutation.mutate,
+    isAutoDetecting: autoDetectMutation.isPending,
+    autoDetectResult: autoDetectMutation.data,
+    autoDetectError: autoDetectMutation.error,
+    getHardware: getHardwareMutation.mutateAsync,
+    isGettingHardware: getHardwareMutation.isPending,
+    getHardwareError: getHardwareMutation.error,
     addNode: addMutation.mutate,
     isAdding: addMutation.isPending,
+    addError: addMutation.error,
     updateNode: updateMutation.mutate,
     isUpdating: updateMutation.isPending,
     deleteNode: deleteMutation.mutate,
     isDeleting: deleteMutation.isPending,
+    deleteError: deleteMutation.error,
     applyNode: applyMutation.mutate,
     isApplying: applyMutation.isPending,
     fetchTemplates: fetchTemplatesMutation.mutate,
     isFetchingTemplates: fetchTemplatesMutation.isPending,
+    cancelDiscovery: cancelDiscoveryMutation.mutate,
+    isCancellingDiscovery: cancelDiscoveryMutation.isPending,
   };
 }
 

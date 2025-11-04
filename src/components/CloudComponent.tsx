@@ -20,23 +20,39 @@ interface CloudConfig {
   };
 }
 
+interface ClusterConfig {
+  endpointIp: string;
+  hostnamePrefix?: string;
+  nodes: {
+    talos: {
+      version: string;
+    };
+  };
+}
+
 export function CloudComponent() {
   const { currentInstance } = useInstanceContext();
   const { config: fullConfig, isLoading, error, updateConfig, isUpdating } = useInstanceConfig(currentInstance);
 
-  // Extract cloud config from full config
+  // Extract cloud and cluster config from full config
   const config = fullConfig?.cloud as CloudConfig | undefined;
+  const clusterConfig = fullConfig?.cluster as ClusterConfig | undefined;
 
   const [editingDomains, setEditingDomains] = useState(false);
   const [editingNetwork, setEditingNetwork] = useState(false);
+  const [editingCluster, setEditingCluster] = useState(false);
   const [formValues, setFormValues] = useState<CloudConfig | null>(null);
+  const [clusterFormValues, setClusterFormValues] = useState<ClusterConfig | null>(null);
 
   // Sync form values when config loads
   useEffect(() => {
     if (config && !formValues) {
       setFormValues(config as CloudConfig);
     }
-  }, [config, formValues]);
+    if (clusterConfig && !clusterFormValues) {
+      setClusterFormValues(clusterConfig as ClusterConfig);
+    }
+  }, [config, clusterConfig, formValues, clusterFormValues]);
 
   const handleDomainsEdit = () => {
     if (config) {
@@ -106,6 +122,33 @@ export function CloudComponent() {
     setEditingNetwork(false);
   };
 
+  const handleClusterEdit = () => {
+    if (clusterConfig) {
+      setClusterFormValues(clusterConfig as ClusterConfig);
+      setEditingCluster(true);
+    }
+  };
+
+  const handleClusterSave = async () => {
+    if (!clusterFormValues || !fullConfig) return;
+
+    try {
+      // Update only the cluster section, preserving other config sections
+      await updateConfig({
+        ...fullConfig,
+        cluster: clusterFormValues,
+      });
+      setEditingCluster(false);
+    } catch (err) {
+      console.error('Failed to save cluster settings:', err);
+    }
+  };
+
+  const handleClusterCancel = () => {
+    setClusterFormValues(clusterConfig as ClusterConfig);
+    setEditingCluster(false);
+  };
+
   const updateFormValue = (path: string, value: string) => {
     if (!formValues) return;
 
@@ -127,6 +170,35 @@ export function CloudComponent() {
           [childKey]: value,
         },
       };
+    });
+  };
+
+  const updateClusterFormValue = (path: string, value: string) => {
+    if (!clusterFormValues) return;
+
+    setClusterFormValues(prev => {
+      if (!prev) return prev;
+
+      // Handle nested paths like "nodes.talos.version"
+      const keys = path.split('.');
+      if (keys.length === 1) {
+        return { ...prev, [keys[0]]: value };
+      }
+
+      if (keys.length === 3 && keys[0] === 'nodes' && keys[1] === 'talos') {
+        return {
+          ...prev,
+          nodes: {
+            ...prev.nodes,
+            talos: {
+              ...prev.nodes.talos,
+              [keys[2]]: value,
+            },
+          },
+        };
+      }
+
+      return prev;
     });
   };
 
@@ -390,6 +462,120 @@ export function CloudComponent() {
               </div>
             )}
           </Card>
+
+          {/* Cluster Configuration Section */}
+          {clusterFormValues && (
+            <Card className="p-4 border-l-4 border-l-purple-500">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-medium">Cluster Configuration</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Kubernetes cluster and node settings
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm">
+                    <HelpCircle className="h-4 w-4" />
+                  </Button>
+                  {!editingCluster && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClusterEdit}
+                      disabled={isUpdating}
+                    >
+                      <Edit2 className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {editingCluster ? (
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="endpoint-ip-edit">Cluster Endpoint IP</Label>
+                    <Input
+                      id="endpoint-ip-edit"
+                      value={clusterFormValues.endpointIp}
+                      onChange={(e) => updateClusterFormValue('endpointIp', e.target.value)}
+                      placeholder="192.168.1.60"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Virtual IP for the Kubernetes API endpoint
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="hostname-prefix-edit">Hostname Prefix (Optional)</Label>
+                    <Input
+                      id="hostname-prefix-edit"
+                      value={clusterFormValues.hostnamePrefix || ''}
+                      onChange={(e) => updateClusterFormValue('hostnamePrefix', e.target.value)}
+                      placeholder="mycluster-"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Prefix for auto-generated node hostnames (e.g., "mycluster-control-1")
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="talos-version-edit">Talos Version</Label>
+                    <Input
+                      id="talos-version-edit"
+                      value={clusterFormValues.nodes.talos.version}
+                      onChange={(e) => updateClusterFormValue('nodes.talos.version', e.target.value)}
+                      placeholder="v1.8.0"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Talos Linux version for cluster nodes
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleClusterSave} disabled={isUpdating}>
+                      {isUpdating ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4 mr-1" />
+                      )}
+                      Save
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClusterCancel}
+                      disabled={isUpdating}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <Label>Cluster Endpoint IP</Label>
+                    <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
+                      {clusterFormValues.endpointIp}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Hostname Prefix</Label>
+                    <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
+                      {clusterFormValues.hostnamePrefix || '(none)'}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Talos Version</Label>
+                    <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
+                      {clusterFormValues.nodes.talos.version}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
         </div>
       </Card>
     </div>

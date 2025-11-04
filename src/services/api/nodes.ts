@@ -39,12 +39,21 @@ export const nodesApi = {
     return apiClient.post(`/api/v1/instances/${instanceName}/nodes/discover`, { subnet });
   },
 
-  async detect(instanceName: string): Promise<OperationResponse> {
-    return apiClient.post(`/api/v1/instances/${instanceName}/nodes/detect`);
+  async detect(instanceName: string, ip?: string): Promise<OperationResponse> {
+    const body = ip ? { ip } : {};
+    return apiClient.post(`/api/v1/instances/${instanceName}/nodes/detect`, body);
+  },
+
+  async autoDetect(instanceName: string): Promise<{ networks: string[]; nodes: any[]; count: number }> {
+    return apiClient.post(`/api/v1/instances/${instanceName}/nodes/auto-detect`);
   },
 
   async discoveryStatus(instanceName: string): Promise<DiscoveryStatus> {
     return apiClient.get(`/api/v1/instances/${instanceName}/discovery`);
+  },
+
+  async cancelDiscovery(instanceName: string): Promise<OperationResponse> {
+    return apiClient.post(`/api/v1/instances/${instanceName}/discovery/cancel`);
   },
 
   async getHardware(instanceName: string, ip: string): Promise<HardwareInfo> {

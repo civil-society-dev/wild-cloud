@@ -239,6 +239,22 @@ export const ConfigurationForm = () => {
                     />
                     <FormField
                       control={form.control}
+                      name="cluster.hostnamePrefix"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Hostname Prefix (Optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="test-" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Optional prefix for node hostnames (e.g., 'test-' for unique names on LAN)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name="cluster.nodes.talos.version"
                       render={({ field }) => (
                         <FormItem>

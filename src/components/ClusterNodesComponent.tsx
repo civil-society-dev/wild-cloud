@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Alert } from './ui/alert';
+import { Input } from './ui/input';
 import { Cpu, HardDrive, Network, Monitor, CheckCircle, AlertCircle, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useNodes, useDiscoveryStatus } from '../hooks/useNodes';
+import { useCluster } from '../hooks/useCluster';
+import { BootstrapModal } from './cluster/BootstrapModal';
+import { NodeStatusBadge } from './nodes/NodeStatusBadge';
+import { NodeFormDrawer } from './nodes/NodeFormDrawer';
+import type { NodeFormData } from './nodes/NodeForm';
+import type { Node, HardwareInfo, DiscoveredNode } from '../services/api/types';
 
 export function ClusterNodesComponent() {
   const { currentInstance } = useInstanceContext();
@@ -13,61 +21,91 @@ export function ClusterNodesComponent() {
     isLoading,
     error,
     addNode,
-    isAdding,
+    addError,
     deleteNode,
     isDeleting,
+    deleteError,
     discover,
     isDiscovering,
-    detect,
-    isDetecting
+    discoverError: discoverMutationError,
+    getHardware,
+    isGettingHardware,
+    getHardwareError,
+    cancelDiscovery,
+    isCancellingDiscovery,
+    updateNode,
+    applyNode,
+    isApplying,
+    refetch
   } = useNodes(currentInstance);
 
   const {
     data: discoveryStatus
   } = useDiscoveryStatus(currentInstance);
 
-  const [subnet, setSubnet] = useState('192.168.1.0/24');
+  const {
+    status: clusterStatus
+  } = useCluster(currentInstance);
 
-  const getStatusIcon = (status?: string) => {
-    switch (status) {
-      case 'ready':
-      case 'healthy':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      case 'connecting':
-      case 'provisioning':
-        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
-      default:
-        return <Monitor className="h-5 w-5 text-muted-foreground" />;
+  const [discoverSubnet, setDiscoverSubnet] = useState('192.168.8.0/24');
+  const [addNodeIp, setAddNodeIp] = useState('');
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  const [discoverSuccess, setDiscoverSuccess] = useState<string | null>(null);
+  const [showBootstrapModal, setShowBootstrapModal] = useState(false);
+  const [bootstrapNode, setBootstrapNode] = useState<{ name: string; ip: string } | null>(null);
+  const [drawerState, setDrawerState] = useState<{
+    open: boolean;
+    mode: 'add' | 'configure';
+    node?: Node;
+    detection?: HardwareInfo;
+  }>({
+    open: false,
+    mode: 'add',
+  });
+
+  const closeDrawer = () => setDrawerState({ ...drawerState, open: false });
+
+  // Sync mutation errors to local state for display
+  useEffect(() => {
+    if (discoverMutationError) {
+      const errorMsg = (discoverMutationError as any)?.message || 'Failed to discover nodes';
+      setDiscoverError(errorMsg);
     }
-  };
+  }, [discoverMutationError]);
 
-  const getStatusBadge = (status?: string) => {
-    const variants: Record<string, 'secondary' | 'default' | 'success' | 'destructive'> = {
-      pending: 'secondary',
-      connecting: 'default',
-      provisioning: 'default',
-      ready: 'success',
-      healthy: 'success',
-      error: 'destructive',
-    };
+  useEffect(() => {
+    if (getHardwareError) {
+      const errorMsg = (getHardwareError as any)?.message || 'Failed to detect hardware';
+      setDetectError(errorMsg);
+    }
+  }, [getHardwareError]);
 
-    const labels: Record<string, string> = {
-      pending: 'Pending',
-      connecting: 'Connecting',
-      provisioning: 'Provisioning',
-      ready: 'Ready',
-      healthy: 'Healthy',
-      error: 'Error',
-    };
+  // Track previous discovery status to detect completion
+  const [prevDiscoveryActive, setPrevDiscoveryActive] = useState<boolean | null>(null);
 
-    return (
-      <Badge variant={variants[status || 'pending']}>
-        {labels[status || 'pending'] || status}
-      </Badge>
-    );
-  };
+  // Handle discovery completion (when active changes from true to false)
+  useEffect(() => {
+    const isActive = discoveryStatus?.active ?? false;
+
+    // Discovery just completed (was active, now inactive)
+    if (prevDiscoveryActive === true && isActive === false && discoveryStatus) {
+      const count = discoveryStatus.nodes_found?.length || 0;
+      if (count === 0) {
+        setDiscoverSuccess(`Discovery complete! No nodes were found in the subnet.`);
+      } else {
+        setDiscoverSuccess(`Discovery complete! Found ${count} node${count !== 1 ? 's' : ''} in subnet.`);
+      }
+      setDiscoverError(null);
+      refetch();
+
+      const timer = setTimeout(() => setDiscoverSuccess(null), 5000);
+      return () => clearTimeout(timer);
+    }
+
+    // Update previous state
+    setPrevDiscoveryActive(isActive);
+  }, [discoveryStatus, prevDiscoveryActive, refetch]);
 
   const getRoleIcon = (role: string) => {
     return role === 'controlplane' ? (
@@ -77,9 +115,103 @@ export function ClusterNodesComponent() {
     );
   };
 
-  const handleAddNode = (ip: string, hostname: string, role: 'controlplane' | 'worker') => {
-    if (!currentInstance) return;
-    addNode({ target_ip: ip, hostname, role, disk: '/dev/sda' });
+  const handleAddFromDiscovery = async (discovered: DiscoveredNode) => {
+    // Fetch full hardware details for the discovered node
+    try {
+      const hardware = await getHardware(discovered.ip);
+      setDrawerState({
+        open: true,
+        mode: 'add',
+        detection: hardware,
+      });
+    } catch (err) {
+      console.error('Failed to detect hardware:', err);
+      setDetectError((err as any)?.message || 'Failed to detect hardware');
+    }
+  };
+
+  const handleAddNode = async () => {
+    if (!addNodeIp) return;
+
+    try {
+      const hardware = await getHardware(addNodeIp);
+      setDrawerState({
+        open: true,
+        mode: 'add',
+        detection: hardware,
+      });
+    } catch (err) {
+      console.error('Failed to detect hardware:', err);
+      setDetectError((err as any)?.message || 'Failed to detect hardware');
+    }
+  };
+
+  const handleConfigureNode = async (node: Node) => {
+    // Try to detect hardware if target_ip is available
+    if (node.target_ip) {
+      try {
+        const hardware = await getHardware(node.target_ip);
+        setDrawerState({
+          open: true,
+          mode: 'configure',
+          node,
+          detection: hardware,
+        });
+        return;
+      } catch (err) {
+        console.error('Failed to detect hardware:', err);
+        // Fall through to open drawer without detection data
+      }
+    }
+
+    // Open drawer without detection data (either no target_ip or detection failed)
+    setDrawerState({
+      open: true,
+      mode: 'configure',
+      node,
+    });
+  };
+
+  const handleAddSubmit = async (data: NodeFormData) => {
+    await addNode({
+      hostname: data.hostname,
+      role: data.role,
+      disk: data.disk,
+      target_ip: data.targetIp,
+      current_ip: data.currentIp,
+      interface: data.interface,
+      schematic_id: data.schematicId,
+      maintenance: data.maintenance,
+    });
+    closeDrawer();
+    setAddNodeIp('');
+  };
+
+  const handleConfigureSubmit = async (data: NodeFormData) => {
+    if (!drawerState.node) return;
+
+    await updateNode({
+      nodeName: drawerState.node.hostname,
+      updates: {
+        role: data.role,
+        config: {
+          disk: data.disk,
+          target_ip: data.targetIp,
+          current_ip: data.currentIp,
+          interface: data.interface,
+          schematic_id: data.schematicId,
+          maintenance: data.maintenance,
+        },
+      },
+    });
+    closeDrawer();
+  };
+
+  const handleApply = async (data: NodeFormData) => {
+    if (!drawerState.node) return;
+
+    await handleConfigureSubmit(data);
+    await applyNode(drawerState.node.hostname);
   };
 
   const handleDeleteNode = (hostname: string) => {
@@ -90,14 +222,11 @@ export function ClusterNodesComponent() {
   };
 
   const handleDiscover = () => {
-    if (!currentInstance) return;
-    discover(subnet);
+    setDiscoverError(null);
+    setDiscoverSuccess(null);
+    discover(discoverSubnet);
   };
 
-  const handleDetect = () => {
-    if (!currentInstance) return;
-    detect();
-  };
 
   // Derive status from backend state flags for each node
   const assignedNodes = nodes.map(node => {
@@ -112,8 +241,25 @@ export function ClusterNodesComponent() {
     return { ...node, status };
   });
 
-  // Extract IPs from discovered nodes
-  const discoveredIps = discoveryStatus?.nodes_found?.map(n => n.ip) || [];
+  // Check if cluster needs bootstrap
+  const needsBootstrap = useMemo(() => {
+    // Find first ready control plane node
+    const hasReadyControlPlane = assignedNodes.some(
+      n => n.role === 'controlplane' && n.status === 'ready'
+    );
+
+    // Check if cluster is already bootstrapped using cluster status
+    // The backend checks for kubeconfig existence and cluster connectivity
+    const hasBootstrapped = clusterStatus?.status !== 'not_bootstrapped' && clusterStatus?.status !== undefined;
+
+    return hasReadyControlPlane && !hasBootstrapped;
+  }, [assignedNodes, clusterStatus]);
+
+  const firstReadyControl = useMemo(() => {
+    return assignedNodes.find(
+      n => n.role === 'controlplane' && n.status === 'ready'
+    );
+  }, [assignedNodes]);
 
   // Show message if no instance is selected
   if (!currentInstance) {
@@ -155,12 +301,12 @@ export function ClusterNodesComponent() {
               What are Cluster Nodes?
             </h3>
             <p className="text-cyan-800 dark:text-cyan-200 mb-3 leading-relaxed">
-              Think of cluster nodes as the "workers" in your personal cloud factory. Each node is a separate computer 
-              that contributes its processing power, memory, and storage to the overall cluster. Some nodes are "controllers" 
+              Think of cluster nodes as the "workers" in your personal cloud factory. Each node is a separate computer
+              that contributes its processing power, memory, and storage to the overall cluster. Some nodes are "controllers"
               (like managers) that coordinate the work, while others are "workers" that do the heavy lifting.
             </p>
             <p className="text-cyan-700 dark:text-cyan-300 mb-4 text-sm">
-              By connecting multiple computers together as nodes, you create a powerful, resilient system where if one 
+              By connecting multiple computers together as nodes, you create a powerful, resilient system where if one
               computer fails, the others can pick up the work. This is how you scale your personal cloud from one machine to many.
             </p>
             <Button variant="outline" size="sm" className="text-cyan-700 border-cyan-300 hover:bg-cyan-100 dark:text-cyan-300 dark:border-cyan-700 dark:hover:bg-cyan-900/20">
@@ -170,6 +316,32 @@ export function ClusterNodesComponent() {
           </div>
         </div>
       </Card>
+
+      {/* Bootstrap Alert */}
+      {needsBootstrap && firstReadyControl && (
+        <Alert variant="info" className="mb-6">
+          <CheckCircle className="h-5 w-5" />
+          <div className="flex-1">
+            <h3 className="font-semibold mb-1">First Control Plane Node Ready!</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Your first control plane node ({firstReadyControl.hostname}) is ready.
+              Bootstrap the cluster to initialize etcd and start Kubernetes control plane components.
+            </p>
+            <Button
+              onClick={() => {
+                setBootstrapNode({
+                  name: firstReadyControl.hostname,
+                  ip: firstReadyControl.target_ip
+                });
+                setShowBootstrapModal(true);
+              }}
+              size="sm"
+            >
+              Bootstrap Cluster
+            </Button>
+          </div>
+        </Alert>
+      )}
 
       <Card className="p-6">
         <div className="flex items-center gap-4 mb-6">
@@ -191,41 +363,177 @@ export function ClusterNodesComponent() {
           </Card>
         ) : (
           <>
+            {/* Error and Success Alerts */}
+            {discoverError && (
+              <Alert variant="error" onClose={() => setDiscoverError(null)} className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <div>
+                  <strong>Discovery Failed</strong>
+                  <p className="text-sm mt-1">{discoverError}</p>
+                </div>
+              </Alert>
+            )}
+
+            {discoverSuccess && (
+              <Alert variant="success" onClose={() => setDiscoverSuccess(null)} className="mb-4">
+                <CheckCircle className="h-4 w-4" />
+                <div>
+                  <strong>Discovery Successful</strong>
+                  <p className="text-sm mt-1">{discoverSuccess}</p>
+                </div>
+              </Alert>
+            )}
+
+            {detectError && (
+              <Alert variant="error" onClose={() => setDetectError(null)} className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <div>
+                  <strong>Auto-Detect Failed</strong>
+                  <p className="text-sm mt-1">{detectError}</p>
+                </div>
+              </Alert>
+            )}
+
+
+            {addError && (
+              <Alert variant="error" onClose={() => {}} className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <div>
+                  <strong>Failed to Add Node</strong>
+                  <p className="text-sm mt-1">{(addError as any)?.message || 'An error occurred'}</p>
+                </div>
+              </Alert>
+            )}
+
+            {deleteError && (
+              <Alert variant="error" onClose={() => {}} className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <div>
+                  <strong>Failed to Remove Node</strong>
+                  <p className="text-sm mt-1">{(deleteError as any)?.message || 'An error occurred'}</p>
+                </div>
+              </Alert>
+            )}
+
+            {/* DISCOVERY SECTION - Scan subnet for nodes */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                Discover Nodes on Network
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Scan a subnet to find nodes in maintenance mode
+              </p>
+
+              <div className="flex gap-3 mb-4">
+                <Input
+                  type="text"
+                  value={discoverSubnet}
+                  onChange={(e) => setDiscoverSubnet(e.target.value)}
+                  placeholder="192.168.8.0/24"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleDiscover}
+                  disabled={isDiscovering || discoveryStatus?.active}
+                >
+                  {isDiscovering || discoveryStatus?.active ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Discovering...
+                    </>
+                  ) : (
+                    'Discover'
+                  )}
+                </Button>
+                {(isDiscovering || discoveryStatus?.active) && (
+                  <Button
+                    onClick={() => cancelDiscovery()}
+                    disabled={isCancellingDiscovery}
+                    variant="destructive"
+                  >
+                    {isCancellingDiscovery && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Cancel
+                  </Button>
+                )}
+              </div>
+
+              {discoveryStatus?.nodes_found && discoveryStatus.nodes_found.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Discovered {discoveryStatus.nodes_found.length} node(s)
+                  </h4>
+                  <div className="space-y-3">
+                    {discoveryStatus.nodes_found.map((discovered) => (
+                      <div key={discovered.ip} className="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium font-mono text-gray-900 dark:text-gray-100">{discovered.ip}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              Maintenance mode{discovered.version ? ` • Talos ${discovered.version}` : ''}
+                            </p>
+                            {discovered.hostname && (
+                              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{discovered.hostname}</p>
+                            )}
+                          </div>
+                          <Button
+                            onClick={() => handleAddFromDiscovery(discovered)}
+                            size="sm"
+                          >
+                            Add to Cluster
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ADD NODE SECTION - Add single node by IP */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                Add Single Node
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Add a node by IP address to detect hardware and configure
+              </p>
+
+              <div className="flex gap-3">
+                <Input
+                  type="text"
+                  value={addNodeIp}
+                  onChange={(e) => setAddNodeIp(e.target.value)}
+                  placeholder="192.168.8.128"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleAddNode}
+                  disabled={isGettingHardware}
+                  variant="secondary"
+                >
+                  {isGettingHardware ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Detecting...
+                    </>
+                  ) : (
+                    'Add Node'
+                  )}
+                </Button>
+              </div>
+            </div>
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium">Cluster Nodes ({assignedNodes.length})</h2>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Subnet (e.g., 192.168.1.0/24)"
-                    value={subnet}
-                    onChange={(e) => setSubnet(e.target.value)}
-                    className="px-3 py-1 text-sm border rounded-lg"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleDiscover}
-                    disabled={isDiscovering || discoveryStatus?.active}
-                  >
-                    {isDiscovering || discoveryStatus?.active ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : null}
-                    {discoveryStatus?.active ? 'Discovering...' : 'Discover'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleDetect}
-                    disabled={isDetecting}
-                  >
-                    {isDetecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Auto Detect
-                  </Button>
-                </div>
               </div>
 
               {assignedNodes.map((node) => (
-                <Card key={node.hostname} className="p-4">
+                <Card key={node.hostname} className="p-4 hover:shadow-md transition-shadow">
+                  <div className="mb-2">
+                    <NodeStatusBadge node={node} compact />
+                  </div>
+
                   <div className="flex items-center gap-4">
                     <div className="p-2 bg-muted rounded-lg">
                       {getRoleIcon(node.role)}
@@ -236,13 +544,17 @@ export function ClusterNodesComponent() {
                         <Badge variant="outline" className="text-xs">
                           {node.role}
                         </Badge>
-                        {getStatusIcon(node.status)}
                       </div>
                       <div className="text-sm text-muted-foreground mb-2">
-                        IP: {node.target_ip}
+                        Target: {node.target_ip}
                       </div>
+                      {node.disk && (
+                        <div className="text-xs text-muted-foreground">
+                          Disk: {node.disk}
+                        </div>
+                      )}
                       {node.hardware && (
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
                           {node.hardware.cpu && (
                             <span className="flex items-center gap-1">
                               <Cpu className="h-3 w-3" />
@@ -270,15 +582,30 @@ export function ClusterNodesComponent() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
-                      {getStatusBadge(node.status)}
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleConfigureNode(node)}
+                      >
+                        Configure
+                      </Button>
+                      {node.configured && !node.applied && (
+                        <Button
+                          size="sm"
+                          onClick={() => applyNode(node.hostname)}
+                          disabled={isApplying}
+                          variant="secondary"
+                        >
+                          {isApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="destructive"
                         onClick={() => handleDeleteNode(node.hostname)}
                         disabled={isDeleting}
                       >
-                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
+                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
                       </Button>
                     </div>
                   </div>
@@ -295,78 +622,35 @@ export function ClusterNodesComponent() {
                 </Card>
               )}
             </div>
-
-            {discoveredIps.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-lg font-medium mb-4">Discovered IPs ({discoveredIps.length})</h3>
-                <div className="space-y-2">
-                  {discoveredIps.map((ip) => (
-                    <Card key={ip} className="p-3 flex items-center justify-between">
-                      <span className="text-sm font-mono">{ip}</span>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleAddNode(ip, `node-${ip}`, 'worker')}
-                          disabled={isAdding}
-                        >
-                          Add as Worker
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAddNode(ip, `controlplane-${ip}`, 'controlplane')}
-                          disabled={isAdding}
-                        >
-                          Add as Control Plane
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
       </Card>
 
-      <Card className="p-6">
-        <h3 className="text-lg font-medium mb-4">PXE Boot Instructions</h3>
-        <div className="space-y-3 text-sm">
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
-              1
-            </div>
-            <div>
-              <p className="font-medium">Power on your nodes</p>
-              <p className="text-muted-foreground">
-                Ensure network boot (PXE) is enabled in BIOS/UEFI settings
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
-              2
-            </div>
-            <div>
-              <p className="font-medium">Connect to the wild-cloud network</p>
-              <p className="text-muted-foreground">
-                Nodes will automatically receive IP addresses via DHCP
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
-              3
-            </div>
-            <div>
-              <p className="font-medium">Boot Talos Linux</p>
-              <p className="text-muted-foreground">
-                Nodes will automatically download and boot Talos Linux via PXE
-              </p>
-            </div>
-          </div>
-        </div>
-      </Card>
+      {/* Bootstrap Modal */}
+      {showBootstrapModal && bootstrapNode && (
+        <BootstrapModal
+          instanceName={currentInstance!}
+          nodeName={bootstrapNode.name}
+          nodeIp={bootstrapNode.ip}
+          onClose={() => {
+            setShowBootstrapModal(false);
+            setBootstrapNode(null);
+            refetch();
+          }}
+        />
+      )}
+
+      {/* Node Form Drawer */}
+      <NodeFormDrawer
+        open={drawerState.open}
+        onClose={closeDrawer}
+        mode={drawerState.mode}
+        node={drawerState.mode === 'configure' ? drawerState.node : undefined}
+        detection={drawerState.detection}
+        onSubmit={drawerState.mode === 'add' ? handleAddSubmit : handleConfigureSubmit}
+        onApply={drawerState.mode === 'configure' ? handleApply : undefined}
+        instanceName={currentInstance || ''}
+      />
     </div>
   );
 }
