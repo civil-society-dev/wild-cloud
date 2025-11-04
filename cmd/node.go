@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -24,6 +28,19 @@ var nodeDiscoverCmd = &cobra.Command{
 			return err
 		}
 
+		// Check if --cancel flag is set
+		shouldCancel, _ := cmd.Flags().GetBool("cancel")
+		if shouldCancel {
+			// Cancel any running discovery first
+			_, err := apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/discovery/cancel", inst), nil)
+			if err != nil {
+				// Ignore error if no discovery is running
+				fmt.Println("No active discovery to cancel, starting new discovery...")
+			} else {
+				fmt.Println("Cancelled previous discovery, starting new discovery...")
+			}
+		}
+
 		fmt.Printf("Starting discovery for %d IP(s)...\n", len(args))
 		_, err = apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes/discover", inst), map[string]interface{}{
 			"ip_list": args,
@@ -32,38 +49,76 @@ var nodeDiscoverCmd = &cobra.Command{
 			return err
 		}
 
-		// Poll for completion
-		fmt.Println("Scanning nodes...")
-		for {
-			resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/discovery", inst))
-			if err != nil {
-				return err
-			}
+		// Set up signal handling for Ctrl-C
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-			active, _ := resp.Data["active"].(bool)
-			if !active {
-				// Discovery complete
-				nodesFound := resp.GetArray("nodes_found")
-				if len(nodesFound) == 0 {
-					fmt.Println("\nNo Talos nodes found")
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+		// Handle signals in a goroutine
+		go func() {
+			<-sigChan
+			fmt.Println("\n\nCancelling discovery...")
+			cancel()
+
+			// Call cancel API
+			_, err := apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/discovery/cancel", inst), nil)
+			if err != nil {
+				fmt.Printf("Failed to cancel discovery: %v\n", err)
+			} else {
+				fmt.Println("Discovery cancelled successfully")
+			}
+			os.Exit(0)
+		}()
+
+		// Poll for completion
+		fmt.Println("Scanning nodes... (Press Ctrl-C to cancel)")
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-ticker.C:
+				resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/discovery", inst))
+				if err != nil {
+					return err
+				}
+
+				active, _ := resp.Data["active"].(bool)
+				if !active {
+					// Discovery complete
+					nodesFound := resp.GetArray("nodes_found")
+					if len(nodesFound) == 0 {
+						fmt.Println("\nNo Talos nodes found")
+						return nil
+					}
+
+					fmt.Printf("\nFound %d node(s) in maintenance mode:\n\n", len(nodesFound))
+					fmt.Printf("%-15s  %-15s  %-15s\n", "IP", "VERSION", "HOSTNAME")
+					fmt.Println("-----------------------------------------------------")
+					for _, node := range nodesFound {
+						if m, ok := node.(map[string]interface{}); ok {
+							version := m["version"]
+							if version == nil {
+								version = ""
+							}
+							hostname := m["hostname"]
+							if hostname == nil {
+								hostname = ""
+							}
+							fmt.Printf("%-15s  %-15s  %-15s\n",
+								m["ip"], version, hostname)
+						}
+					}
 					return nil
 				}
 
-				fmt.Printf("\nFound %d node(s):\n\n", len(nodesFound))
-				fmt.Printf("%-15s  %-12s  %-10s\n", "IP", "INTERFACE", "VERSION")
-				fmt.Println("-----------------------------------------------")
-				for _, node := range nodesFound {
-					if m, ok := node.(map[string]interface{}); ok {
-						fmt.Printf("%-15s  %-12s  %-10s\n",
-							m["ip"], m["interface"], m["version"])
-					}
-				}
-				return nil
+				// Still running, show progress
+				fmt.Print(".")
 			}
-
-			// Still running, wait a bit
-			fmt.Print(".")
-			time.Sleep(500 * time.Millisecond)
 		}
 	},
 }
@@ -431,6 +486,31 @@ You can use it manually to update templates.`,
 	},
 }
 
+var nodeCancelDiscoveryCmd = &cobra.Command{
+	Use:   "cancel-discovery",
+	Short: "Cancel active node discovery",
+	Long: `Cancel an active node discovery operation.
+
+Use this if discovery gets stuck or you want to stop a running scan.
+
+Example:
+  wild node cancel-discovery`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		_, err = apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/discovery/cancel", inst), nil)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Discovery cancelled successfully")
+		return nil
+	},
+}
+
 var nodeDeleteCmd = &cobra.Command{
 	Use:   "delete <hostname>",
 	Short: "Delete a node",
@@ -453,6 +533,7 @@ var nodeDeleteCmd = &cobra.Command{
 
 func init() {
 	nodeCmd.AddCommand(nodeDiscoverCmd)
+	nodeCmd.AddCommand(nodeCancelDiscoveryCmd)
 	nodeCmd.AddCommand(nodeDetectCmd)
 	nodeCmd.AddCommand(nodeListCmd)
 	nodeCmd.AddCommand(nodeShowCmd)
@@ -461,6 +542,9 @@ func init() {
 	nodeCmd.AddCommand(nodeUpdateCmd)
 	nodeCmd.AddCommand(nodeFetchTemplatesCmd)
 	nodeCmd.AddCommand(nodeDeleteCmd)
+
+	// Add flags to node discover command
+	nodeDiscoverCmd.Flags().Bool("cancel", false, "Cancel any running discovery before starting")
 
 	// Add flags to node add command
 	nodeAddCmd.Flags().String("target-ip", "", "Target IP address for production")
