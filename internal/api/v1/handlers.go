@@ -18,6 +18,7 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/instance"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/secrets"
+	"github.com/wild-cloud/wild-central/daemon/internal/storage"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
@@ -302,7 +303,7 @@ func (api *API) GetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 // updateYAMLFile updates a YAML file with the provided key-value pairs
-func (api *API) updateYAMLFile(w http.ResponseWriter, r *http.Request, instanceName, fileType string, updateFunc func(string, string, string) error) {
+func (api *API) updateYAMLFile(w http.ResponseWriter, r *http.Request, instanceName, fileType string) {
 	if err := api.instance.ValidateInstance(instanceName); err != nil {
 		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
 		return
@@ -327,13 +328,44 @@ func (api *API) updateYAMLFile(w http.ResponseWriter, r *http.Request, instanceN
 		filePath = api.instance.GetInstanceSecretsPath(instanceName)
 	}
 
-	// Update each key-value pair
-	for key, value := range updates {
-		valueStr := fmt.Sprintf("%v", value)
-		if err := updateFunc(filePath, key, valueStr); err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update %s key %s: %v", fileType, key, err))
+	// Read existing config/secrets file
+	existingContent, err := storage.ReadFile(filePath)
+	if err != nil && !os.IsNotExist(err) {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read existing %s: %v", fileType, err))
+		return
+	}
+
+	// Parse existing content or initialize empty map
+	var existingConfig map[string]interface{}
+	if len(existingContent) > 0 {
+		if err := yaml.Unmarshal(existingContent, &existingConfig); err != nil {
+			respondError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse existing %s: %v", fileType, err))
 			return
 		}
+	} else {
+		existingConfig = make(map[string]interface{})
+	}
+
+	// Merge updates into existing config (shallow merge for top-level keys)
+	// This preserves unmodified keys while updating specified ones
+	for key, value := range updates {
+		existingConfig[key] = value
+	}
+
+	// Marshal the merged config back to YAML with proper formatting
+	yamlContent, err := yaml.Marshal(existingConfig)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal YAML: %v", err))
+		return
+	}
+
+	// Write the complete merged YAML content to the file with proper locking
+	lockPath := filePath + ".lock"
+	if err := storage.WithLock(lockPath, func() error {
+		return storage.WriteFile(filePath, yamlContent, 0644)
+	}); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update %s: %v", fileType, err))
+		return
 	}
 
 	// Capitalize first letter of fileType for message
@@ -351,7 +383,7 @@ func (api *API) updateYAMLFile(w http.ResponseWriter, r *http.Request, instanceN
 func (api *API) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
-	api.updateYAMLFile(w, r, name, "config", api.config.SetConfigValue)
+	api.updateYAMLFile(w, r, name, "config")
 }
 
 // GetSecrets retrieves instance secrets (redacted by default)
@@ -399,7 +431,7 @@ func (api *API) GetSecrets(w http.ResponseWriter, r *http.Request) {
 func (api *API) UpdateSecrets(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
-	api.updateYAMLFile(w, r, name, "secrets", api.secrets.SetSecret)
+	api.updateYAMLFile(w, r, name, "secrets")
 }
 
 // GetContext retrieves current context
