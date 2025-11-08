@@ -35,24 +35,29 @@ export function deriveNodeStatus(node: Node): NodeStatus {
   }
 
   if (node.applied) {
-    // Check Kubernetes membership for healthy state
-    if (node.inKubernetes === true) {
+    // Check Kubernetes membership and readiness
+    if (node.inKubernetes === true && node.kubernetesReady === true) {
       return NodeStatus.HEALTHY;
     }
 
-    // Applied but not yet in Kubernetes (could be provisioning or ready)
-    if (node.isReachable === true) {
+    // In Kubernetes but not Ready
+    if (node.inKubernetes === true && node.kubernetesReady === false) {
+      return NodeStatus.DEGRADED;
+    }
+
+    // Applied and reachable but not yet in Kubernetes
+    if (node.isReachable === true && node.inKubernetes !== true) {
       return NodeStatus.READY;
     }
 
-    // Applied but status unknown
+    // Applied but status unknown (no cluster status data yet)
     if (node.isReachable === undefined && node.inKubernetes === undefined) {
       return NodeStatus.READY;
     }
 
-    // Applied but having issues
-    if (node.inKubernetes === false) {
-      return NodeStatus.DEGRADED;
+    // Applied but not reachable at all
+    if (node.isReachable === false) {
+      return NodeStatus.UNREACHABLE;
     }
   }
 

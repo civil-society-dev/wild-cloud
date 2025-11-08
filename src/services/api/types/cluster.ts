@@ -4,6 +4,13 @@ export interface ClusterConfig {
   version?: string;
 }
 
+export interface NodeStatus {
+  hostname: string;
+  ready: boolean;
+  kubernetes_ready: boolean;
+  role: string;
+}
+
 export interface ClusterStatus {
   ready: boolean;
   nodes: number;
@@ -11,6 +18,7 @@ export interface ClusterStatus {
   workerNodes: number;
   kubernetesVersion?: string;
   talosVersion?: string;
+  node_statuses?: Record<string, NodeStatus>;
 }
 
 export interface HealthCheck {

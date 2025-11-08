@@ -8,6 +8,7 @@ import { Cpu, HardDrive, Network, Monitor, CheckCircle, AlertCircle, BookOpen, E
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useNodes, useDiscoveryStatus } from '../hooks/useNodes';
 import { useCluster } from '../hooks/useCluster';
+import { useClusterStatus } from '../services/api/hooks/useCluster';
 import { BootstrapModal } from './cluster/BootstrapModal';
 import { NodeStatusBadge } from './nodes/NodeStatusBadge';
 import { NodeFormDrawer } from './nodes/NodeFormDrawer';
@@ -48,6 +49,8 @@ export function ClusterNodesComponent() {
   const {
     status: clusterStatus
   } = useCluster(currentInstance);
+
+  const { data: clusterStatusData } = useClusterStatus(currentInstance || '');
 
   const [discoverSubnet, setDiscoverSubnet] = useState('');
   const [addNodeIp, setAddNodeIp] = useState('');
@@ -241,6 +244,9 @@ export function ClusterNodesComponent() {
 
   // Derive status from backend state flags for each node
   const assignedNodes = nodes.map(node => {
+    // Get runtime status from cluster status
+    const runtimeStatus = clusterStatusData?.node_statuses?.[node.hostname];
+
     let status = 'pending';
     if (node.maintenance) {
       status = 'provisioning';
@@ -249,7 +255,14 @@ export function ClusterNodesComponent() {
     } else if (node.applied) {
       status = 'ready';
     }
-    return { ...node, status };
+
+    return {
+      ...node,
+      status,
+      isReachable: runtimeStatus?.ready,
+      inKubernetes: runtimeStatus?.ready, // Whether in cluster (from backend 'ready' field)
+      kubernetesReady: runtimeStatus?.kubernetes_ready, // Whether K8s Ready condition is true
+    };
   });
 
   // Check if cluster needs bootstrap

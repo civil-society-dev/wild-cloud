@@ -17,6 +17,7 @@ export interface Node {
   // Optional runtime fields for enhanced status
   isReachable?: boolean;
   inKubernetes?: boolean;
+  kubernetesReady?: boolean;
   lastHealthCheck?: string;
   // Optional fields (not yet returned by API)
   hardware?: HardwareInfo;
