@@ -15,22 +15,20 @@ import {
 } from 'lucide-react';
 import { useAssetList, useDownloadAsset, useDeleteAsset } from '../../services/api/hooks/useAssets';
 import { assetsApi } from '../../services/api/assets';
-import type { Platform } from '../../services/api/types/asset';
+import type { Platform, Asset } from '../../services/api/types/asset';
 
-// Helper function to extract version from ISO filename
-// Filename format: talos-v1.11.2-metal-amd64.iso
-function extractVersionFromPath(path: string): string {
+// Helper function to extract platform from filename
+// Filename format: metal-amd64.iso
+function extractPlatformFromPath(path: string): string {
   const filename = path.split('/').pop() || '';
-  const match = filename.match(/talos-(v\d+\.\d+\.\d+)-metal/);
+  const match = filename.match(/-(amd64|arm64)\./);
   return match ? match[1] : 'unknown';
 }
 
-// Helper function to extract platform from ISO filename
-// Filename format: talos-v1.11.2-metal-amd64.iso
-function extractPlatformFromPath(path: string): string {
-  const filename = path.split('/').pop() || '';
-  const match = filename.match(/-(amd64|arm64)\.iso$/);
-  return match ? match[1] : 'unknown';
+// Type for ISO asset with schematic and version info
+interface IsoAssetWithMetadata extends Asset {
+  schematic_id: string;
+  version: string;
 }
 
 export function IsoPage() {
@@ -38,8 +36,8 @@ export function IsoPage() {
   const downloadAsset = useDownloadAsset();
   const deleteAsset = useDeleteAsset();
 
-  const [schematicId, setSchematicId] = useState('');
-  const [selectedVersion, setSelectedVersion] = useState('v1.11.2');
+  const [schematicId, setSchematicId] = useState('434a0300db532066f1098e05ac068159371d00f0aba0a3103a0e826e83825c82');
+  const [selectedVersion, setSelectedVersion] = useState('v1.11.5');
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('amd64');
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -53,10 +51,10 @@ export function IsoPage() {
     try {
       await downloadAsset.mutateAsync({
         schematicId,
+        version: selectedVersion,
         request: {
-          version: selectedVersion,
           platform: selectedPlatform,
-          assets: ['iso']
+          asset_types: ['iso']
         },
       });
       // Refresh the list after download
@@ -69,13 +67,13 @@ export function IsoPage() {
     }
   };
 
-  const handleDelete = async (schematicIdToDelete: string) => {
-    if (!confirm('Are you sure you want to delete this schematic and all its assets? This action cannot be undone.')) {
+  const handleDelete = async (schematicIdToDelete: string, versionToDelete: string) => {
+    if (!confirm(`Are you sure you want to delete ${schematicIdToDelete}@${versionToDelete} and all its assets? This action cannot be undone.`)) {
       return;
     }
 
     try {
-      await deleteAsset.mutateAsync(schematicIdToDelete);
+      await deleteAsset.mutateAsync({ schematicId: schematicIdToDelete, version: versionToDelete });
       await refetch();
     } catch (err) {
       console.error('Delete failed:', err);
@@ -83,17 +81,16 @@ export function IsoPage() {
     }
   };
 
-  // Find all ISO assets from all schematics (including multiple ISOs per schematic)
-  const isoAssets = data?.schematics
-    .flatMap(schematic => {
-      // Get ALL ISO assets for this schematic (not just the first one)
-      const isoAssetsForSchematic = schematic.assets.filter(asset => asset.type === 'iso');
-      return isoAssetsForSchematic.map(isoAsset => ({
-        ...isoAsset,
-        schematic_id: schematic.schematic_id,
-        version: schematic.version
-      }));
-    }) || [];
+  // Find all ISO assets from all assets (schematic@version combinations)
+  const isoAssets = data?.assets?.flatMap(asset => {
+    // Get ALL ISO assets for this schematic@version
+    const isoAssetsForAsset = asset.assets.filter(a => a.type === 'iso');
+    return isoAssetsForAsset.map(isoAsset => ({
+      ...isoAsset,
+      schematic_id: asset.schematic_id,
+      version: asset.version
+    }));
+  }) || [];
 
   return (
     <div className="space-y-6">
@@ -146,46 +143,6 @@ export function IsoPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Schematic ID Input */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              Schematic ID
-              <span className="text-muted-foreground ml-2">(64-character hex string)</span>
-            </label>
-            <input
-              type="text"
-              value={schematicId}
-              onChange={(e) => setSchematicId(e.target.value)}
-              placeholder="e.g., 434a0300db532066f1098e05ac068159371d00f0aba0a3103a0e826e83825c82"
-              className="w-full px-3 py-2 border rounded-lg bg-background font-mono text-sm"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Get your schematic ID from the{' '}
-              <a
-                href="https://factory.talos.dev"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                Talos Image Factory
-              </a>
-            </p>
-          </div>
-
-          {/* Version Selection */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">Talos Version</label>
-            <select
-              value={selectedVersion}
-              onChange={(e) => setSelectedVersion(e.target.value)}
-              className="w-full md:w-64 px-3 py-2 border rounded-lg bg-background"
-            >
-              <option value="v1.11.2">v1.11.2</option>
-              <option value="v1.11.1">v1.11.1</option>
-              <option value="v1.11.0">v1.11.0</option>
-            </select>
-          </div>
-
           {/* Platform Selection */}
           <div>
             <label className="text-sm font-medium mb-2 block">Platform</label>
@@ -213,6 +170,49 @@ export function IsoPage() {
                 <span>arm64 (ARM 64-bit)</span>
               </label>
             </div>
+          </div>
+
+          {/* Version Selection */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">Talos Version</label>
+            <select
+              value={selectedVersion}
+              onChange={(e) => setSelectedVersion(e.target.value)}
+              className="w-full md:w-64 px-3 py-2 border rounded-lg bg-background"
+            >
+              <option value="v1.11.5">v1.11.5</option>
+              <option value="v1.11.4">v1.11.4</option>
+              <option value="v1.11.3">v1.11.3</option>
+              <option value="v1.11.2">v1.11.2</option>
+              <option value="v1.11.1">v1.11.1</option>
+              <option value="v1.11.0">v1.11.0</option>
+            </select>
+          </div>
+
+          {/* Schematic ID Input */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">
+              Schematic ID
+              <span className="text-muted-foreground ml-2">(64-character hex string)</span>
+            </label>
+            <input
+              type="text"
+              value={schematicId}
+              onChange={(e) => setSchematicId(e.target.value)}
+              placeholder="e.g., 434a0300db532066f1098e05ac068159371d00f0aba0a3103a0e826e83825c82"
+              className="w-full px-3 py-2 border rounded-lg bg-background font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Get your schematic ID from the{' '}
+              <a
+                href="https://factory.talos.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Talos Image Factory
+              </a>
+            </p>
           </div>
 
           {/* Download Button */}
@@ -264,11 +264,12 @@ export function IsoPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {isoAssets.map((asset: any) => {
-                const version = extractVersionFromPath(asset.path || '');
+              {isoAssets.map((asset: IsoAssetWithMetadata) => {
                 const platform = extractPlatformFromPath(asset.path || '');
+                // Use composite key for React key
+                const compositeKey = `${asset.schematic_id}@${asset.version}`;
                 return (
-                  <Card key={asset.schematic_id} className="p-4">
+                  <Card key={compositeKey} className="p-4">
                     <div className="flex items-center gap-4">
                       <div className="p-2 bg-muted rounded-lg">
                         <Disc className="h-5 w-5 text-primary" />
@@ -276,7 +277,7 @@ export function IsoPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h5 className="font-medium">Talos ISO</h5>
-                          <Badge variant="outline">{version}</Badge>
+                          <Badge variant="outline">{asset.version}</Badge>
                           <Badge variant="outline" className="uppercase">{platform}</Badge>
                           {asset.downloaded ? (
                             <Badge variant="success" className="flex items-center gap-1">
@@ -292,7 +293,7 @@ export function IsoPage() {
                         </div>
                         <div className="text-sm text-muted-foreground space-y-1">
                           <div className="font-mono text-xs truncate">
-                            Schematic: {asset.schematic_id}
+                            {asset.schematic_id}@{asset.version}
                           </div>
                           {asset.size && (
                             <div>Size: {(asset.size / 1024 / 1024).toFixed(2)} MB</div>
@@ -305,7 +306,7 @@ export function IsoPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              window.location.href = assetsApi.getAssetUrl(asset.schematic_id, 'iso');
+                              window.location.href = assetsApi.getAssetUrl(asset.schematic_id, asset.version, 'iso');
                             }}
                           >
                             <Download className="h-4 w-4 mr-1" />
@@ -315,7 +316,7 @@ export function IsoPage() {
                             size="sm"
                             variant="outline"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDelete(asset.schematic_id)}
+                            onClick={() => handleDelete(asset.schematic_id, asset.version)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

@@ -11,19 +11,17 @@ import {
   BookOpen,
   ExternalLink,
   CheckCircle,
-  XCircle,
   Usb,
   ArrowLeft,
   CloudLightning,
 } from 'lucide-react';
 import { useAssetList, useDownloadAsset, useAssetStatus } from '../../services/api/hooks/useAssets';
 import { assetsApi } from '../../services/api/assets';
-import type { AssetType } from '../../services/api/types/asset';
 
 export function AssetsIsoPage() {
   const { data, isLoading, error } = useAssetList();
   const downloadAsset = useDownloadAsset();
-  const [selectedSchematicId, setSelectedSchematicId] = useState<string | null>(null);
+  const [selectedSchematicId] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState('v1.8.0');
   const { data: statusData } = useAssetStatus(selectedSchematicId);
 

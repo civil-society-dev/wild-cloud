@@ -10,8 +10,8 @@ export interface Asset {
   downloaded: boolean;
 }
 
-// Schematic representation matching backend
-export interface Schematic {
+// PXEAsset represents a schematic@version combination (composite key)
+export interface PXEAsset {
   schematic_id: string;
   version: string;
   path: string;
@@ -19,13 +19,12 @@ export interface Schematic {
 }
 
 export interface AssetListResponse {
-  schematics: Schematic[];
+  assets: PXEAsset[];
 }
 
 export interface DownloadAssetRequest {
-  version: string;
   platform?: Platform;
-  assets?: AssetType[];
+  asset_types?: string[];
   force?: boolean;
 }
 

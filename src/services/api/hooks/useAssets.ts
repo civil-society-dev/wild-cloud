@@ -9,19 +9,19 @@ export function useAssetList() {
   });
 }
 
-export function useAsset(schematicId: string | null | undefined) {
+export function useAsset(schematicId: string | null | undefined, version: string | null | undefined) {
   return useQuery({
-    queryKey: ['assets', schematicId],
-    queryFn: () => assetsApi.get(schematicId!),
-    enabled: !!schematicId,
+    queryKey: ['assets', schematicId, version],
+    queryFn: () => assetsApi.get(schematicId!, version!),
+    enabled: !!schematicId && !!version,
   });
 }
 
-export function useAssetStatus(schematicId: string | null | undefined) {
+export function useAssetStatus(schematicId: string | null | undefined, version: string | null | undefined) {
   return useQuery({
-    queryKey: ['assets', schematicId, 'status'],
-    queryFn: () => assetsApi.status(schematicId!),
-    enabled: !!schematicId,
+    queryKey: ['assets', schematicId, version, 'status'],
+    queryFn: () => assetsApi.status(schematicId!, version!),
+    enabled: !!schematicId && !!version,
     refetchInterval: (query) => {
       const data = query.state.data;
       // Poll every 2 seconds if downloading
@@ -34,12 +34,12 @@ export function useDownloadAsset() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ schematicId, request }: { schematicId: string; request: DownloadAssetRequest }) =>
-      assetsApi.download(schematicId, request),
+    mutationFn: ({ schematicId, version, request }: { schematicId: string; version: string; request: DownloadAssetRequest }) =>
+      assetsApi.download(schematicId, version, request),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
-      queryClient.invalidateQueries({ queryKey: ['assets', variables.schematicId] });
-      queryClient.invalidateQueries({ queryKey: ['assets', variables.schematicId, 'status'] });
+      queryClient.invalidateQueries({ queryKey: ['assets', variables.schematicId, variables.version] });
+      queryClient.invalidateQueries({ queryKey: ['assets', variables.schematicId, variables.version, 'status'] });
     },
   });
 }
@@ -48,11 +48,12 @@ export function useDeleteAsset() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (schematicId: string) => assetsApi.delete(schematicId),
-    onSuccess: (_, schematicId) => {
+    mutationFn: ({ schematicId, version }: { schematicId: string; version: string }) =>
+      assetsApi.delete(schematicId, version),
+    onSuccess: (_, { schematicId, version }) => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
-      queryClient.invalidateQueries({ queryKey: ['assets', schematicId] });
-      queryClient.invalidateQueries({ queryKey: ['assets', schematicId, 'status'] });
+      queryClient.invalidateQueries({ queryKey: ['assets', schematicId, version] });
+      queryClient.invalidateQueries({ queryKey: ['assets', schematicId, version, 'status'] });
     },
   });
 }
