@@ -26,9 +26,9 @@ var (
 var isoListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all downloaded ISO images",
-	Long:  `List all downloaded ISO images across all schematics with their versions and platforms.`,
+	Long:  `List all downloaded ISO images with their schematic IDs, versions, and platforms.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resp, err := apiClient.Get("/api/v1/assets")
+		resp, err := apiClient.Get("/api/v1/pxe/assets")
 		if err != nil {
 			return err
 		}
@@ -37,9 +37,9 @@ var isoListCmd = &cobra.Command{
 			return printJSON(resp.Data)
 		}
 
-		schematics := resp.GetArray("schematics")
-		if len(schematics) == 0 {
-			fmt.Println("No ISOs found")
+		assets := resp.GetArray("assets")
+		if len(assets) == 0 {
+			fmt.Println("No assets found")
 			return nil
 		}
 
@@ -48,22 +48,21 @@ var isoListCmd = &cobra.Command{
 			SchematicID string
 			Version     string
 			Platform    string
-			Path        string
 			Size        int64
 		}
 		var isos []isoInfo
 
-		for _, schematic := range schematics {
-			if m, ok := schematic.(map[string]interface{}); ok {
+		for _, asset := range assets {
+			if m, ok := asset.(map[string]interface{}); ok {
 				schematicID := fmt.Sprintf("%v", m["schematic_id"])
-				assets := m["assets"]
-				if assetsList, ok := assets.([]interface{}); ok {
-					for _, asset := range assetsList {
-						if assetMap, ok := asset.(map[string]interface{}); ok {
+				version := fmt.Sprintf("%v", m["version"])
+				assetsList := m["assets"]
+				if assetsArray, ok := assetsList.([]interface{}); ok {
+					for _, assetItem := range assetsArray {
+						if assetMap, ok := assetItem.(map[string]interface{}); ok {
 							if assetType, _ := assetMap["type"].(string); assetType == "iso" {
 								if downloaded, _ := assetMap["downloaded"].(bool); downloaded {
 									path := fmt.Sprintf("%v", assetMap["path"])
-									version := extractVersion(path)
 									platform := extractPlatform(path)
 									size := int64(0)
 									if s, ok := assetMap["size"].(float64); ok {
@@ -74,7 +73,6 @@ var isoListCmd = &cobra.Command{
 										SchematicID: schematicID,
 										Version:     version,
 										Platform:    platform,
-										Path:        path,
 										Size:        size,
 									})
 								}
@@ -90,11 +88,11 @@ var isoListCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Printf("%-10s  %-10s  %-66s  %-10s\n", "VERSION", "PLATFORM", "SCHEMATIC ID", "SIZE")
+		fmt.Printf("%-66s  %-10s  %-10s  %-10s\n", "SCHEMATIC ID", "VERSION", "PLATFORM", "SIZE")
 		fmt.Println("--------------------------------------------------------------------------------------------------------")
 		for _, iso := range isos {
 			sizeMB := float64(iso.Size) / 1024 / 1024
-			fmt.Printf("%-10s  %-10s  %-66s  %.2f MB\n", iso.Version, iso.Platform, iso.SchematicID, sizeMB)
+			fmt.Printf("%-66s  %-10s  %-10s  %.2f MB\n", iso.SchematicID, iso.Version, iso.Platform, sizeMB)
 		}
 
 		return nil
@@ -112,7 +110,6 @@ The ISO can be used to boot bare metal machines.`,
 		version := args[1]
 
 		payload := map[string]interface{}{
-			"version":     version,
 			"platform":    isoPlatform,
 			"asset_types": []string{"iso"},
 		}
@@ -121,14 +118,15 @@ The ISO can be used to boot bare metal machines.`,
 			payload["force"] = true
 		}
 
-		resp, err := apiClient.Post(fmt.Sprintf("/api/v1/assets/%s/download", schematicID), payload)
+		resp, err := apiClient.Post(fmt.Sprintf("/api/v1/pxe/assets/%s/%s/download", schematicID, version), payload)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Downloading ISO for schematic: %s\n", schematicID)
-		fmt.Printf("  Version:  %s\n", version)
-		fmt.Printf("  Platform: %s\n", isoPlatform)
+		fmt.Printf("Downloading ISO:\n")
+		fmt.Printf("  Schematic: %s\n", schematicID)
+		fmt.Printf("  Version:   %s\n", version)
+		fmt.Printf("  Platform:  %s\n", isoPlatform)
 
 		if msg := resp.GetString("message"); msg != "" {
 			fmt.Printf("\nStatus: %s\n", msg)
@@ -139,17 +137,18 @@ The ISO can be used to boot bare metal machines.`,
 }
 
 var isoDeleteCmd = &cobra.Command{
-	Use:   "delete <schematic-id>",
-	Short: "Delete a schematic and all its assets",
-	Long: `Delete a schematic and all its downloaded assets including ISOs.
+	Use:   "delete <schematic-id> <version>",
+	Short: "Delete an asset and all its files",
+	Long: `Delete a specific schematic@version asset and all its downloaded files including ISOs.
 This operation cannot be undone.`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		schematicID := args[0]
+		version := args[1]
 
 		// Prompt for confirmation unless --force is used
 		if !isoForce {
-			fmt.Printf("Are you sure you want to delete schematic %s and all its assets? (yes/no): ", schematicID)
+			fmt.Printf("Are you sure you want to delete %s@%s and all its assets? (yes/no): ", schematicID, version)
 			reader := bufio.NewReader(cmd.InOrStdin())
 			response, err := reader.ReadString('\n')
 			if err != nil {
@@ -162,12 +161,12 @@ This operation cannot be undone.`,
 			}
 		}
 
-		resp, err := apiClient.Delete(fmt.Sprintf("/api/v1/assets/%s", schematicID))
+		resp, err := apiClient.Delete(fmt.Sprintf("/api/v1/pxe/assets/%s/%s", schematicID, version))
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Schematic deleted: %s\n", schematicID)
+		fmt.Printf("Asset deleted: %s@%s\n", schematicID, version)
 		if msg := resp.GetString("message"); msg != "" {
 			fmt.Printf("Status: %s\n", msg)
 		}
@@ -177,13 +176,14 @@ This operation cannot be undone.`,
 }
 
 var isoInfoCmd = &cobra.Command{
-	Use:   "info <schematic-id>",
-	Short: "Show detailed information about ISOs for a schematic",
-	Args:  cobra.ExactArgs(1),
+	Use:   "info <schematic-id> <version>",
+	Short: "Show detailed information about a specific asset",
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		schematicID := args[0]
+		version := args[1]
 
-		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/assets/%s", schematicID))
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/pxe/assets/%s/%s", schematicID, version))
 		if err != nil {
 			return err
 		}
@@ -194,42 +194,34 @@ var isoInfoCmd = &cobra.Command{
 
 		fmt.Printf("Schematic ID: %s\n", resp.GetString("schematic_id"))
 		fmt.Printf("Version: %s\n", resp.GetString("version"))
-
-		if instances := resp.GetArray("instances"); len(instances) > 0 {
-			fmt.Printf("\nInstances using this schematic:\n")
-			for _, inst := range instances {
-				fmt.Printf("  - %s\n", inst)
-			}
-		}
+		fmt.Printf("Path: %s\n", resp.GetString("path"))
 
 		if assets := resp.GetArray("assets"); len(assets) > 0 {
-			fmt.Println("\nISO Images:")
-			hasISO := false
+			fmt.Println("\nAssets:")
 			for _, asset := range assets {
 				if a, ok := asset.(map[string]interface{}); ok {
-					if assetType, _ := a["type"].(string); assetType == "iso" {
-						hasISO = true
-						downloaded, _ := a["downloaded"].(bool)
-						path := fmt.Sprintf("%v", a["path"])
-						version := extractVersion(path)
-						platform := extractPlatform(path)
+					assetType, _ := a["type"].(string)
+					downloaded, _ := a["downloaded"].(bool)
+					path := fmt.Sprintf("%v", a["path"])
 
-						if downloaded {
-							size := int64(0)
-							if s, ok := a["size"].(float64); ok {
-								size = int64(s)
-							}
-							sizeMB := float64(size) / 1024 / 1024
-							fmt.Printf("  ✓ %s / %s (%.2f MB)\n", version, platform, sizeMB)
-							fmt.Printf("    Path: %s\n", path)
-						} else {
-							fmt.Printf("  ✗ Not downloaded\n")
+					if downloaded {
+						size := int64(0)
+						if s, ok := a["size"].(float64); ok {
+							size = int64(s)
 						}
+						sizeMB := float64(size) / 1024 / 1024
+
+						if assetType == "iso" {
+							platform := extractPlatform(path)
+							fmt.Printf("  ✓ ISO (%s): %.2f MB\n", platform, sizeMB)
+						} else {
+							fmt.Printf("  ✓ %s: %.2f MB\n", assetType, sizeMB)
+						}
+						fmt.Printf("    Path: %s\n", path)
+					} else {
+						fmt.Printf("  ✗ %s: Not downloaded\n", assetType)
 					}
 				}
-			}
-			if !hasISO {
-				fmt.Println("  No ISO images found")
 			}
 		}
 
@@ -237,21 +229,10 @@ var isoInfoCmd = &cobra.Command{
 	},
 }
 
-// extractVersion extracts version from ISO filename (e.g., "talos-v1.11.2-metal-amd64.iso" -> "v1.11.2")
-func extractVersion(path string) string {
-	filename := filepath.Base(path)
-	re := regexp.MustCompile(`talos-(v\d+\.\d+\.\d+)-metal`)
-	matches := re.FindStringSubmatch(filename)
-	if len(matches) > 1 {
-		return matches[1]
-	}
-	return "unknown"
-}
-
-// extractPlatform extracts platform from ISO filename (e.g., "talos-v1.11.2-metal-amd64.iso" -> "amd64")
+// extractPlatform extracts platform from filename (e.g., "metal-amd64.iso" -> "amd64")
 func extractPlatform(path string) string {
 	filename := filepath.Base(path)
-	re := regexp.MustCompile(`-(amd64|arm64)\.iso$`)
+	re := regexp.MustCompile(`-(amd64|arm64)\.`)
 	matches := re.FindStringSubmatch(filename)
 	if len(matches) > 1 {
 		return matches[1]
