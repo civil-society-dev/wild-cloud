@@ -371,3 +371,28 @@ func (api *API) NodeDiscoveryCancel(w http.ResponseWriter, r *http.Request) {
 		"message": "Discovery cancelled successfully",
 	})
 }
+
+// NodeReset resets a node to maintenance mode
+func (api *API) NodeReset(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	nodeIdentifier := vars["node"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Reset node
+	nodeMgr := node.NewManager(api.dataDir, instanceName)
+	if err := nodeMgr.Reset(instanceName, nodeIdentifier); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to reset node: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "Node reset successfully - now in maintenance mode",
+		"node":    nodeIdentifier,
+	})
+}

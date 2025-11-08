@@ -326,7 +326,6 @@ func (m *Manager) detectHardwareWithMode(nodeIP string, insecure bool) (*Hardwar
 	}, nil
 }
 
-
 // Apply generates configuration and applies it to node
 // This follows the wild-node-apply flow:
 // 1. Auto-fetch templates if missing
@@ -587,17 +586,21 @@ func (m *Manager) updateNodeStatus(instanceName string, node *Node) error {
 	}
 
 	// Update configured flag
+	configuredValue := "false"
 	if node.Configured {
-		if err := yq.Set(configPath, basePath+".configured", "true"); err != nil {
-			return err
-		}
+		configuredValue = "true"
+	}
+	if err := yq.Set(configPath, basePath+".configured", configuredValue); err != nil {
+		return err
 	}
 
 	// Update applied flag
+	appliedValue := "false"
 	if node.Applied {
-		if err := yq.Set(configPath, basePath+".applied", "true"); err != nil {
-			return err
-		}
+		appliedValue = "true"
+	}
+	if err := yq.Set(configPath, basePath+".applied", appliedValue); err != nil {
+		return err
 	}
 
 	return nil
@@ -676,4 +679,37 @@ func (m *Manager) FetchTemplates(instanceName string) error {
 	instancePath := m.GetInstancePath(instanceName)
 	destDir := filepath.Join(instancePath, "setup", "cluster-nodes", "patch.templates")
 	return m.extractEmbeddedTemplates(destDir)
+}
+
+// Reset resets a node to maintenance mode
+func (m *Manager) Reset(instanceName, nodeIdentifier string) error {
+	// Get node
+	node, err := m.Get(instanceName, nodeIdentifier)
+	if err != nil {
+		return fmt.Errorf("node not found: %w", err)
+	}
+
+	// Determine IP to reset
+	resetIP := node.CurrentIP
+	if resetIP == "" {
+		resetIP = node.TargetIP
+	}
+
+	// Execute reset command with graceful=false and reboot flags
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+	cmd := exec.Command("talosctl", "-n", resetIP, "--talosconfig", talosconfigPath, "reset", "--graceful=false", "--reboot")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to reset node: %w\nOutput: %s", err, string(output))
+	}
+
+	// Update node status to maintenance mode
+	node.Maintenance = true
+	node.Configured = false
+	node.Applied = false
+	if err := m.updateNodeStatus(instanceName, node); err != nil {
+		return fmt.Errorf("failed to update node status: %w", err)
+	}
+
+	return nil
 }
