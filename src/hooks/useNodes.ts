@@ -71,6 +71,13 @@ export function useNodes(instanceName: string | null | undefined) {
     mutationFn: (ip: string) => nodesApi.getHardware(instanceName!, ip),
   });
 
+  const resetMutation = useMutation({
+    mutationFn: (nodeName: string) => nodesApi.reset(instanceName!, nodeName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'nodes'] });
+    },
+  });
+
   return {
     nodes: nodesQuery.data?.nodes || [],
     isLoading: nodesQuery.isLoading,
@@ -101,6 +108,9 @@ export function useNodes(instanceName: string | null | undefined) {
     isFetchingTemplates: fetchTemplatesMutation.isPending,
     cancelDiscovery: cancelDiscoveryMutation.mutate,
     isCancellingDiscovery: cancelDiscoveryMutation.isPending,
+    resetNode: resetMutation.mutate,
+    isResetting: resetMutation.isPending,
+    resetError: resetMutation.error,
   };
 }
 

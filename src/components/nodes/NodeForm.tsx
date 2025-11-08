@@ -28,6 +28,7 @@ interface NodeFormProps {
   detection?: HardwareInfo;
   onSubmit: (data: NodeFormData) => Promise<void>;
   onApply?: (data: NodeFormData) => Promise<void>;
+  onCancel?: () => void;
   submitLabel?: string;
   showApplyButton?: boolean;
   instanceName?: string;
@@ -123,6 +124,7 @@ export function NodeForm({
   detection,
   onSubmit,
   onApply,
+  onCancel,
   submitLabel = 'Save',
   showApplyButton = false,
   instanceName,
@@ -557,36 +559,36 @@ export function NodeForm({
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          id="maintenance"
-          type="checkbox"
-          {...register('maintenance')}
-          className="h-4 w-4 rounded border-input"
-        />
-        <Label htmlFor="maintenance" className="font-normal">
-          Start in maintenance mode
-        </Label>
-      </div>
-
       <div className="flex gap-2">
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="flex-1"
-        >
-          {isSubmitting ? 'Saving...' : submitLabel}
-        </Button>
-
-        {showApplyButton && onApply && (
+        {onCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              reset();
+              onCancel();
+            }}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+        )}
+        {showApplyButton && onApply ? (
           <Button
             type="button"
             onClick={handleSubmit(onApply)}
             disabled={isSubmitting}
-            variant="secondary"
             className="flex-1"
           >
             {isSubmitting ? 'Applying...' : 'Apply Configuration'}
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            {isSubmitting ? 'Saving...' : submitLabel}
           </Button>
         )}
       </div>

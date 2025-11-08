@@ -18,10 +18,12 @@ interface ServiceConfigEditorProps {
 export function ServiceConfigEditor({
   instanceName,
   serviceName,
-  manifest: _manifestProp, // Ignore the prop, fetch from status instead
+  manifest: _manifest, // Ignore the prop, fetch from status instead
   onClose,
   onSuccess,
 }: ServiceConfigEditorProps) {
+  // Suppress unused variable warning - kept for API compatibility
+  void _manifest;
   const { config, isLoading: configLoading, updateConfig, isUpdating } = useServiceConfig(instanceName, serviceName);
   const { data: statusData, isLoading: statusLoading } = useServiceStatus(instanceName, serviceName);
 

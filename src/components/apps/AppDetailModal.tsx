@@ -221,7 +221,7 @@ export function AppDetailModal({
                           <ReactMarkdown
                             components={{
                               // Style code blocks
-                              code: ({node, inline, className, children, ...props}) => {
+                              code: ({inline, children, ...props}) => {
                                 return inline ? (
                                   <code className="bg-muted px-1 py-0.5 rounded text-sm" {...props}>
                                     {children}
@@ -233,7 +233,7 @@ export function AppDetailModal({
                                 );
                               },
                               // Make links open in new tab
-                              a: ({node, children, href, ...props}) => (
+                              a: ({children, href, ...props}) => (
                                 <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" {...props}>
                                   {children}
                                 </a>

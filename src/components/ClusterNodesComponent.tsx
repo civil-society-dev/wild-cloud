@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Alert } from './ui/alert';
 import { Input } from './ui/input';
-import { Cpu, HardDrive, Network, Monitor, CheckCircle, AlertCircle, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
+import { Cpu, HardDrive, Network, Monitor, CheckCircle, AlertCircle, BookOpen, ExternalLink, Loader2, RotateCcw } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useNodes, useDiscoveryStatus } from '../hooks/useNodes';
 import { useCluster } from '../hooks/useCluster';
@@ -36,6 +36,8 @@ export function ClusterNodesComponent() {
     updateNode,
     applyNode,
     isApplying,
+    resetNode,
+    isResetting,
     refetch
   } = useNodes(currentInstance);
 
@@ -194,14 +196,12 @@ export function ClusterNodesComponent() {
       nodeName: drawerState.node.hostname,
       updates: {
         role: data.role,
-        config: {
-          disk: data.disk,
-          target_ip: data.targetIp,
-          current_ip: data.currentIp,
-          interface: data.interface,
-          schematic_id: data.schematicId,
-          maintenance: data.maintenance,
-        },
+        disk: data.disk,
+        target_ip: data.targetIp,
+        current_ip: data.currentIp,
+        interface: data.interface,
+        schematic_id: data.schematicId,
+        maintenance: data.maintenance,
       },
     });
     closeDrawer();
@@ -212,6 +212,16 @@ export function ClusterNodesComponent() {
 
     await handleConfigureSubmit(data);
     await applyNode(drawerState.node.hostname);
+  };
+
+  const handleResetNode = (node: Node) => {
+    if (
+      confirm(
+        `Reset node ${node.hostname}?\n\nThis will wipe the node and return it to maintenance mode. The node will need to be reconfigured.`
+      )
+    ) {
+      resetNode(node.hostname);
+    }
   };
 
   const handleDeleteNode = (hostname: string) => {
@@ -576,10 +586,21 @@ export function ClusterNodesComponent() {
                           )}
                         </div>
                       )}
-                      {node.talosVersion && (
+                      {(node.version || node.schematic_id) && (
                         <div className="text-xs text-muted-foreground mt-1">
-                          Talos: {node.talosVersion}
-                          {node.kubernetesVersion && ` • K8s: ${node.kubernetesVersion}`}
+                          {node.version && <span>Talos: {node.version}</span>}
+                          {node.version && node.schematic_id && <span> • </span>}
+                          {node.schematic_id && (
+                            <span
+                              title={node.schematic_id}
+                              onClick={() => {
+                                navigator.clipboard.writeText(node.schematic_id!);
+                              }}
+                              className="cursor-pointer hover:text-primary hover:underline"
+                            >
+                              Schema: {node.schematic_id.substring(0, 8)}...
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -598,6 +619,18 @@ export function ClusterNodesComponent() {
                           variant="secondary"
                         >
                           {isApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                        </Button>
+                      )}
+                      {!node.maintenance && (node.configured || node.applied) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleResetNode(node)}
+                          disabled={isResetting}
+                          className="border-orange-500 text-orange-500 hover:bg-orange-50 hover:text-orange-600"
+                        >
+                          <RotateCcw className="h-4 w-4 mr-1" />
+                          Reset
                         </Button>
                       )}
                       <Button

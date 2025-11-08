@@ -59,4 +59,8 @@ export const nodesApi = {
   async fetchTemplates(instanceName: string): Promise<OperationResponse> {
     return apiClient.post(`/api/v1/instances/${instanceName}/nodes/fetch-templates`);
   },
+
+  async reset(instanceName: string, nodeName: string): Promise<OperationResponse> {
+    return apiClient.post(`/api/v1/instances/${instanceName}/nodes/${nodeName}/reset`);
+  },
 };

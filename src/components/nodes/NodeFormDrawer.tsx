@@ -58,6 +58,7 @@ export function NodeFormDrawer({
         detection={detection}
         onSubmit={onSubmit}
         onApply={onApply}
+        onCancel={onClose}
         submitLabel={mode === 'add' ? 'Add Node' : 'Save'}
         showApplyButton={mode === 'configure'}
         instanceName={instanceName}
