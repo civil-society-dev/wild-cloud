@@ -26,15 +26,15 @@ func NewKubectl(kubeconfigPath string) *Kubectl {
 
 // PodInfo represents pod information from kubectl
 type PodInfo struct {
-	Name       string           `json:"name"`
-	Status     string           `json:"status"`
-	Ready      string           `json:"ready"`
-	Restarts   int              `json:"restarts"`
-	Age        string           `json:"age"`
-	Node       string           `json:"node,omitempty"`
-	IP         string           `json:"ip,omitempty"`
-	Containers []ContainerInfo  `json:"containers,omitempty"`
-	Conditions []PodCondition   `json:"conditions,omitempty"`
+	Name       string          `json:"name"`
+	Status     string          `json:"status"`
+	Ready      string          `json:"ready"`
+	Restarts   int             `json:"restarts"`
+	Age        string          `json:"age"`
+	Node       string          `json:"node,omitempty"`
+	IP         string          `json:"ip,omitempty"`
+	Containers []ContainerInfo `json:"containers,omitempty"`
+	Conditions []PodCondition  `json:"conditions,omitempty"`
 }
 
 // ContainerInfo represents detailed container information
@@ -195,7 +195,7 @@ func (k *Kubectl) GetPods(namespace string, detailed bool) ([]PodInfo, error) {
 					Ready        bool   `json:"ready"`
 					RestartCount int    `json:"restartCount"`
 					State        struct {
-						Running    *struct{ StartedAt time.Time } `json:"running,omitempty"`
+						Running    *struct{ StartedAt time.Time }    `json:"running,omitempty"`
 						Waiting    *struct{ Reason, Message string } `json:"waiting,omitempty"`
 						Terminated *struct {
 							Reason     string

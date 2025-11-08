@@ -33,8 +33,8 @@ type Asset struct {
 	Downloaded bool   `json:"downloaded"` // Whether asset exists
 }
 
-// Schematic represents a Talos schematic and its assets
-type Schematic struct {
+// PXEAsset represents a schematic@version combination and its assets
+type PXEAsset struct {
 	SchematicID string  `json:"schematic_id"`
 	Version     string  `json:"version"`
 	Path        string  `json:"path"`
@@ -49,9 +49,10 @@ type AssetStatus struct {
 	Complete    bool             `json:"complete"`
 }
 
-// GetAssetDir returns the asset directory for a schematic
-func (m *Manager) GetAssetDir(schematicID string) string {
-	return filepath.Join(m.dataDir, "assets", schematicID)
+// GetAssetDir returns the asset directory for a schematic@version composite key
+func (m *Manager) GetAssetDir(schematicID, version string) string {
+	composite := fmt.Sprintf("%s@%s", schematicID, version)
+	return filepath.Join(m.dataDir, "assets", composite)
 }
 
 // GetAssetsRootDir returns the root assets directory
@@ -59,8 +60,8 @@ func (m *Manager) GetAssetsRootDir() string {
 	return filepath.Join(m.dataDir, "assets")
 }
 
-// ListSchematics returns all available schematics
-func (m *Manager) ListSchematics() ([]Schematic, error) {
+// ListAssets returns all available schematic@version combinations
+func (m *Manager) ListAssets() ([]PXEAsset, error) {
 	assetsDir := m.GetAssetsRootDir()
 
 	// Ensure assets directory exists
@@ -73,52 +74,53 @@ func (m *Manager) ListSchematics() ([]Schematic, error) {
 		return nil, fmt.Errorf("reading assets directory: %w", err)
 	}
 
-	var schematics []Schematic
+	var assets []PXEAsset
 	for _, entry := range entries {
 		if entry.IsDir() {
-			schematicID := entry.Name()
-			schematic, err := m.GetSchematic(schematicID)
-			if err != nil {
-				// Skip invalid schematics
+			// Parse directory name as schematicID@version
+			parts := strings.SplitN(entry.Name(), "@", 2)
+			if len(parts) != 2 {
+				// Skip invalid directory names (old format or other)
 				continue
 			}
-			schematics = append(schematics, *schematic)
+			schematicID := parts[0]
+			version := parts[1]
+
+			asset, err := m.GetAsset(schematicID, version)
+			if err != nil {
+				// Skip invalid assets
+				continue
+			}
+			assets = append(assets, *asset)
 		}
 	}
 
-	return schematics, nil
+	return assets, nil
 }
 
-// GetSchematic returns details for a specific schematic
-func (m *Manager) GetSchematic(schematicID string) (*Schematic, error) {
+// GetAsset returns details for a specific schematic@version combination
+func (m *Manager) GetAsset(schematicID, version string) (*PXEAsset, error) {
 	if schematicID == "" {
 		return nil, fmt.Errorf("schematic ID cannot be empty")
 	}
+	if version == "" {
+		return nil, fmt.Errorf("version cannot be empty")
+	}
 
-	assetDir := m.GetAssetDir(schematicID)
+	assetDir := m.GetAssetDir(schematicID, version)
 
-	// Check if schematic directory exists
+	// Check if asset directory exists
 	if !storage.FileExists(assetDir) {
-		return nil, fmt.Errorf("schematic %s not found", schematicID)
+		return nil, fmt.Errorf("asset %s@%s not found", schematicID, version)
 	}
 
-	// List assets for this schematic
-	assets, err := m.listSchematicAssets(schematicID)
+	// List assets for this schematic@version
+	assets, err := m.listAssetFiles(schematicID, version)
 	if err != nil {
-		return nil, fmt.Errorf("listing schematic assets: %w", err)
+		return nil, fmt.Errorf("listing assets: %w", err)
 	}
 
-	// Try to determine version from version file
-	version := ""
-	versionPath := filepath.Join(assetDir, "version.txt")
-	if storage.FileExists(versionPath) {
-		data, err := os.ReadFile(versionPath)
-		if err == nil {
-			version = strings.TrimSpace(string(data))
-		}
-	}
-
-	return &Schematic{
+	return &PXEAsset{
 		SchematicID: schematicID,
 		Version:     version,
 		Path:        assetDir,
@@ -126,9 +128,14 @@ func (m *Manager) GetSchematic(schematicID string) (*Schematic, error) {
 	}, nil
 }
 
-// listSchematicAssets lists all assets for a schematic
-func (m *Manager) listSchematicAssets(schematicID string) ([]Asset, error) {
-	assetDir := m.GetAssetDir(schematicID)
+// AssetExists checks if a schematic@version exists
+func (m *Manager) AssetExists(schematicID, version string) bool {
+	return storage.FileExists(m.GetAssetDir(schematicID, version))
+}
+
+// listAssetFiles lists all asset files for a schematic@version
+func (m *Manager) listAssetFiles(schematicID, version string) ([]Asset, error) {
+	assetDir := m.GetAssetDir(schematicID, version)
 
 	var assets []Asset
 
@@ -221,17 +228,11 @@ func (m *Manager) DownloadAssets(schematicID, version, platform string, assetTyp
 		assetTypes = []string{"kernel", "initramfs", "iso"}
 	}
 
-	assetDir := m.GetAssetDir(schematicID)
+	assetDir := m.GetAssetDir(schematicID, version)
 
 	// Ensure asset directory exists
 	if err := storage.EnsureDir(assetDir, 0755); err != nil {
 		return fmt.Errorf("creating asset directory: %w", err)
-	}
-
-	// Save version info
-	versionPath := filepath.Join(assetDir, "version.txt")
-	if err := os.WriteFile(versionPath, []byte(version), 0644); err != nil {
-		return fmt.Errorf("saving version info: %w", err)
 	}
 
 	// Download each requested asset
@@ -246,7 +247,7 @@ func (m *Manager) DownloadAssets(schematicID, version, platform string, assetTyp
 
 // downloadAsset downloads a single asset
 func (m *Manager) downloadAsset(schematicID, assetType, version, platform string) error {
-	assetDir := m.GetAssetDir(schematicID)
+	assetDir := m.GetAssetDir(schematicID, version)
 
 	// Determine subdirectory, filename, and URL based on asset type and platform
 	var subdir, filename, urlPath string
@@ -261,7 +262,7 @@ func (m *Manager) downloadAsset(schematicID, assetType, version, platform string
 		urlPath = fmt.Sprintf("initramfs-%s.xz", platform)
 	case "iso":
 		subdir = "iso"
-		// Preserve version and platform in filename for clarity
+		// Include version in filename for clarity
 		filename = fmt.Sprintf("talos-%s-metal-%s.iso", version, platform)
 		urlPath = fmt.Sprintf("metal-%s.iso", platform)
 	default:
@@ -322,31 +323,24 @@ func (m *Manager) downloadAsset(schematicID, assetType, version, platform string
 	return nil
 }
 
-// GetAssetStatus returns the download status for a schematic
-func (m *Manager) GetAssetStatus(schematicID string) (*AssetStatus, error) {
+// GetAssetStatus returns the download status for a schematic@version
+func (m *Manager) GetAssetStatus(schematicID, version string) (*AssetStatus, error) {
 	if schematicID == "" {
 		return nil, fmt.Errorf("schematic ID cannot be empty")
 	}
-
-	assetDir := m.GetAssetDir(schematicID)
-
-	// Check if schematic directory exists
-	if !storage.FileExists(assetDir) {
-		return nil, fmt.Errorf("schematic %s not found", schematicID)
+	if version == "" {
+		return nil, fmt.Errorf("version cannot be empty")
 	}
 
-	// Get version
-	version := ""
-	versionPath := filepath.Join(assetDir, "version.txt")
-	if storage.FileExists(versionPath) {
-		data, err := os.ReadFile(versionPath)
-		if err == nil {
-			version = strings.TrimSpace(string(data))
-		}
+	assetDir := m.GetAssetDir(schematicID, version)
+
+	// Check if asset directory exists
+	if !storage.FileExists(assetDir) {
+		return nil, fmt.Errorf("asset %s@%s not found", schematicID, version)
 	}
 
 	// List assets
-	assets, err := m.listSchematicAssets(schematicID)
+	assets, err := m.listAssetFiles(schematicID, version)
 	if err != nil {
 		return nil, fmt.Errorf("listing assets: %w", err)
 	}
@@ -370,12 +364,15 @@ func (m *Manager) GetAssetStatus(schematicID string) (*AssetStatus, error) {
 }
 
 // GetAssetPath returns the path to a specific asset file
-func (m *Manager) GetAssetPath(schematicID, assetType string) (string, error) {
+func (m *Manager) GetAssetPath(schematicID, version, assetType string) (string, error) {
 	if schematicID == "" {
 		return "", fmt.Errorf("schematic ID cannot be empty")
 	}
+	if version == "" {
+		return "", fmt.Errorf("version cannot be empty")
+	}
 
-	assetDir := m.GetAssetDir(schematicID)
+	assetDir := m.GetAssetDir(schematicID, version)
 
 	var subdir, pattern string
 	switch assetType {
@@ -387,7 +384,7 @@ func (m *Manager) GetAssetPath(schematicID, assetType string) (string, error) {
 		pattern = "initramfs-amd64.xz"
 	case "iso":
 		subdir = "iso"
-		pattern = "talos-*.iso" // Glob pattern for version-specific filename
+		pattern = "talos-*.iso" // Glob pattern for version and platform-specific filename
 	default:
 		return "", fmt.Errorf("unknown asset type: %s", assetType)
 	}
@@ -416,13 +413,16 @@ func (m *Manager) GetAssetPath(schematicID, assetType string) (string, error) {
 	return assetPath, nil
 }
 
-// DeleteSchematic removes a schematic and all its assets
-func (m *Manager) DeleteSchematic(schematicID string) error {
+// DeleteAsset removes a schematic@version and all its assets
+func (m *Manager) DeleteAsset(schematicID, version string) error {
 	if schematicID == "" {
 		return fmt.Errorf("schematic ID cannot be empty")
 	}
+	if version == "" {
+		return fmt.Errorf("version cannot be empty")
+	}
 
-	assetDir := m.GetAssetDir(schematicID)
+	assetDir := m.GetAssetDir(schematicID, version)
 
 	if !storage.FileExists(assetDir) {
 		return nil // Already deleted, idempotent

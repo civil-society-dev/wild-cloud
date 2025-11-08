@@ -31,22 +31,22 @@ func TestNewTalosctl(t *testing.T) {
 
 func TestTalosconfigBuildArgs(t *testing.T) {
 	tests := []struct {
-		name           string
+		name            string
 		talosconfigPath string
-		baseArgs       []string
-		wantPrefix     []string
+		baseArgs        []string
+		wantPrefix      []string
 	}{
 		{
-			name:           "no talosconfig adds no prefix",
+			name:            "no talosconfig adds no prefix",
 			talosconfigPath: "",
-			baseArgs:       []string{"version", "--short"},
-			wantPrefix:     nil,
+			baseArgs:        []string{"version", "--short"},
+			wantPrefix:      nil,
 		},
 		{
-			name:           "with talosconfig adds prefix",
+			name:            "with talosconfig adds prefix",
 			talosconfigPath: "/path/to/talosconfig",
-			baseArgs:       []string{"version", "--short"},
-			wantPrefix:     []string{"--talosconfig", "/path/to/talosconfig"},
+			baseArgs:        []string{"version", "--short"},
+			wantPrefix:      []string{"--talosconfig", "/path/to/talosconfig"},
 		},
 	}
 
@@ -137,12 +137,12 @@ func TestTalosconfigGenConfig(t *testing.T) {
 
 func TestTalosconfigApplyConfig(t *testing.T) {
 	tests := []struct {
-		name             string
-		nodeIP           string
-		configFile       string
-		insecure         bool
-		talosconfigPath  string
-		skipTest         bool
+		name            string
+		nodeIP          string
+		configFile      string
+		insecure        bool
+		talosconfigPath string
+		skipTest        bool
 	}{
 		{
 			name:       "apply config with all params",

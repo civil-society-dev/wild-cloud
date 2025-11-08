@@ -11,56 +11,52 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/assets"
 )
 
-// AssetsListSchematics lists all available schematics
-func (api *API) AssetsListSchematics(w http.ResponseWriter, r *http.Request) {
+// AssetsList lists all available assets (schematic@version combinations)
+func (api *API) AssetsList(w http.ResponseWriter, r *http.Request) {
 	assetsMgr := assets.NewManager(api.dataDir)
 
-	schematics, err := assetsMgr.ListSchematics()
+	assetList, err := assetsMgr.ListAssets()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list schematics: %v", err))
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list assets: %v", err))
 		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"schematics": schematics,
+		"assets": assetList,
 	})
 }
 
-// AssetsGetSchematic returns details for a specific schematic
-func (api *API) AssetsGetSchematic(w http.ResponseWriter, r *http.Request) {
+// AssetsGet returns details for a specific asset (schematic@version)
+func (api *API) AssetsGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	schematicID := vars["schematicId"]
+	version := vars["version"]
 
 	assetsMgr := assets.NewManager(api.dataDir)
 
-	schematic, err := assetsMgr.GetSchematic(schematicID)
+	asset, err := assetsMgr.GetAsset(schematicID, version)
 	if err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Schematic not found: %v", err))
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Asset not found: %v", err))
 		return
 	}
 
-	respondJSON(w, http.StatusOK, schematic)
+	respondJSON(w, http.StatusOK, asset)
 }
 
-// AssetsDownload downloads assets for a schematic
+// AssetsDownload downloads assets for a schematic@version
 func (api *API) AssetsDownload(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	schematicID := vars["schematicId"]
+	version := vars["version"]
 
 	// Parse request body
 	var req struct {
-		Version    string   `json:"version"`
 		Platform   string   `json:"platform,omitempty"`
 		AssetTypes []string `json:"asset_types,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
-	if req.Version == "" {
-		respondError(w, http.StatusBadRequest, "version is required")
 		return
 	}
 
@@ -71,7 +67,7 @@ func (api *API) AssetsDownload(w http.ResponseWriter, r *http.Request) {
 
 	// Download assets
 	assetsMgr := assets.NewManager(api.dataDir)
-	if err := assetsMgr.DownloadAssets(schematicID, req.Version, req.Platform, req.AssetTypes); err != nil {
+	if err := assetsMgr.DownloadAssets(schematicID, version, req.Platform, req.AssetTypes); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to download assets: %v", err))
 		return
 	}
@@ -79,7 +75,7 @@ func (api *API) AssetsDownload(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":      "Assets downloaded successfully",
 		"schematic_id": schematicID,
-		"version":      req.Version,
+		"version":      version,
 		"platform":     req.Platform,
 	})
 }
@@ -88,12 +84,13 @@ func (api *API) AssetsDownload(w http.ResponseWriter, r *http.Request) {
 func (api *API) AssetsServePXE(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	schematicID := vars["schematicId"]
+	version := vars["version"]
 	assetType := vars["assetType"]
 
 	assetsMgr := assets.NewManager(api.dataDir)
 
 	// Get asset path
-	assetPath, err := assetsMgr.GetAssetPath(schematicID, assetType)
+	assetPath, err := assetsMgr.GetAssetPath(schematicID, version, assetType)
 	if err != nil {
 		respondError(w, http.StatusNotFound, fmt.Sprintf("Asset not found: %v", err))
 		return
@@ -137,36 +134,39 @@ func (api *API) AssetsServePXE(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 }
 
-// AssetsGetStatus returns download status for a schematic
+// AssetsGetStatus returns download status for a schematic@version
 func (api *API) AssetsGetStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	schematicID := vars["schematicId"]
+	version := vars["version"]
 
 	assetsMgr := assets.NewManager(api.dataDir)
 
-	status, err := assetsMgr.GetAssetStatus(schematicID)
+	status, err := assetsMgr.GetAssetStatus(schematicID, version)
 	if err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Schematic not found: %v", err))
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Asset not found: %v", err))
 		return
 	}
 
 	respondJSON(w, http.StatusOK, status)
 }
 
-// AssetsDeleteSchematic deletes a schematic and all its assets
-func (api *API) AssetsDeleteSchematic(w http.ResponseWriter, r *http.Request) {
+// AssetsDelete deletes an asset (schematic@version) and all its files
+func (api *API) AssetsDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	schematicID := vars["schematicId"]
+	version := vars["version"]
 
 	assetsMgr := assets.NewManager(api.dataDir)
 
-	if err := assetsMgr.DeleteSchematic(schematicID); err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete schematic: %v", err))
+	if err := assetsMgr.DeleteAsset(schematicID, version); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete asset: %v", err))
 		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{
-		"message":      "Schematic deleted successfully",
+		"message":      "Asset deleted successfully",
 		"schematic_id": schematicID,
+		"version":      version,
 	})
 }

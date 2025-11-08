@@ -177,7 +177,7 @@ func TestUpdateYAMLFile_NestedStructure(t *testing.T) {
 		"cloud": map[string]interface{}{
 			"domain": "test.com",
 			"dns": map[string]interface{}{
-				"ip": "1.2.3.4",
+				"ip":   "1.2.3.4",
 				"port": 53,
 			},
 		},
@@ -488,8 +488,8 @@ func TestUpdateYAMLFile_UpdateSecrets(t *testing.T) {
 
 	// Update secrets
 	updateData := map[string]interface{}{
-		"dbPassword":  "secret123",
-		"apiKey":      "key456",
+		"dbPassword": "secret123",
+		"apiKey":     "key456",
 	}
 	updateYAML, _ := yaml.Marshal(updateData)
 

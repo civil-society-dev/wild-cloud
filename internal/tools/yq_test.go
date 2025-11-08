@@ -370,9 +370,9 @@ func TestYQExec(t *testing.T) {
 
 func TestCleanYQOutput(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  string
-		want   string
+		name  string
+		input string
+		want  string
 	}{
 		{
 			name:  "removes trailing newline",

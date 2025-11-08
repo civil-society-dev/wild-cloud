@@ -45,17 +45,9 @@ func (api *API) PXEListAssets(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-
-	// Proxy to new asset system
-	assetsMgr := assets.NewManager(api.dataDir)
-	schematic, err := assetsMgr.GetSchematic(schematicID)
-	if err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Schematic not found: %v", err))
-		return
-	}
-
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"assets": schematic.Assets,
+		"assets":  []interface{}{},
+		"message": "Please use the new /api/v1/pxe/assets endpoint with both schematic ID and version",
 	})
 }
 
@@ -184,20 +176,7 @@ func (api *API) PXEGetAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Proxy to new asset system - serve the file directly
-	assetsMgr := assets.NewManager(api.dataDir)
-	assetPath, err := assetsMgr.GetAssetPath(schematicID, assetType)
-	if err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Asset not found: %v", err))
-		return
-	}
-
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"type":         assetType,
-		"path":         assetPath,
-		"valid":        true,
-		"schematic_id": schematicID,
-	})
+	respondError(w, http.StatusBadRequest, "This deprecated endpoint requires version. Please use /api/v1/pxe/assets/{schematicId}/{version}/pxe/{assetType}")
 }
 
 // PXEDeleteAsset deletes a PXE asset

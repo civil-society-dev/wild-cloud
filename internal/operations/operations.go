@@ -28,7 +28,7 @@ func NewManager(dataDir string) *Manager {
 
 // BootstrapProgress tracks detailed bootstrap progress
 type BootstrapProgress struct {
-	CurrentStep     int    `json:"current_step"`      // 0-6
+	CurrentStep     int    `json:"current_step"` // 0-6
 	StepName        string `json:"step_name"`
 	Attempt         int    `json:"attempt"`
 	MaxAttempts     int    `json:"max_attempts"`
@@ -96,7 +96,6 @@ func (m *Manager) Start(instanceName, opType, target string) (string, error) {
 
 	return opID, nil
 }
-
 
 // GetByInstance returns an operation for a specific instance
 func (m *Manager) GetByInstance(instanceName, opID string) (*Operation, error) {

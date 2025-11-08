@@ -691,10 +691,10 @@ cluster:
 			wantErr:  false,
 		},
 		{
-			name:        "creates destination directory",
-			srcYAML:     `baseDomain: "example.com"`,
-			setupDst:    nil,
-			wantErr:     false,
+			name:     "creates destination directory",
+			srcYAML:  `baseDomain: "example.com"`,
+			setupDst: nil,
+			wantErr:  false,
 		},
 		{
 			name: "overwrites existing destination",

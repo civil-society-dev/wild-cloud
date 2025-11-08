@@ -127,11 +127,11 @@ func TestEnsureDir(t *testing.T) {
 
 func TestReadFile(t *testing.T) {
 	tests := []struct {
-		name      string
-		setup     func(tmpDir string) string
-		wantData  []byte
-		wantErr   bool
-		errCheck  func(error) bool
+		name     string
+		setup    func(tmpDir string) string
+		wantData []byte
+		wantErr  bool
+		errCheck func(error) bool
 	}{
 		{
 			name: "read existing file",

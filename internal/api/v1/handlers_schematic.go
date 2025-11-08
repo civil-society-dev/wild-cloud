@@ -39,9 +39,9 @@ func (api *API) SchematicGetInstanceSchematic(w http.ResponseWriter, r *http.Req
 
 	// If schematic is configured, get asset status
 	var assetStatus interface{}
-	if schematicID != "" && schematicID != "null" {
+	if schematicID != "" && schematicID != "null" && version != "" && version != "null" {
 		assetsMgr := assets.NewManager(api.dataDir)
-		status, err := assetsMgr.GetAssetStatus(schematicID)
+		status, err := assetsMgr.GetAssetStatus(schematicID, version)
 		if err == nil {
 			assetStatus = status
 		}

@@ -1,5 +1,11 @@
 # Building the Wild Cloud Central API
 
+These are instructions for working with the Wild Cloud Central API (Wild API). Wild API is a web service that runs on Wild Central. Users can interact with the API directly, through the Wild CLI, or through the Wild Web App. The CLI and Web App depend on the API extensively.
+
+Whenever changes are made to the API, it is important that the CLI and API are updated appropriately.
+
+Use tests on the API extensively to keep the API functioning well for all clients, but don't duplicate test layers. If something is tested in one place, it doesn't need to be tested again in another place. Prefer unit tests. Tests should be run with `make test` after all API changes. If a bug was found by any means other than tests, it is a signal that a test should have been present to catch it earlier, so make sure a new test catches that bug before fixing it.
+
 ## Dev Environment Requirements
 
 - Go 1.21+

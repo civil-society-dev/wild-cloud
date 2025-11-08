@@ -37,9 +37,9 @@ type EnhancedApp struct {
 
 // RuntimeStatus contains runtime information from kubernetes
 type RuntimeStatus struct {
-	Pods         []PodInfo        `json:"pods,omitempty"`
-	Replicas     *ReplicaInfo     `json:"replicas,omitempty"`
-	Resources    *ResourceUsage   `json:"resources,omitempty"`
+	Pods         []PodInfo         `json:"pods,omitempty"`
+	Replicas     *ReplicaInfo      `json:"replicas,omitempty"`
+	Resources    *ResourceUsage    `json:"resources,omitempty"`
 	RecentEvents []KubernetesEvent `json:"recentEvents,omitempty"`
 }
 

@@ -98,13 +98,13 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/nodes/{node}/apply", api.NodeApply).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/nodes/{node}", api.NodeDelete).Methods("DELETE")
 
-	// Asset management
-	r.HandleFunc("/api/v1/assets", api.AssetsListSchematics).Methods("GET")
-	r.HandleFunc("/api/v1/assets/{schematicId}", api.AssetsGetSchematic).Methods("GET")
-	r.HandleFunc("/api/v1/assets/{schematicId}/download", api.AssetsDownload).Methods("POST")
-	r.HandleFunc("/api/v1/assets/{schematicId}/pxe/{assetType}", api.AssetsServePXE).Methods("GET")
-	r.HandleFunc("/api/v1/assets/{schematicId}/status", api.AssetsGetStatus).Methods("GET")
-	r.HandleFunc("/api/v1/assets/{schematicId}", api.AssetsDeleteSchematic).Methods("DELETE")
+	// PXE Asset management (schematic@version composite key)
+	r.HandleFunc("/api/v1/pxe/assets", api.AssetsList).Methods("GET")
+	r.HandleFunc("/api/v1/pxe/assets/{schematicId}/{version}", api.AssetsGet).Methods("GET")
+	r.HandleFunc("/api/v1/pxe/assets/{schematicId}/{version}/download", api.AssetsDownload).Methods("POST")
+	r.HandleFunc("/api/v1/pxe/assets/{schematicId}/{version}", api.AssetsDelete).Methods("DELETE")
+	r.HandleFunc("/api/v1/pxe/assets/{schematicId}/{version}/pxe/{assetType}", api.AssetsServePXE).Methods("GET")
+	r.HandleFunc("/api/v1/pxe/assets/{schematicId}/{version}/status", api.AssetsGetStatus).Methods("GET")
 
 	// Instance-schematic relationship
 	r.HandleFunc("/api/v1/instances/{name}/schematic", api.SchematicGetInstanceSchematic).Methods("GET")
