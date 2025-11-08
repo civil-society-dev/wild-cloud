@@ -39,15 +39,24 @@ type ClusterConfig struct {
 	Version     string `json:"version"`
 }
 
+// NodeStatus represents the health status of a single node
+type NodeStatus struct {
+	Hostname        string `json:"hostname"`
+	Ready           bool   `json:"ready"`
+	KubernetesReady bool   `json:"kubernetes_ready"`
+	Role            string `json:"role"` // "control-plane" or "worker"
+}
+
 // ClusterStatus represents cluster health and status
 type ClusterStatus struct {
-	Status            string            `json:"status"` // ready, pending, error
-	Nodes             int               `json:"nodes"`
-	ControlPlaneNodes int               `json:"control_plane_nodes"`
-	WorkerNodes       int               `json:"worker_nodes"`
-	KubernetesVersion string            `json:"kubernetes_version"`
-	TalosVersion      string            `json:"talos_version"`
-	Services          map[string]string `json:"services"`
+	Status            string                  `json:"status"` // ready, pending, error
+	Nodes             int                     `json:"nodes"`
+	ControlPlaneNodes int                     `json:"control_plane_nodes"`
+	WorkerNodes       int                     `json:"worker_nodes"`
+	KubernetesVersion string                  `json:"kubernetes_version"`
+	TalosVersion      string                  `json:"talos_version"`
+	Services          map[string]string       `json:"services"`
+	NodeStatuses      map[string]NodeStatus   `json:"node_statuses,omitempty"`
 }
 
 // GetTalosDir returns the talos directory for an instance
@@ -495,6 +504,7 @@ func (m *Manager) GetStatus(instanceName string) (*ClusterStatus, error) {
 	var nodesResult struct {
 		Items []struct {
 			Metadata struct {
+				Name   string            `json:"name"`
 				Labels map[string]string `json:"labels"`
 			} `json:"metadata"`
 			Status struct {
@@ -539,19 +549,37 @@ func (m *Manager) GetStatus(instanceName string) (*ClusterStatus, error) {
 		}
 	}
 
-	// Count control plane and worker nodes
+	// Count control plane and worker nodes, and populate per-node status
+	status.NodeStatuses = make(map[string]NodeStatus)
+
 	for _, node := range nodesResult.Items {
+		hostname := node.Metadata.Name // K8s node name is hostname
+
+		role := "worker"
 		if _, isControl := node.Metadata.Labels["node-role.kubernetes.io/control-plane"]; isControl {
+			role = "control-plane"
 			status.ControlPlaneNodes++
 		} else {
 			status.WorkerNodes++
 		}
 
 		// Check if node is ready
+		nodeReady := false
 		for _, cond := range node.Status.Conditions {
-			if cond.Type == "Ready" && cond.Status != "True" {
-				status.Status = "degraded"
+			if cond.Type == "Ready" {
+				nodeReady = (cond.Status == "True")
+				if !nodeReady {
+					status.Status = "degraded"
+				}
+				break
 			}
+		}
+
+		status.NodeStatuses[hostname] = NodeStatus{
+			Hostname:        hostname,
+			Ready:           true, // In K8s means it's reachable
+			KubernetesReady: nodeReady,
+			Role:            role,
 		}
 	}
 
