@@ -171,7 +171,8 @@ export function NodeForm({
       const newValues = getInitialValues(initialValues, detection, nodes, hostnamePrefix);
       reset(newValues);
     }
-  }, [initialValues, detection, nodes, hostnamePrefix, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValues, detection, nodes, hostnamePrefix]);
 
   // Set default role based on existing control plane nodes
   useEffect(() => {
@@ -185,14 +186,16 @@ export function NodeForm({
         setValue('role', defaultRole);
       }
     }
-  }, [nodes, initialValues?.role, setValue, watch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, initialValues?.role]);
 
   // Pre-populate schematic ID from cluster config if available
   useEffect(() => {
     if (!schematicId && instanceConfig?.cluster?.nodes?.talos?.schematicId) {
       setValue('schematicId', instanceConfig.cluster.nodes.talos.schematicId);
     }
-  }, [instanceConfig, schematicId, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceConfig, schematicId]);
 
   // Auto-generate hostname when role changes (only for NEW nodes without initial hostname)
   useEffect(() => {
@@ -291,7 +294,8 @@ export function NodeForm({
         }
       }
     }
-  }, [role, nodes, hostnamePrefix, setValue, watch, isExistingNode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, nodes, hostnamePrefix, isExistingNode]);
 
   // Auto-calculate target IP for control plane nodes
   useEffect(() => {
@@ -367,7 +371,8 @@ export function NodeForm({
         }
       }
     }
-  }, [role, instanceConfig, nodes, setValue, watch, initialValues?.targetIp, detection?.ip]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, instanceConfig, nodes, initialValues?.targetIp, detection?.ip]);
 
   // Build disk options from both detection and initial values
   const diskOptions = (() => {

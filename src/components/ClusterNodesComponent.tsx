@@ -175,7 +175,7 @@ export function ClusterNodesComponent() {
   };
 
   const handleAddSubmit = async (data: NodeFormData) => {
-    await addNode({
+    const nodeData = {
       hostname: data.hostname,
       role: data.role,
       disk: data.disk,
@@ -183,7 +183,19 @@ export function ClusterNodesComponent() {
       interface: data.interface,
       schematic_id: data.schematicId,
       maintenance: data.maintenance,
-    });
+    };
+
+    // Add node configuration (if this fails, error is shown and drawer stays open)
+    await addNode(nodeData);
+
+    // Apply configuration immediately for new nodes
+    try {
+      await applyNode(data.hostname);
+    } catch (applyError) {
+      // Apply failed but node is added - user can use Apply button on card
+      console.error('Failed to apply node configuration:', applyError);
+    }
+
     closeDrawer();
     setAddNodeIp('');
   };
