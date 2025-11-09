@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Alert } from './ui/alert';
 import { Input } from './ui/input';
-import { Cpu, HardDrive, Network, Monitor, CheckCircle, AlertCircle, BookOpen, ExternalLink, Loader2, RotateCcw } from 'lucide-react';
+import { Cpu, HardDrive, Network, Monitor, CheckCircle, AlertCircle, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useNodes, useDiscoveryStatus } from '../hooks/useNodes';
 import { useCluster } from '../hooks/useCluster';
@@ -37,8 +37,6 @@ export function ClusterNodesComponent() {
     updateNode,
     applyNode,
     isApplying,
-    resetNode,
-    isResetting,
     refetch
   } = useNodes(currentInstance);
 
@@ -68,6 +66,7 @@ export function ClusterNodesComponent() {
     open: false,
     mode: 'add',
   });
+  const [deletingNodeHostname, setDeletingNodeHostname] = useState<string | null>(null);
 
   const closeDrawer = () => setDrawerState({ ...drawerState, open: false });
 
@@ -217,20 +216,15 @@ export function ClusterNodesComponent() {
     await applyNode(drawerState.node.hostname);
   };
 
-  const handleResetNode = (node: Node) => {
-    if (
-      confirm(
-        `Reset node ${node.hostname}?\n\nThis will wipe the node and return it to maintenance mode. The node will need to be reconfigured.`
-      )
-    ) {
-      resetNode(node.hostname);
-    }
-  };
-
-  const handleDeleteNode = (hostname: string) => {
+  const handleDeleteNode = async (hostname: string) => {
     if (!currentInstance) return;
-    if (confirm(`Are you sure you want to remove node ${hostname}?`)) {
-      deleteNode(hostname);
+    if (confirm(`Reset and remove node ${hostname}?\n\nThis will reset the node and remove it from the cluster. The node will reboot to maintenance mode and can be reconfigured.`)) {
+      setDeletingNodeHostname(hostname);
+      try {
+        await deleteNode(hostname);
+      } finally {
+        setDeletingNodeHostname(null);
+      }
     }
   };
 
@@ -274,7 +268,7 @@ export function ClusterNodesComponent() {
 
     // Check if cluster is already bootstrapped using cluster status
     // The backend checks for kubeconfig existence and cluster connectivity
-    const hasBootstrapped = clusterStatus?.status !== 'not_bootstrapped' && clusterStatus?.status !== undefined;
+    const hasBootstrapped = clusterStatus?.ready === true;
 
     return hasReadyControlPlane && !hasBootstrapped;
   }, [assignedNodes, clusterStatus]);
@@ -634,25 +628,13 @@ export function ClusterNodesComponent() {
                           {isApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
                         </Button>
                       )}
-                      {!node.maintenance && (node.configured || node.applied) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleResetNode(node)}
-                          disabled={isResetting}
-                          className="border-orange-500 text-orange-500 hover:bg-orange-50 hover:text-orange-600"
-                        >
-                          <RotateCcw className="h-4 w-4 mr-1" />
-                          Reset
-                        </Button>
-                      )}
                       <Button
                         size="sm"
                         variant="destructive"
                         onClick={() => handleDeleteNode(node.hostname)}
-                        disabled={isDeleting}
+                        disabled={deletingNodeHostname === node.hostname}
                       >
-                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                        {deletingNodeHostname === node.hostname ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
                       </Button>
                     </div>
                   </div>
