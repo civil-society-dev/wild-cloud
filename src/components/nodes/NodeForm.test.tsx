@@ -106,7 +106,7 @@ describe('NodeForm Integration Tests', () => {
         });
       });
 
-      it('auto-fills currentIp from detection', async () => {
+      it('auto-fills targetIp from detection', async () => {
         const config = createMockConfig();
         vi.mocked(useInstanceConfig).mockReturnValue(mockUseInstanceConfig(config));
         vi.mocked(useNodes).mockReturnValue(mockUseNodes([]));
@@ -122,8 +122,8 @@ describe('NodeForm Integration Tests', () => {
           { wrapper: createWrapper(createTestQueryClient()) }
         );
 
-        const currentIpInput = screen.getByLabelText(/current ip/i) as HTMLInputElement;
-        expect(currentIpInput.value).toBe('192.168.1.75');
+        const targetIpInput = screen.getByLabelText(/target ip/i) as HTMLInputElement;
+        expect(targetIpInput.value).toBe('192.168.1.75');
       });
 
       it('submits form with correct data', async () => {
@@ -132,7 +132,8 @@ describe('NodeForm Integration Tests', () => {
         vi.mocked(useInstanceConfig).mockReturnValue(mockUseInstanceConfig(config));
         vi.mocked(useNodes).mockReturnValue(mockUseNodes([]));
 
-        const detection = createMockHardwareInfo();
+        // Don't provide detection.ip so VIP-based auto-calculation happens
+        const detection = createMockHardwareInfo({ ip: undefined });
 
         render(
           <NodeForm
@@ -154,7 +155,6 @@ describe('NodeForm Integration Tests', () => {
             role: 'controlplane',
             disk: '/dev/sda',
             interface: 'eth0',
-            currentIp: '192.168.1.50',
             maintenance: true,
             schematicId: 'default-schematic-123',
             targetIp: '192.168.1.101',
@@ -201,7 +201,8 @@ describe('NodeForm Integration Tests', () => {
         vi.mocked(useInstanceConfig).mockReturnValue(mockUseInstanceConfig(config));
         vi.mocked(useNodes).mockReturnValue(mockUseNodes([]));
 
-        const detection = createMockHardwareInfo();
+        // Don't provide detection.ip so VIP-based auto-calculation happens
+        const detection = createMockHardwareInfo({ ip: undefined });
 
         render(
           <NodeForm
@@ -239,7 +240,8 @@ describe('NodeForm Integration Tests', () => {
         vi.mocked(useInstanceConfig).mockReturnValue(mockUseInstanceConfig(config));
         vi.mocked(useNodes).mockReturnValue(mockUseNodes(existingNodes));
 
-        const detection = createMockHardwareInfo();
+        // Don't provide detection.ip so VIP-based auto-calculation happens
+        const detection = createMockHardwareInfo({ ip: undefined });
 
         render(
           <NodeForm
@@ -275,7 +277,8 @@ describe('NodeForm Integration Tests', () => {
         vi.mocked(useInstanceConfig).mockReturnValue(mockUseInstanceConfig(config));
         vi.mocked(useNodes).mockReturnValue(mockUseNodes(existingNodes));
 
-        const detection = createMockHardwareInfo();
+        // Don't provide detection.ip so VIP-based auto-calculation happens
+        const detection = createMockHardwareInfo({ ip: undefined });
 
         render(
           <NodeForm
@@ -306,7 +309,6 @@ describe('NodeForm Integration Tests', () => {
           role: 'controlplane',
           disk: '/dev/nvme0n1',
           targetIp: '192.168.1.105',
-          currentIp: '192.168.1.60',
           interface: 'eth1',
           schematicId: 'existing-schematic-456',
           maintenance: false,
@@ -327,14 +329,8 @@ describe('NodeForm Integration Tests', () => {
         const targetIpInput = screen.getByLabelText(/target ip/i) as HTMLInputElement;
         expect(targetIpInput.value).toBe('192.168.1.105');
 
-        const currentIpInput = screen.getByLabelText(/current ip/i) as HTMLInputElement;
-        expect(currentIpInput.value).toBe('192.168.1.60');
-
         const schematicInput = screen.getByLabelText(/schematic id/i) as HTMLInputElement;
         expect(schematicInput.value).toBe('existing-schematic-456');
-
-        const maintenanceCheckbox = screen.getByLabelText(/maintenance/i) as HTMLInputElement;
-        expect(maintenanceCheckbox.checked).toBe(false);
       });
 
       it('does NOT auto-generate hostname', async () => {
@@ -418,7 +414,6 @@ describe('NodeForm Integration Tests', () => {
           role: 'controlplane',
           disk: '/dev/nvme0n1',
           targetIp: '192.168.1.105',
-          currentIp: '192.168.1.60',
           interface: 'eth0',
           schematicId: 'existing-schematic-456',
           maintenance: false,
@@ -553,7 +548,6 @@ describe('NodeForm Integration Tests', () => {
           disk: '/dev/nvme0n1',
           interface: 'eth1',
           targetIp: '192.168.1.105',
-          currentIp: '192.168.1.60',
           schematicId: 'existing-schematic',
           maintenance: false,
         };
@@ -589,7 +583,6 @@ describe('NodeForm Integration Tests', () => {
             disk: '/dev/nvme0n1', // NOT /dev/sda from detection
             interface: 'eth1', // NOT eth0 from detection
             targetIp: '192.168.1.105',
-            currentIp: '192.168.1.60',
           });
         });
       });
@@ -881,8 +874,9 @@ describe('NodeForm Integration Tests', () => {
         const hostnameInput = screen.getByLabelText(/hostname/i) as HTMLInputElement;
         expect(hostnameInput.value).toBe('test-control-1');
 
-        const currentIpInput = screen.getByLabelText(/current ip/i) as HTMLInputElement;
-        expect(currentIpInput.value).toBe('');
+        // Control plane nodes should auto-calculate targetIp from VIP (192.168.1.100 + 1)
+        const targetIpInput = screen.getByLabelText(/target ip/i) as HTMLInputElement;
+        expect(targetIpInput.value).toBe('192.168.1.101');
 
         const diskInput = screen.getByLabelText(/disk/i) as HTMLInputElement;
         expect(diskInput.value).toBe('');
@@ -906,8 +900,8 @@ describe('NodeForm Integration Tests', () => {
           { wrapper: createWrapper(createTestQueryClient()) }
         );
 
-        const currentIpInput = screen.getByLabelText(/current ip/i) as HTMLInputElement;
-        expect(currentIpInput.value).toBe('192.168.1.75');
+        const targetIpInput = screen.getByLabelText(/target ip/i) as HTMLInputElement;
+        expect(targetIpInput.value).toBe('192.168.1.75');
       });
 
       it('handles detection with no disks', async () => {
@@ -1219,7 +1213,6 @@ describe('NodeForm Integration Tests', () => {
           role: 'worker' as const,
           disk: '/dev/sda',
           interface: 'eth0',
-          currentIp: '192.168.1.50',
           maintenance: true,
         };
 

@@ -54,6 +54,9 @@ export function useNodes(instanceName: string | null | undefined) {
 
   const applyMutation = useMutation({
     mutationFn: (nodeName: string) => nodesApi.apply(instanceName!, nodeName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'nodes'] });
+    },
   });
 
   const fetchTemplatesMutation = useMutation({
