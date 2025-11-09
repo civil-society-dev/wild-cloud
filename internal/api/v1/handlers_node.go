@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -326,6 +327,7 @@ func (api *API) NodeFetchTemplates(w http.ResponseWriter, r *http.Request) {
 }
 
 // NodeDelete removes a node
+// Query parameter: skip_reset=true to force delete without resetting
 func (api *API) NodeDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	instanceName := vars["name"]
@@ -337,15 +339,29 @@ func (api *API) NodeDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete node
+	// Parse skip_reset query parameter (default: false)
+	skipReset := r.URL.Query().Get("skip_reset") == "true"
+
+	// Delete node (with reset unless skipReset=true)
 	nodeMgr := node.NewManager(api.dataDir, instanceName)
-	if err := nodeMgr.Delete(instanceName, nodeIdentifier); err != nil {
+	if err := nodeMgr.Delete(instanceName, nodeIdentifier, skipReset); err != nil {
+		// Check if it's a reset-related error
+		errMsg := err.Error()
+		if !skipReset && (strings.Contains(errMsg, "reset") || strings.Contains(errMsg, "timed out")) {
+			respondError(w, http.StatusConflict, errMsg)
+			return
+		}
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete node: %v", err))
 		return
 	}
 
+	message := "Node deleted successfully"
+	if !skipReset {
+		message = "Node reset and removed successfully"
+	}
+
 	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "Node deleted successfully",
+		"message": message,
 	})
 }
 

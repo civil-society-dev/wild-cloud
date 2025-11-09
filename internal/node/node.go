@@ -1,11 +1,13 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/config"
 	"github.com/wild-cloud/wild-central/daemon/internal/setup"
@@ -254,25 +256,53 @@ func (m *Manager) Add(instanceName string, node *Node) error {
 }
 
 // Delete removes a node from config.yaml
-func (m *Manager) Delete(instanceName, nodeIdentifier string) error {
+// If skipReset is false, the node will be reset before deletion (with 30s timeout)
+func (m *Manager) Delete(instanceName, nodeIdentifier string, skipReset bool) error {
 	// Get node to find hostname
 	node, err := m.Get(instanceName, nodeIdentifier)
 	if err != nil {
 		return err
 	}
 
+	// Reset node first unless skipReset is true
+	if !skipReset {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		// Use goroutine to respect context timeout
+		done := make(chan error, 1)
+		go func() {
+			done <- m.Reset(instanceName, nodeIdentifier)
+		}()
+
+		select {
+		case err := <-done:
+			if err != nil {
+				return fmt.Errorf("failed to reset node before deletion (use skip_reset=true to force delete): %w", err)
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("node reset timed out after 30 seconds (use skip_reset=true to force delete)")
+		}
+	}
+
+	// Delete node from config.yaml
+	return m.deleteFromConfig(instanceName, node.Hostname)
+}
+
+// deleteFromConfig removes a node entry from config.yaml
+func (m *Manager) deleteFromConfig(instanceName, hostname string) error {
 	instancePath := m.GetInstancePath(instanceName)
 	configPath := filepath.Join(instancePath, "config.yaml")
 
 	// Delete node from config.yaml
 	// Path: .cluster.nodes.active["hostname"]
 	// Use bracket notation to safely handle hostnames with special characters
-	nodePath := fmt.Sprintf(".cluster.nodes.active[\"%s\"]", node.Hostname)
+	nodePath := fmt.Sprintf(".cluster.nodes.active[\"%s\"]", hostname)
 
 	yq := tools.NewYQ()
 	// Use yq to delete the node
 	delExpr := fmt.Sprintf("del(%s)", nodePath)
-	_, err = yq.Exec("eval", "-i", delExpr, configPath)
+	_, err := yq.Exec("eval", "-i", delExpr, configPath)
 	if err != nil {
 		return fmt.Errorf("failed to delete node: %w", err)
 	}
@@ -700,15 +730,28 @@ func (m *Manager) Reset(instanceName, nodeIdentifier string) error {
 	cmd := exec.Command("talosctl", "-n", resetIP, "--talosconfig", talosconfigPath, "reset", "--graceful=false", "--reboot")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to reset node: %w\nOutput: %s", err, string(output))
+		// Check if error is due to node rebooting (expected after reset command)
+		outputStr := string(output)
+		if strings.Contains(outputStr, "connection refused") || strings.Contains(outputStr, "Unavailable") {
+			// This is expected - node is rebooting after successful reset
+			// Continue with config cleanup
+		} else {
+			// Real error - return it
+			return fmt.Errorf("failed to reset node: %w\nOutput: %s", err, outputStr)
+		}
 	}
 
-	// Update node status to maintenance mode
+	// Update node status to maintenance mode, then remove from config
 	node.Maintenance = true
 	node.Configured = false
 	node.Applied = false
 	if err := m.updateNodeStatus(instanceName, node); err != nil {
 		return fmt.Errorf("failed to update node status: %w", err)
+	}
+
+	// Remove node from config.yaml after successful reset
+	if err := m.deleteFromConfig(instanceName, node.Hostname); err != nil {
+		return fmt.Errorf("failed to remove node from config: %w", err)
 	}
 
 	return nil

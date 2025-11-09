@@ -49,14 +49,14 @@ type NodeStatus struct {
 
 // ClusterStatus represents cluster health and status
 type ClusterStatus struct {
-	Status            string                  `json:"status"` // ready, pending, error
-	Nodes             int                     `json:"nodes"`
-	ControlPlaneNodes int                     `json:"control_plane_nodes"`
-	WorkerNodes       int                     `json:"worker_nodes"`
-	KubernetesVersion string                  `json:"kubernetes_version"`
-	TalosVersion      string                  `json:"talos_version"`
-	Services          map[string]string       `json:"services"`
-	NodeStatuses      map[string]NodeStatus   `json:"node_statuses,omitempty"`
+	Status            string                `json:"status"` // ready, pending, error
+	Nodes             int                   `json:"nodes"`
+	ControlPlaneNodes int                   `json:"control_plane_nodes"`
+	WorkerNodes       int                   `json:"worker_nodes"`
+	KubernetesVersion string                `json:"kubernetes_version"`
+	TalosVersion      string                `json:"talos_version"`
+	Services          map[string]string     `json:"services"`
+	NodeStatuses      map[string]NodeStatus `json:"node_statuses,omitempty"`
 }
 
 // GetTalosDir returns the talos directory for an instance
