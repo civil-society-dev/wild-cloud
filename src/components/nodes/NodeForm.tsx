@@ -17,7 +17,6 @@ export interface NodeFormData {
   role: 'controlplane' | 'worker';
   disk: string;
   targetIp: string;
-  currentIp?: string;
   interface?: string;
   schematicId?: string;
   maintenance: boolean;
@@ -111,8 +110,7 @@ function getInitialValues(
     hostname: initial?.hostname || defaultHostname,
     role,
     disk: defaultDisk,
-    targetIp: initial?.targetIp || '', // Don't auto-fill targetIp from detection
-    currentIp: initial?.currentIp || detection?.ip || '', // Auto-fill from detection
+    targetIp: initial?.targetIp || detection?.ip || '', // Auto-fill from detection
     interface: defaultInterface,
     schematicId: initial?.schematicId || '',
     maintenance: initial?.maintenance ?? true,
@@ -152,15 +150,24 @@ export function NodeForm({
   const role = watch('role');
   const hostname = watch('hostname');
 
-  // Reset form when initialValues change (e.g., switching to configure a different node)
+  // Reset form when switching between different nodes in configure mode
   // This ensures select boxes and all fields show the current values
-  // Use a ref to track the hostname to avoid infinite loops from object reference changes
+  // Use refs to track both the hostname and mode to avoid unnecessary resets
   const prevHostnameRef = useRef<string | undefined>(undefined);
+  const prevModeRef = useRef<'add' | 'configure' | undefined>(undefined);
+
   useEffect(() => {
     const currentHostname = initialValues?.hostname;
-    // Only reset if the hostname actually changed (switching between nodes)
-    if (currentHostname !== prevHostnameRef.current) {
+    const currentMode = initialValues?.hostname ? 'configure' : 'add';
+
+    // Only reset if we're actually switching between different nodes in configure mode
+    // or switching from add to configure mode (or vice versa)
+    const modeChanged = currentMode !== prevModeRef.current;
+    const hostnameChanged = currentMode === 'configure' && currentHostname !== prevHostnameRef.current;
+
+    if (modeChanged || hostnameChanged) {
       prevHostnameRef.current = currentHostname;
+      prevModeRef.current = currentMode;
       const newValues = getInitialValues(initialValues, detection, nodes, hostnamePrefix);
       reset(newValues);
     }
@@ -291,6 +298,13 @@ export function NodeForm({
     // Skip if this is an existing node (configure mode)
     if (initialValues?.targetIp) return;
 
+    // Skip if there's a detection IP (hardware detection provides the actual IP)
+    if (detection?.ip) return;
+
+    // Skip if there's already a targetIp from detection
+    const currentTargetIp = watch('targetIp');
+    if (currentTargetIp && role === 'worker') return; // For workers, keep any existing value
+
     const clusterConfig = instanceConfig?.cluster as any;
     const vip = clusterConfig?.nodes?.control?.vip as string | undefined;
 
@@ -342,8 +356,8 @@ export function NodeForm({
 
       // Set the calculated IP
       setValue('targetIp', `${vipPrefix}.${nextOctet}`);
-    } else if (role === 'worker') {
-      // For new worker nodes, clear target IP (let user set if needed)
+    } else if (role === 'worker' && !detection?.ip) {
+      // For worker nodes without detection, only clear if it looks like an auto-calculated control plane IP
       const currentTargetIp = watch('targetIp');
       // Only clear if it looks like an auto-calculated IP (matches VIP pattern)
       if (currentTargetIp && vip) {
@@ -353,7 +367,7 @@ export function NodeForm({
         }
       }
     }
-  }, [role, instanceConfig, nodes, setValue, watch, initialValues?.targetIp]);
+  }, [role, instanceConfig, nodes, setValue, watch, initialValues?.targetIp, detection?.ip]);
 
   // Build disk options from both detection and initial values
   const diskOptions = (() => {
@@ -433,21 +447,25 @@ export function NodeForm({
             name="disk"
             control={control}
             rules={{ required: 'Disk is required' }}
-            render={({ field }) => (
-              <Select value={field.value || ''} onValueChange={field.onChange}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select a disk" />
-                </SelectTrigger>
-                <SelectContent>
-                  {diskOptions.map((disk) => (
-                    <SelectItem key={disk.path} value={disk.path}>
-                      {disk.path}
-                      {disk.size > 0 && ` (${formatBytes(disk.size)})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            render={({ field }) => {
+              // Ensure we have a value - use the field value or fall back to first option
+              const value = field.value || (diskOptions.length > 0 ? diskOptions[0].path : '');
+              return (
+                <Select value={value} onValueChange={field.onChange}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select a disk" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {diskOptions.map((disk) => (
+                      <SelectItem key={disk.path} value={disk.path}>
+                        {disk.path}
+                        {disk.size > 0 && ` (${formatBytes(disk.size)})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              );
+            }}
           />
         ) : (
           <Controller
@@ -488,44 +506,29 @@ export function NodeForm({
       </div>
 
       <div>
-        <Label htmlFor="currentIp">Current IP Address</Label>
-        <Input
-          id="currentIp"
-          type="text"
-          {...register('currentIp')}
-          className="mt-1"
-          disabled={!!detection?.ip}
-        />
-        {errors.currentIp && (
-          <p className="text-sm text-red-600 mt-1">{errors.currentIp.message}</p>
-        )}
-        {detection?.ip && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Auto-detected from hardware (read-only)
-          </p>
-        )}
-      </div>
-
-      <div>
         <Label htmlFor="interface">Network Interface</Label>
         {interfaceOptions.length > 0 ? (
           <Controller
             name="interface"
             control={control}
-            render={({ field }) => (
-              <Select value={field.value || ''} onValueChange={field.onChange}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select interface..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {interfaceOptions.map((iface) => (
-                    <SelectItem key={iface} value={iface}>
-                      {iface}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            render={({ field }) => {
+              // Ensure we have a value - use the field value or fall back to first option
+              const value = field.value || (interfaceOptions.length > 0 ? interfaceOptions[0] : '');
+              return (
+                <Select value={value} onValueChange={field.onChange}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select interface..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {interfaceOptions.map((iface) => (
+                      <SelectItem key={iface} value={iface}>
+                        {iface}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              );
+            }}
           />
         ) : (
           <Controller

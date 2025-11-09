@@ -12,7 +12,7 @@ export interface NodeStatus {
 }
 
 export interface ClusterStatus {
-  ready: boolean;
+  status: string; // "ready", "pending", "error", "not_bootstrapped", "unreachable", "degraded"
   nodes: number;
   controlPlaneNodes: number;
   workerNodes: number;

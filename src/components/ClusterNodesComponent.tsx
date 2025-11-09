@@ -24,7 +24,6 @@ export function ClusterNodesComponent() {
     addNode,
     addError,
     deleteNode,
-    isDeleting,
     deleteError,
     discover,
     isDiscovering,
@@ -50,7 +49,6 @@ export function ClusterNodesComponent() {
 
   const { data: clusterStatusData } = useClusterStatus(currentInstance || '');
 
-  const [discoverSubnet, setDiscoverSubnet] = useState('');
   const [addNodeIp, setAddNodeIp] = useState('');
   const [discoverError, setDiscoverError] = useState<string | null>(null);
   const [detectError, setDetectError] = useState<string | null>(null);
@@ -182,7 +180,6 @@ export function ClusterNodesComponent() {
       role: data.role,
       disk: data.disk,
       target_ip: data.targetIp,
-      current_ip: data.currentIp,
       interface: data.interface,
       schematic_id: data.schematicId,
       maintenance: data.maintenance,
@@ -198,9 +195,7 @@ export function ClusterNodesComponent() {
       nodeName: drawerState.node.hostname,
       updates: {
         role: data.role,
-        disk: data.disk,
         target_ip: data.targetIp,
-        current_ip: data.currentIp,
         interface: data.interface,
         schematic_id: data.schematicId,
         maintenance: data.maintenance,
@@ -231,8 +226,8 @@ export function ClusterNodesComponent() {
   const handleDiscover = () => {
     setDiscoverError(null);
     setDiscoverSuccess(null);
-    // Pass subnet only if it's not empty, otherwise auto-detect
-    discover(discoverSubnet || undefined);
+    // Always use auto-detect to scan all local networks
+    discover(undefined);
   };
 
 
@@ -268,7 +263,9 @@ export function ClusterNodesComponent() {
 
     // Check if cluster is already bootstrapped using cluster status
     // The backend checks for kubeconfig existence and cluster connectivity
-    const hasBootstrapped = clusterStatus?.ready === true;
+    // Status is "not_bootstrapped" when kubeconfig doesn't exist
+    // Any other status (ready, degraded, unreachable) means cluster is bootstrapped
+    const hasBootstrapped = clusterStatus?.status !== 'not_bootstrapped';
 
     return hasReadyControlPlane && !hasBootstrapped;
   }, [assignedNodes, clusterStatus]);
@@ -433,26 +430,21 @@ export function ClusterNodesComponent() {
               </Alert>
             )}
 
-            {/* DISCOVERY SECTION - Scan subnet for nodes */}
+            {/* ADD NODES SECTION - Discovery and manual add combined */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                Discover Nodes on Network
+                Add Nodes to Cluster
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Scan a specific subnet or leave empty to auto-detect all local networks
+                Discover nodes on the network or manually add by IP address
               </p>
 
-              <div className="flex gap-3 mb-4">
-                <Input
-                  type="text"
-                  value={discoverSubnet}
-                  onChange={(e) => setDiscoverSubnet(e.target.value)}
-                  placeholder="192.168.1.0/24 (optional - leave empty to auto-detect)"
-                  className="flex-1"
-                />
+              {/* Discovery button */}
+              <div className="flex gap-2 mb-4">
                 <Button
                   onClick={handleDiscover}
                   disabled={isDiscovering || discoveryStatus?.active}
+                  className="flex-1"
                 >
                   {isDiscovering || discoveryStatus?.active ? (
                     <>
@@ -460,7 +452,7 @@ export function ClusterNodesComponent() {
                       Discovering...
                     </>
                   ) : (
-                    'Discover'
+                    'Discover Nodes'
                   )}
                 </Button>
                 {(isDiscovering || discoveryStatus?.active) && (
@@ -475,69 +467,60 @@ export function ClusterNodesComponent() {
                 )}
               </div>
 
+              {/* Discovered nodes display */}
               {discoveryStatus?.nodes_found && discoveryStatus.nodes_found.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    Discovered {discoveryStatus.nodes_found.length} node(s)
-                  </h4>
-                  <div className="space-y-3">
-                    {discoveryStatus.nodes_found.map((discovered) => (
-                      <div key={discovered.ip} className="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium font-mono text-gray-900 dark:text-gray-100">{discovered.ip}</p>
+                <div className="space-y-3 mb-4">
+                  {discoveryStatus.nodes_found.map((discovered) => (
+                    <div key={discovered.ip} className="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium font-mono text-gray-900 dark:text-gray-100">{discovered.ip}</p>
+                          {discovered.version && discovered.version !== 'maintenance' && (
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Maintenance mode{discovered.version ? ` • Talos ${discovered.version}` : ''}
+                              {discovered.version}
                             </p>
-                            {discovered.hostname && (
-                              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{discovered.hostname}</p>
-                            )}
-                          </div>
-                          <Button
-                            onClick={() => handleAddFromDiscovery(discovered)}
-                            size="sm"
-                          >
-                            Add to Cluster
-                          </Button>
+                          )}
                         </div>
+                        <Button
+                          onClick={() => handleAddFromDiscovery(discovered)}
+                          size="sm"
+                        >
+                          Add to Cluster
+                        </Button>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
               )}
-            </div>
 
-            {/* ADD NODE SECTION - Add single node by IP */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                Add Single Node
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Add a node by IP address to detect hardware and configure
-              </p>
-
-              <div className="flex gap-3">
-                <Input
-                  type="text"
-                  value={addNodeIp}
-                  onChange={(e) => setAddNodeIp(e.target.value)}
-                  placeholder="192.168.8.128"
-                  className="flex-1"
-                />
-                <Button
-                  onClick={handleAddNode}
-                  disabled={isGettingHardware}
-                  variant="secondary"
-                >
-                  {isGettingHardware ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Detecting...
-                    </>
-                  ) : (
-                    'Add Node'
-                  )}
-                </Button>
+              {/* Manual add by IP - styled like a list item */}
+              <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="text"
+                    value={addNodeIp}
+                    onChange={(e) => setAddNodeIp(e.target.value)}
+                    placeholder="192.168.8.128"
+                    className="flex-1 font-mono"
+                  />
+                  <Button
+                    onClick={handleAddNode}
+                    disabled={isGettingHardware}
+                    size="sm"
+                  >
+                    {isGettingHardware ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Detecting...
+                      </>
+                    ) : (
+                      'Add to Cluster'
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                  Add a node by IP address if not discovered automatically
+                </p>
               </div>
             </div>
 

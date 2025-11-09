@@ -116,8 +116,8 @@ export function ClusterHealthPage() {
               <Skeleton className="h-8 w-24" />
             ) : status ? (
               <div>
-                <Badge variant={status.ready ? 'outline' : 'secondary'} className={status.ready ? 'border-green-500' : ''}>
-                  {status.ready ? 'Ready' : 'Not Ready'}
+                <Badge variant={status.status === 'ready' ? 'outline' : 'secondary'} className={status.status === 'ready' ? 'border-green-500' : ''}>
+                  {status.status === 'ready' ? 'Ready' : 'Not Ready'}
                 </Badge>
                 <p className="text-xs text-muted-foreground mt-2">
                   {status.nodes} nodes total

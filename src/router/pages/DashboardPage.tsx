@@ -154,7 +154,7 @@ export function DashboardPage() {
               <div>
                 <div className="text-xl font-bold font-mono">{status.kubernetesVersion}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {status.ready ? 'Ready' : 'Not ready'}
+                  {status.status === 'ready' ? 'Ready' : 'Not ready'}
                 </p>
               </div>
             ) : (

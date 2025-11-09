@@ -50,7 +50,6 @@ export function NodeFormDrawer({
           role: node.role,
           disk: node.disk,
           targetIp: node.target_ip,
-          currentIp: node.current_ip,
           interface: node.interface,
           schematicId: node.schematic_id,
           maintenance: node.maintenance ?? true,
