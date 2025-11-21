@@ -101,7 +101,20 @@ export const routes: RouteObject[] = [
       },
       {
         path: 'apps',
-        element: <AppsPage />,
+        children: [
+          {
+            index: true,
+            element: <Navigate to="available" replace />,
+          },
+          {
+            path: 'available',
+            element: <AppsPage />,
+          },
+          {
+            path: 'installed',
+            element: <AppsPage />,
+          },
+        ],
       },
       {
         path: 'advanced',

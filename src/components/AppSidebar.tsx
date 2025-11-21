@@ -1,5 +1,5 @@
 import { NavLink, useParams } from 'react-router';
-import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Usb } from 'lucide-react';
+import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Usb, Download, CheckCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   Sidebar,
@@ -71,7 +71,23 @@ export function AppSidebar() {
           </div>
         </div>
         <div className="px-2 group-data-[collapsible=icon]:px-2">
-          <InstanceSwitcher />
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <InstanceSwitcher />
+            </div>
+            <NavLink to={`/instances/${instanceId}/cloud`}>
+              {({ isActive }) => (
+                <SidebarMenuButton
+                  isActive={isActive}
+                  tooltip="Configure instance settings"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                >
+                  <Settings className="h-4 w-4" />
+                </SidebarMenuButton>
+              )}
+            </NavLink>
+          </div>
         </div>
       </SidebarHeader>
 
@@ -95,29 +111,6 @@ export function AppSidebar() {
                     )} />
                   </div>
                   <span className="truncate">Dashboard</span>
-                </SidebarMenuButton>
-              )}
-            </NavLink>
-          </SidebarMenuItem>
-
-          <SidebarMenuItem>
-            <NavLink to={`/instances/${instanceId}/cloud`}>
-              {({ isActive }) => (
-                <SidebarMenuButton
-                  isActive={isActive}
-                  tooltip="Configure cloud settings and domains"
-                >
-                  <div className={cn(
-                    "p-1 rounded-md",
-                    isActive && "bg-primary/10"
-                  )}>
-                    <CloudLightning className={cn(
-                      "h-4 w-4",
-                      isActive && "text-primary",
-                      !isActive && "text-muted-foreground"
-                    )} />
-                  </div>
-                  <span className="truncate">Cloud</span>
                 </SidebarMenuButton>
               )}
             </NavLink>
@@ -177,17 +170,6 @@ export function AppSidebar() {
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem> */}
-
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <NavLink to={`/instances/${instanceId}/iso`}>
-                        <div className="p-1 rounded-md">
-                          <Usb className="h-4 w-4" />
-                        </div>
-                        <span className="truncate">ISO / USB</span>
-                      </NavLink>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
                 </SidebarMenuSub>
               </CollapsibleContent>
             </SidebarMenuItem>
@@ -225,21 +207,58 @@ export function AppSidebar() {
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
+
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <NavLink to={`/instances/${instanceId}/iso`}>
+                        <div className="p-1 rounded-md">
+                          <Usb className="h-4 w-4" />
+                        </div>
+                        <span className="truncate">ISO / USB</span>
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
                 </SidebarMenuSub>
               </CollapsibleContent>
             </SidebarMenuItem>
           </Collapsible>
 
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Install and manage applications">
-              <NavLink to={`/instances/${instanceId}/apps`}>
-                <div className="p-1 rounded-md">
+          <Collapsible defaultOpen className="group/collapsible">
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton>
                   <AppWindow className="h-4 w-4" />
-                </div>
-                <span className="truncate">Apps</span>
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+                  Apps
+                  <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <NavLink to={`/instances/${instanceId}/apps/available`}>
+                        <div className="p-1 rounded-md">
+                          <Download className="h-4 w-4" />
+                        </div>
+                        <span className="truncate">Available</span>
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <NavLink to={`/instances/${instanceId}/apps/installed`}>
+                        <div className="p-1 rounded-md">
+                          <CheckCircle className="h-4 w-4" />
+                        </div>
+                        <span className="truncate">Installed</span>
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
 
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Advanced settings and system configuration">

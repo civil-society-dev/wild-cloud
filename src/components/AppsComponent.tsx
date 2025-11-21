@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -37,6 +38,7 @@ interface MergedApp extends App {
 type TabView = 'available' | 'installed';
 
 export function AppsComponent() {
+  const location = useLocation();
   const { currentInstance } = useInstanceContext();
   const { data: availableAppsData, isLoading: loadingAvailable, error: availableError } = useAvailableApps();
   const {
@@ -51,7 +53,8 @@ export function AppsComponent() {
     isDeleting
   } = useDeployedApps(currentInstance);
 
-  const [activeTab, setActiveTab] = useState<TabView>('available');
+  // Determine active tab from URL path
+  const activeTab: TabView = location.pathname.endsWith('/installed') ? 'installed' : 'available';
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
@@ -321,22 +324,6 @@ export function AppsComponent() {
               Install and manage applications on your Kubernetes cluster
             </p>
           </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex gap-2 mb-6 border-b pb-4">
-          <Button
-            variant={activeTab === 'available' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('available')}
-          >
-            Available Apps ({availableApps.length})
-          </Button>
-          <Button
-            variant={activeTab === 'installed' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('installed')}
-          >
-            Installed Apps ({installedApps.length})
-          </Button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
