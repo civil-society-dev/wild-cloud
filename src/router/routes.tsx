@@ -15,9 +15,11 @@ import { DnsPage } from './pages/DnsPage';
 import { DhcpPage } from './pages/DhcpPage';
 import { PxePage } from './pages/PxePage';
 import { IsoPage } from './pages/IsoPage';
-import { InfrastructurePage } from './pages/InfrastructurePage';
+import { ControlNodesPage } from './pages/ControlNodesPage';
+import { WorkerNodesPage } from './pages/WorkerNodesPage';
 import { ClusterPage } from './pages/ClusterPage';
 import { AppsPage } from './pages/AppsPage';
+import { BackupsPage } from './pages/BackupsPage';
 import { AdvancedPage } from './pages/AdvancedPage';
 import { AssetsIsoPage } from './pages/AssetsIsoPage';
 import { AssetsPxePage } from './pages/AssetsPxePage';
@@ -92,8 +94,12 @@ export const routes: RouteObject[] = [
         element: <IsoPage />,
       },
       {
-        path: 'infrastructure',
-        element: <InfrastructurePage />,
+        path: 'control',
+        element: <ControlNodesPage />,
+      },
+      {
+        path: 'worker',
+        element: <WorkerNodesPage />,
       },
       {
         path: 'cluster',
@@ -115,6 +121,10 @@ export const routes: RouteObject[] = [
             element: <AppsPage />,
           },
         ],
+      },
+      {
+        path: 'backups',
+        element: <BackupsPage />,
       },
       {
         path: 'advanced',

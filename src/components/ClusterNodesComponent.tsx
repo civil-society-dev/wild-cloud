@@ -15,7 +15,17 @@ import { NodeFormDrawer } from './nodes/NodeFormDrawer';
 import type { NodeFormData } from './nodes/NodeForm';
 import type { Node, HardwareInfo, DiscoveredNode } from '../services/api/types';
 
-export function ClusterNodesComponent() {
+interface ClusterNodesComponentProps {
+  filterRole?: 'controlplane' | 'worker';
+  hideDiscoveryWhenNodesGte?: number;
+  showBootstrap?: boolean;
+}
+
+export function ClusterNodesComponent({
+  filterRole,
+  hideDiscoveryWhenNodesGte,
+  showBootstrap = true
+}: ClusterNodesComponentProps = {}) {
   const { currentInstance } = useInstanceContext();
   const {
     nodes,
@@ -64,6 +74,7 @@ export function ClusterNodesComponent() {
     open: false,
     mode: 'add',
   });
+  const [drawerEverOpened, setDrawerEverOpened] = useState(false);
   const [deletingNodeHostname, setDeletingNodeHostname] = useState<string | null>(null);
 
   const closeDrawer = () => setDrawerState({ ...drawerState, open: false });
@@ -121,6 +132,7 @@ export function ClusterNodesComponent() {
     // Fetch full hardware details for the discovered node
     try {
       const hardware = await getHardware(discovered.ip);
+      setDrawerEverOpened(true);
       setDrawerState({
         open: true,
         mode: 'add',
@@ -137,6 +149,7 @@ export function ClusterNodesComponent() {
 
     try {
       const hardware = await getHardware(addNodeIp);
+      setDrawerEverOpened(true);
       setDrawerState({
         open: true,
         mode: 'add',
@@ -153,6 +166,7 @@ export function ClusterNodesComponent() {
     if (node.target_ip) {
       try {
         const hardware = await getHardware(node.target_ip);
+        setDrawerEverOpened(true);
         setDrawerState({
           open: true,
           mode: 'configure',
@@ -167,6 +181,7 @@ export function ClusterNodesComponent() {
     }
 
     // Open drawer without detection data (either no target_ip or detection failed)
+    setDrawerEverOpened(true);
     setDrawerState({
       open: true,
       mode: 'configure',
@@ -177,7 +192,7 @@ export function ClusterNodesComponent() {
   const handleAddSubmit = async (data: NodeFormData) => {
     const nodeData = {
       hostname: data.hostname,
-      role: data.role,
+      role: filterRole || data.role,
       disk: data.disk,
       target_ip: data.targetIp,
       interface: data.interface,
@@ -244,7 +259,8 @@ export function ClusterNodesComponent() {
 
 
   // Derive status from backend state flags for each node
-  const assignedNodes = nodes.map(node => {
+  const assignedNodes = useMemo(() => {
+    const allNodes = nodes.map(node => {
     // Get runtime status from cluster status
     const runtimeStatus = clusterStatusData?.node_statuses?.[node.hostname];
 
@@ -265,6 +281,13 @@ export function ClusterNodesComponent() {
       kubernetesReady: runtimeStatus?.kubernetes_ready, // Whether K8s Ready condition is true
     };
   });
+
+    // Filter by role if specified
+    if (filterRole) {
+      return allNodes.filter(node => node.role === filterRole);
+    }
+    return allNodes;
+  }, [nodes, clusterStatusData, filterRole]);
 
   // Check if cluster needs bootstrap
   const needsBootstrap = useMemo(() => {
@@ -345,7 +368,7 @@ export function ClusterNodesComponent() {
       </Card>
 
       {/* Bootstrap Alert */}
-      {needsBootstrap && firstReadyControl && (
+      {showBootstrap && needsBootstrap && firstReadyControl && (
         <Alert variant="info" className="mb-6">
           <CheckCircle className="h-5 w-5" />
           <div className="flex-1">
@@ -443,6 +466,7 @@ export function ClusterNodesComponent() {
             )}
 
             {/* ADD NODES SECTION - Discovery and manual add combined */}
+            {(!hideDiscoveryWhenNodesGte || assignedNodes.length < hideDiscoveryWhenNodesGte) && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
                 Add Nodes to Cluster
@@ -535,6 +559,7 @@ export function ClusterNodesComponent() {
                 </p>
               </div>
             </div>
+            )}
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -664,17 +689,19 @@ export function ClusterNodesComponent() {
         />
       )}
 
-      {/* Node Form Drawer */}
-      <NodeFormDrawer
-        open={drawerState.open}
-        onClose={closeDrawer}
-        mode={drawerState.mode}
-        node={drawerState.mode === 'configure' ? drawerState.node : undefined}
-        detection={drawerState.detection}
-        onSubmit={drawerState.mode === 'add' ? handleAddSubmit : handleConfigureSubmit}
-        onApply={drawerState.mode === 'configure' ? handleApply : undefined}
-        instanceName={currentInstance || ''}
-      />
+      {/* Node Form Drawer - only render after first open to prevent infinite loop on initial mount */}
+      {drawerEverOpened && (
+        <NodeFormDrawer
+          open={drawerState.open}
+          onClose={closeDrawer}
+          mode={drawerState.mode}
+          node={drawerState.mode === 'configure' ? drawerState.node : undefined}
+          detection={drawerState.detection}
+          onSubmit={drawerState.mode === 'add' ? handleAddSubmit : handleConfigureSubmit}
+          onApply={drawerState.mode === 'configure' ? handleApply : undefined}
+          instanceName={currentInstance || ''}
+        />
+      )}
     </div>
   );
 }

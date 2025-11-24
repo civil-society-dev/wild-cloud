@@ -188,11 +188,22 @@ export function AppSidebar() {
                 <SidebarMenuSub>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
-                      <NavLink to={`/instances/${instanceId}/infrastructure`}>
+                      <NavLink to={`/instances/${instanceId}/control`}>
                         <div className="p-1 rounded-md">
-                          <Play className="h-4 w-4" />
+                          <Cpu className="h-4 w-4" />
                         </div>
-                        <span className="truncate">Cluster Nodes</span>
+                        <span className="truncate">Control Nodes</span>
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <NavLink to={`/instances/${instanceId}/worker`}>
+                        <div className="p-1 rounded-md">
+                          <HardDrive className="h-4 w-4" />
+                        </div>
+                        <span className="truncate">Worker Nodes</span>
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>

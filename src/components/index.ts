@@ -14,7 +14,6 @@ export { CentralComponent } from './CentralComponent';
 export { DnsComponent } from './DnsComponent';
 export { DhcpComponent } from './DhcpComponent';
 export { PxeComponent } from './PxeComponent';
-export { ClusterNodesComponent } from './ClusterNodesComponent';
 export { ClusterServicesComponent } from './ClusterServicesComponent';
 export { AppsComponent } from './AppsComponent';
 export { SecretInput } from './SecretInput';
