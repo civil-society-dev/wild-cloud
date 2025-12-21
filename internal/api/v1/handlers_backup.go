@@ -108,3 +108,22 @@ func (api *API) BackupAppRestore(w http.ResponseWriter, r *http.Request) {
 		"message":      "Restore started",
 	})
 }
+
+// BackupAppDelete deletes a specific app backup
+func (api *API) BackupAppDelete(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	appName := vars["app"]
+	timestamp := vars["timestamp"]
+
+	mgr := backup.NewManager(api.dataDir)
+	if err := mgr.DeleteAppBackup(instanceName, appName, timestamp); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to delete backup")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Backup deleted successfully",
+	})
+}

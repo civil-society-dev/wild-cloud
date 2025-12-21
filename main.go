@@ -5,13 +5,16 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
 	v1 "github.com/wild-cloud/wild-central/daemon/internal/api/v1"
+	"github.com/wild-cloud/wild-central/daemon/internal/backup"
 )
 
 var startTime time.Time
@@ -57,6 +60,13 @@ func main() {
 		log.Fatalf("Failed to initialize API: %v", err)
 	}
 
+	// Initialize backup scheduler
+	backupMgr := backup.NewManager(dataDir)
+	scheduler := backup.NewScheduler(backupMgr)
+	api.SetBackupScheduler(scheduler)
+	scheduler.Start()
+	log.Println("Backup scheduler initialized")
+
 	// Set up HTTP router
 	router := mux.NewRouter()
 
@@ -84,6 +94,8 @@ func main() {
 		"http://127.0.0.1:5173",
 		"http://127.0.0.1:5174",
 		"http://127.0.0.1:3000",
+		"http://wild-central:5173",
+		"http://wild-central.lan:5173",
 	}
 
 	// Override with production origins if set
@@ -131,7 +143,20 @@ func main() {
 	log.Printf("Apps directory: %s", appsDir)
 	log.Printf("CORS enabled for development origins")
 
-	if err := http.ListenAndServe(addr, handler); err != nil {
-		log.Fatal("Server failed to start:", err)
-	}
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Start HTTP server in goroutine
+	go func() {
+		if err := http.ListenAndServe(addr, handler); err != nil {
+			log.Fatal("Server failed to start:", err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-sigChan
+	log.Println("Shutting down gracefully...")
+	scheduler.Stop()
+	log.Println("Shutdown complete")
 }

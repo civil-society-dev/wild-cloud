@@ -10,20 +10,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wild-cloud/wild-central/daemon/internal/apps"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // BackupInfo represents metadata about a backup
 type BackupInfo struct {
-	AppName   string    `json:"app_name"`
-	Timestamp string    `json:"timestamp"`
-	Type      string    `json:"type"` // "full", "database", "pvc"
-	Size      int64     `json:"size,omitempty"`
-	Status    string    `json:"status"` // "completed", "failed", "in_progress"
-	Error     string    `json:"error,omitempty"`
-	Files     []string  `json:"files"`
-	CreatedAt time.Time `json:"created_at"`
+	AppName    string    `json:"app_name"`
+	Timestamp  string    `json:"timestamp"`
+	Type       string    `json:"type"` // "full", "database", "pvc"
+	Size       int64     `json:"size,omitempty"`
+	Status     string    `json:"status"` // "completed", "failed", "in_progress"
+	Error      string    `json:"error,omitempty"`
+	Files      []string  `json:"files"`
+	CreatedAt  time.Time `json:"created_at"`
+	SnapshotID string    `json:"snapshot_id,omitempty"` // Restic snapshot ID if uploaded
 }
 
 // RestoreOptions configures restore behavior
@@ -37,11 +39,15 @@ type RestoreOptions struct {
 // Manager handles backup and restore operations
 type Manager struct {
 	dataDir string
+	appsDir string
 }
 
 // NewManager creates a new backup manager
 func NewManager(dataDir string) *Manager {
-	return &Manager{dataDir: dataDir}
+	return &Manager{
+		dataDir: dataDir,
+		appsDir: os.Getenv("WILD_DIRECTORY"),
+	}
 }
 
 // GetBackupDir returns the backup directory for an instance
@@ -54,6 +60,28 @@ func (m *Manager) GetStagingDir(instanceName string) string {
 	return filepath.Join(m.GetBackupDir(instanceName), "staging")
 }
 
+// calculateBackupSize calculates the total size of files in a directory
+func (m *Manager) calculateBackupSize(path string) int64 {
+	var size int64
+	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size
+}
+
+// cleanBackupPath returns a relative path from the staging directory
+func (m *Manager) cleanBackupPath(fullPath, stagingDir string) string {
+	rel, err := filepath.Rel(stagingDir, fullPath)
+	if err != nil {
+		// If we can't get relative path, try to strip stagingDir prefix
+		return strings.TrimPrefix(fullPath, stagingDir+string(filepath.Separator))
+	}
+	return rel
+}
+
 // BackupApp creates a backup of an app's data
 func (m *Manager) BackupApp(instanceName, appName string) (*BackupInfo, error) {
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
@@ -63,15 +91,14 @@ func (m *Manager) BackupApp(instanceName, appName string) (*BackupInfo, error) {
 		return nil, fmt.Errorf("failed to create staging directory: %w", err)
 	}
 
-	backupDir := filepath.Join(stagingDir, "apps", appName)
+	timestamp := time.Now().UTC().Format("20060102T150405Z")
+	backupDir := filepath.Join(stagingDir, "apps", appName, timestamp)
 	if err := os.RemoveAll(backupDir); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to clean backup directory: %w", err)
 	}
 	if err := storage.EnsureDir(backupDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create backup directory: %w", err)
 	}
-
-	timestamp := time.Now().UTC().Format("20060102T150405Z")
 	info := &BackupInfo{
 		AppName:   appName,
 		Timestamp: timestamp,
@@ -79,6 +106,12 @@ func (m *Manager) BackupApp(instanceName, appName string) (*BackupInfo, error) {
 		Status:    "in_progress",
 		Files:     []string{},
 		CreatedAt: time.Now(),
+	}
+
+	// Save initial in_progress metadata immediately so it's visible in list operations
+	metaFile := filepath.Join(backupDir, "backup.json")
+	if err := m.saveBackupMeta(metaFile, info); err != nil {
+		return nil, fmt.Errorf("failed to save initial backup metadata: %w", err)
 	}
 
 	// Backup database if app uses one
@@ -103,10 +136,18 @@ func (m *Manager) BackupApp(instanceName, appName string) (*BackupInfo, error) {
 		info.Status = "completed"
 	}
 
-	// Save backup metadata
-	metaFile := filepath.Join(backupDir, "backup.json")
+	// Calculate backup size
+	info.Size = m.calculateBackupSize(backupDir)
+
+	// Try to upload to restic if configured
+	instanceDir := filepath.Dir(filepath.Dir(stagingDir))
+	if snapshotID, err := UploadToRestic(instanceDir, instanceName, appName, backupDir); err == nil {
+		info.SnapshotID = snapshotID
+	}
+
+	// Update metadata with final status (overwrites the in_progress version)
 	if err := m.saveBackupMeta(metaFile, info); err != nil {
-		return nil, fmt.Errorf("failed to save backup metadata: %w", err)
+		return nil, fmt.Errorf("failed to save final backup metadata: %w", err)
 	}
 
 	return info, nil
@@ -117,11 +158,41 @@ func (m *Manager) RestoreApp(instanceName, appName string, opts RestoreOptions) 
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
 
 	stagingDir := m.GetStagingDir(instanceName)
-	backupDir := filepath.Join(stagingDir, "apps", appName)
+	appBackupsDir := filepath.Join(stagingDir, "apps", appName)
 
-	// Check if backup exists
-	if !storage.FileExists(backupDir) {
-		return fmt.Errorf("no backup found for app %s", appName)
+	// Check if any backups exist
+	if !storage.FileExists(appBackupsDir) {
+		return fmt.Errorf("no backups found for app %s", appName)
+	}
+
+	var backupDir string
+
+	// If SnapshotID is provided, use that specific backup
+	if opts.SnapshotID != "" {
+		backupDir = filepath.Join(appBackupsDir, opts.SnapshotID)
+		if !storage.FileExists(backupDir) {
+			return fmt.Errorf("backup %s not found for app %s", opts.SnapshotID, appName)
+		}
+	} else {
+		// Use the most recent backup
+		entries, err := os.ReadDir(appBackupsDir)
+		if err != nil || len(entries) == 0 {
+			return fmt.Errorf("no backup found for app %s", appName)
+		}
+
+		// Find the most recent directory (they're named with timestamps, so alphabetical sort works)
+		var latestBackup string
+		for _, entry := range entries {
+			if entry.IsDir() && entry.Name() > latestBackup {
+				latestBackup = entry.Name()
+			}
+		}
+
+		if latestBackup == "" {
+			return fmt.Errorf("no valid backup found for app %s", appName)
+		}
+
+		backupDir = filepath.Join(appBackupsDir, latestBackup)
 	}
 
 	// Restore database if not PVC-only
@@ -150,16 +221,44 @@ func (m *Manager) ListBackups(instanceName, appName string) ([]*BackupInfo, erro
 		return []*BackupInfo{}, nil
 	}
 
+	// Scan for all timestamped backup directories
+	entries, err := os.ReadDir(appBackupDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read app backups directory: %w", err)
+	}
+
 	var backups []*BackupInfo
-	metaFile := filepath.Join(appBackupDir, "backup.json")
-	if storage.FileExists(metaFile) {
-		info, err := m.loadBackupMeta(metaFile)
-		if err == nil {
-			backups = append(backups, info)
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		metaFile := filepath.Join(appBackupDir, entry.Name(), "backup.json")
+		if storage.FileExists(metaFile) {
+			info, err := m.loadBackupMeta(metaFile)
+			if err == nil {
+				backups = append(backups, info)
+			}
 		}
 	}
 
 	return backups, nil
+}
+
+// DeleteAppBackup deletes a specific app backup by timestamp
+func (m *Manager) DeleteAppBackup(instanceName, appName, timestamp string) error {
+	stagingDir := m.GetStagingDir(instanceName)
+	backupDir := filepath.Join(stagingDir, "apps", appName, timestamp)
+
+	if !storage.FileExists(backupDir) {
+		return fmt.Errorf("backup not found: %s", timestamp)
+	}
+
+	if err := os.RemoveAll(backupDir); err != nil {
+		return fmt.Errorf("failed to delete backup: %w", err)
+	}
+
+	return nil
 }
 
 // backupDatabase backs up PostgreSQL or MySQL database
@@ -182,23 +281,29 @@ func (m *Manager) backupDatabase(kubeconfigPath, appName, backupDir, timestamp s
 
 // backupPostgres backs up PostgreSQL database
 func (m *Manager) backupPostgres(kubeconfigPath, appName, backupDir, timestamp string) ([]string, error) {
+	// Get staging dir from backup dir: backupDir is staging/apps/appName/timestamp
+	// So we need to go up 3 levels to get to staging
+	stagingDir := filepath.Dir(filepath.Dir(filepath.Dir(backupDir)))
 	dbDump := filepath.Join(backupDir, fmt.Sprintf("database_%s.dump", timestamp))
 	globalsFile := filepath.Join(backupDir, fmt.Sprintf("globals_%s.sql", timestamp))
 
-	// Database dump
-	cmd := exec.Command("kubectl", "exec", "-n", "postgres", "deploy/postgres-deployment", "--",
+	// Database dump - use correct deployment name (postgres, not postgres-deployment)
+	cmd := exec.Command("kubectl", "exec", "-n", "postgres", "deploy/postgres", "--",
 		"bash", "-lc", fmt.Sprintf("pg_dump -U postgres -Fc -Z 9 %s", appName))
 	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("pg_dump failed: %w", err)
+		return nil, fmt.Errorf("pg_dump failed for database %s: %w (check if postgres deployment is running)", appName, err)
+	}
+	if len(output) == 0 {
+		return nil, fmt.Errorf("pg_dump produced empty output for database %s", appName)
 	}
 	if err := os.WriteFile(dbDump, output, 0600); err != nil {
 		return nil, fmt.Errorf("failed to write database dump: %w", err)
 	}
 
 	// Globals dump
-	cmd = exec.Command("kubectl", "exec", "-n", "postgres", "deploy/postgres-deployment", "--",
+	cmd = exec.Command("kubectl", "exec", "-n", "postgres", "deploy/postgres", "--",
 		"bash", "-lc", "pg_dumpall -U postgres -g")
 	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err = cmd.Output()
@@ -209,11 +314,14 @@ func (m *Manager) backupPostgres(kubeconfigPath, appName, backupDir, timestamp s
 		return nil, fmt.Errorf("failed to write globals dump: %w", err)
 	}
 
-	return []string{dbDump, globalsFile}, nil
+	return []string{m.cleanBackupPath(dbDump, stagingDir), m.cleanBackupPath(globalsFile, stagingDir)}, nil
 }
 
 // backupMySQL backs up MySQL database
 func (m *Manager) backupMySQL(kubeconfigPath, appName, backupDir, timestamp string) ([]string, error) {
+	// Get staging dir from backup dir: backupDir is staging/apps/appName/timestamp
+	// So we need to go up 3 levels to get to staging
+	stagingDir := filepath.Dir(filepath.Dir(filepath.Dir(backupDir)))
 	dbDump := filepath.Join(backupDir, fmt.Sprintf("database_%s.sql", timestamp))
 
 	// Get MySQL password from secret
@@ -222,77 +330,132 @@ func (m *Manager) backupMySQL(kubeconfigPath, appName, backupDir, timestamp stri
 	tools.WithKubeconfig(cmd, kubeconfigPath)
 	passOutput, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get MySQL password: %w", err)
+		return nil, fmt.Errorf("failed to get MySQL password: %w (check if mysql-secret exists)", err)
 	}
 
 	password := string(passOutput)
 
-	// MySQL dump
-	cmd = exec.Command("kubectl", "exec", "-n", "mysql", "deploy/mysql-deployment", "--",
+	// MySQL dump - use correct deployment name (mysql, not mysql-deployment)
+	cmd = exec.Command("kubectl", "exec", "-n", "mysql", "deploy/mysql", "--",
 		"bash", "-c", fmt.Sprintf("mysqldump -uroot -p'%s' --single-transaction --routines --triggers %s",
 			password, appName))
 	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("mysqldump failed: %w", err)
+		return nil, fmt.Errorf("mysqldump failed for database %s: %w (check if mysql deployment is running)", appName, err)
+	}
+	if len(output) == 0 {
+		return nil, fmt.Errorf("mysqldump produced empty output for database %s", appName)
 	}
 	if err := os.WriteFile(dbDump, output, 0600); err != nil {
 		return nil, fmt.Errorf("failed to write database dump: %w", err)
 	}
 
-	return []string{dbDump}, nil
+	return []string{m.cleanBackupPath(dbDump, stagingDir)}, nil
 }
 
 // backupPVCs backs up all PVCs for an app
 func (m *Manager) backupPVCs(kubeconfigPath, appName, backupDir string) ([]string, error) {
-	// List PVCs for the app
+	// Get staging dir from backup dir: backupDir is staging/apps/appName/timestamp
+	// So we need to go up 3 levels to get to staging
+	stagingDir := filepath.Dir(filepath.Dir(filepath.Dir(backupDir)))
+
+	// List ALL PVCs in the app namespace (no label filter - many apps don't label their PVCs)
 	cmd := exec.Command("kubectl", "get", "pvc", "-n", appName,
-		"-l", fmt.Sprintf("app=%s", appName),
 		"-o", "jsonpath={.items[*].metadata.name}")
 	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, nil // No PVCs found
+		return nil, nil // No PVCs found or error - not fatal
 	}
 
 	pvcs := strings.Fields(string(output))
 	if len(pvcs) == 0 {
-		return nil, nil
+		return nil, nil // No PVCs to backup
 	}
 
 	var files []string
 	for _, pvc := range pvcs {
-		pvcBackupDir := filepath.Join(backupDir, pvc)
+		pvcBackupDir := filepath.Join(backupDir, "pvcs", pvc)
 		if err := storage.EnsureDir(pvcBackupDir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create PVC backup dir: %w", err)
+			return nil, fmt.Errorf("failed to create PVC backup dir for %s: %w", pvc, err)
 		}
 
-		// Get a running pod
+		// Find pod using this PVC
 		cmd = exec.Command("kubectl", "get", "pods", "-n", appName,
-			"-l", fmt.Sprintf("app=%s", appName),
-			"-o", "jsonpath={.items[?(@.status.phase==\"Running\")].metadata.name}")
+			"-o", "json")
 		tools.WithKubeconfig(cmd, kubeconfigPath)
-		podOutput, err := cmd.Output()
-		if err != nil || len(podOutput) == 0 {
+		podJSON, err := cmd.Output()
+		if err != nil {
+			continue // No pods found, skip this PVC
+		}
+
+		// Parse JSON to find pod using this PVC
+		var podList struct {
+			Items []struct {
+				Metadata struct {
+					Name string `json:"name"`
+				} `json:"metadata"`
+				Status struct {
+					Phase string `json:"phase"`
+				} `json:"status"`
+				Spec struct {
+					Volumes []struct {
+						PersistentVolumeClaim struct {
+							ClaimName string `json:"claimName"`
+						} `json:"persistentVolumeClaim"`
+					} `json:"volumes"`
+				} `json:"spec"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(podJSON, &podList); err != nil {
 			continue
 		}
-		pod := strings.Fields(string(podOutput))[0]
+
+		// Find a running pod that uses this PVC
+		var pod string
+		for _, p := range podList.Items {
+			if p.Status.Phase != "Running" {
+				continue
+			}
+			for _, vol := range p.Spec.Volumes {
+				if vol.PersistentVolumeClaim.ClaimName == pvc {
+					pod = p.Metadata.Name
+					break
+				}
+			}
+			if pod != "" {
+				break
+			}
+		}
+
+		if pod == "" {
+			continue // No running pod uses this PVC
+		}
 
 		// Backup PVC data via tar
+		// Try common mount paths - most apps mount to /data or root /
 		cmd = exec.Command("kubectl", "exec", "-n", appName, pod, "--",
 			"tar", "-C", "/data", "-cf", "-", ".")
 		tools.WithKubeconfig(cmd, kubeconfigPath)
 		tarData, err := cmd.Output()
 		if err != nil {
-			continue
+			// Try root path if /data fails
+			cmd = exec.Command("kubectl", "exec", "-n", appName, pod, "--",
+				"tar", "-C", "/", "-cf", "-", ".")
+			tools.WithKubeconfig(cmd, kubeconfigPath)
+			tarData, err = cmd.Output()
+			if err != nil {
+				continue // Couldn't backup this PVC
+			}
 		}
 
-		// Extract tar to backup directory
+		// Save tar archive
 		tarFile := filepath.Join(pvcBackupDir, "data.tar")
 		if err := os.WriteFile(tarFile, tarData, 0600); err != nil {
-			return nil, fmt.Errorf("failed to write PVC backup: %w", err)
+			return nil, fmt.Errorf("failed to write PVC backup for %s: %w", pvc, err)
 		}
-		files = append(files, tarFile)
+		files = append(files, m.cleanBackupPath(tarFile, stagingDir))
 	}
 
 	return files, nil
@@ -443,32 +606,30 @@ func (m *Manager) restorePVCs(kubeconfigPath, appName, backupDir string) error {
 	return nil
 }
 
-// detectDatabaseType detects the database type for an app
+// detectDatabaseType detects the database type for an app based on its manifest dependencies
 func (m *Manager) detectDatabaseType(kubeconfigPath, appName string) (string, error) {
-	// Check for postgres namespace
-	cmd := exec.Command("kubectl", "get", "namespace", "postgres")
-	tools.WithKubeconfig(cmd, kubeconfigPath)
-	if err := cmd.Run(); err == nil {
-		// Check if app uses postgres
-		cmd = exec.Command("kubectl", "get", "pods", "-n", "postgres", "-l", fmt.Sprintf("app=%s", appName))
-		tools.WithKubeconfig(cmd, kubeconfigPath)
-		if output, _ := cmd.Output(); len(output) > 0 {
-			return "postgres", nil
-		}
+	if m.appsDir == "" {
+		return "", nil // No apps directory configured, can't determine database type
 	}
 
-	// Check for mysql namespace
-	cmd = exec.Command("kubectl", "get", "namespace", "mysql")
-	tools.WithKubeconfig(cmd, kubeconfigPath)
-	if err := cmd.Run(); err == nil {
-		cmd = exec.Command("kubectl", "get", "pods", "-n", "mysql", "-l", fmt.Sprintf("app=%s", appName))
-		tools.WithKubeconfig(cmd, kubeconfigPath)
-		if output, _ := cmd.Output(); len(output) > 0 {
+	// Create apps manager to read manifest
+	appsMgr := apps.NewManager(m.dataDir, m.appsDir)
+	manifest, err := appsMgr.GetAppManifest(appName)
+	if err != nil {
+		return "", nil // No manifest found, app has no database
+	}
+
+	// Check if app requires postgres or mysql
+	for _, dep := range manifest.Requires {
+		if dep.Name == "postgres" {
+			return "postgres", nil
+		}
+		if dep.Name == "mysql" {
 			return "mysql", nil
 		}
 	}
 
-	return "", nil
+	return "", nil // No database dependency found
 }
 
 // saveBackupMeta saves backup metadata to JSON file
