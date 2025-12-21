@@ -744,6 +744,30 @@ func (m *Manager) GetEnhancedStatus(instanceName, appName string) (*RuntimeStatu
 	return m.getRuntimeStatus(kubeconfigPath, appName)
 }
 
+// GetAppManifest reads and parses the manifest.yaml for an app from the apps directory
+func (m *Manager) GetAppManifest(appName string) (*AppManifest, error) {
+	if m.appsDir == "" {
+		return nil, fmt.Errorf("apps directory not configured")
+	}
+
+	manifestPath := filepath.Join(m.appsDir, appName, "manifest.yaml")
+	if !storage.FileExists(manifestPath) {
+		return nil, fmt.Errorf("manifest not found for app %s", appName)
+	}
+
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read manifest: %w", err)
+	}
+
+	var manifest AppManifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse manifest: %w", err)
+	}
+
+	return &manifest, nil
+}
+
 // getRuntimeStatus fetches runtime information from kubernetes
 func (m *Manager) getRuntimeStatus(kubeconfigPath, namespace string) (*RuntimeStatus, error) {
 	kubectl := tools.NewKubectl(kubeconfigPath)
