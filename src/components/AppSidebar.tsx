@@ -1,5 +1,5 @@
 import { NavLink, useParams } from 'react-router';
-import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Usb, Download, CheckCircle } from 'lucide-react';
+import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Usb, Download, CheckCircle, Archive, Cpu, HardDrive } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   Sidebar,
@@ -270,6 +270,28 @@ export function AppSidebar() {
               </CollapsibleContent>
             </SidebarMenuItem>
           </Collapsible>
+
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Manage backups and recovery">
+              <NavLink to={`/instances/${instanceId}/backups`}>
+                {({ isActive }) => (
+                  <>
+                    <div className={cn(
+                      "p-1 rounded-md",
+                      isActive && "bg-primary/10"
+                    )}>
+                      <Archive className={cn(
+                        "h-4 w-4",
+                        isActive && "text-primary",
+                        !isActive && "text-muted-foreground"
+                      )} />
+                    </div>
+                    <span className="truncate">Backups</span>
+                  </>
+                )}
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
 
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Advanced settings and system configuration">

@@ -12,7 +12,6 @@ import { Badge } from './ui/badge';
 import { Loader2, AlertCircle, Clock, HardDrive } from 'lucide-react';
 
 interface Backup {
-  id: string;
   timestamp: string;
   size?: string;
 }
@@ -38,13 +37,13 @@ export function BackupRestoreModal({
   onConfirm,
   isPending = false,
 }: BackupRestoreModalProps) {
-  const [selectedBackupId, setSelectedBackupId] = useState<string | null>(null);
+  const [selectedBackupTimestamp, setSelectedBackupTimestamp] = useState<string | null>(null);
 
   const handleConfirm = () => {
     if (mode === 'backup') {
       onConfirm();
-    } else if (mode === 'restore' && selectedBackupId) {
-      onConfirm(selectedBackupId);
+    } else if (mode === 'restore' && selectedBackupTimestamp) {
+      onConfirm(selectedBackupTimestamp);
     }
     onClose();
   };
@@ -96,10 +95,10 @@ export function BackupRestoreModal({
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {backups.map((backup) => (
                     <button
-                      key={backup.id}
-                      onClick={() => setSelectedBackupId(backup.id)}
+                      key={backup.timestamp}
+                      onClick={() => setSelectedBackupTimestamp(backup.timestamp)}
                       className={`w-full p-3 rounded-lg border text-left transition-colors ${
-                        selectedBackupId === backup.id
+                        selectedBackupTimestamp === backup.timestamp
                           ? 'border-primary bg-primary/10'
                           : 'border-border hover:bg-muted'
                       }`}
@@ -111,7 +110,7 @@ export function BackupRestoreModal({
                             {formatTimestamp(backup.timestamp)}
                           </span>
                         </div>
-                        {selectedBackupId === backup.id && (
+                        {selectedBackupTimestamp === backup.timestamp && (
                           <Badge variant="default">Selected</Badge>
                         )}
                       </div>
@@ -137,7 +136,7 @@ export function BackupRestoreModal({
             onClick={handleConfirm}
             disabled={
               isPending ||
-              (mode === 'restore' && (!selectedBackupId || backups.length === 0))
+              (mode === 'restore' && (!selectedBackupTimestamp || backups.length === 0))
             }
           >
             {isPending ? (
