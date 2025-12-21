@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -39,6 +39,7 @@ type TabView = 'available' | 'installed';
 
 export function AppsComponent() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentInstance } = useInstanceContext();
   const { data: availableAppsData, isLoading: loadingAvailable, error: availableError } = useAvailableApps();
   const {
@@ -76,13 +77,32 @@ export function AppsComponent() {
   } = useAppBackups(currentInstance, selectedAppForBackup);
 
   // Merge available and deployed apps with URL from deployment
-  const applications: MergedApp[] = (availableAppsData?.apps || []).map(app => {
+  const availableAppsMap = new Map((availableAppsData?.apps || []).map(app => [app.name, app]));
+
+  // First, add all available apps with their deployment status
+  const applications: MergedApp[] = Array.from(availableAppsMap.values()).map(app => {
     const deployedApp = deployedApps.find(d => d.name === app.name);
     return {
       ...app,
       deploymentStatus: deployedApp?.status as 'added' | 'deployed' | undefined,
       url: deployedApp?.url,
     };
+  });
+
+  // Then, add deployed apps that aren't in the available list (custom apps)
+  deployedApps.forEach(deployedApp => {
+    if (!availableAppsMap.has(deployedApp.name)) {
+      applications.push({
+        name: deployedApp.name,
+        description: `Custom app: ${deployedApp.name}`,
+        category: 'custom',
+        version: deployedApp.version || '',
+        icon: '',
+        defaultConfig: {},
+        deploymentStatus: deployedApp.status as 'added' | 'deployed',
+        url: deployedApp.url,
+      } as MergedApp);
+    }
   });
 
   const isLoading = loadingAvailable || loadingDeployed;
@@ -162,6 +182,8 @@ export function AppsComponent() {
         return <MessageSquare className="h-4 w-4" />;
       case 'storage':
         return <Database className="h-4 w-4" />;
+      case 'custom':
+        return <Settings className="h-4 w-4" />;
       default:
         return <AppWindow className="h-4 w-4" />;
     }
@@ -187,7 +209,7 @@ export function AppsComponent() {
     );
   };
 
-  const handleAppAction = (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore' | 'view') => {
+  const handleAppAction = (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore' | 'view' | 'viewBackups') => {
     if (!currentInstance) return;
 
     switch (action) {
@@ -221,6 +243,9 @@ export function AppsComponent() {
         setSelectedAppForDetail(app.name);
         setDetailModalOpen(true);
         break;
+      case 'viewBackups':
+        navigate(`/instances/${currentInstance}/backups?app=${app.name}`);
+        break;
     }
   };
 
@@ -246,7 +271,7 @@ export function AppsComponent() {
     }
   };
 
-  const categories = ['all', 'database', 'web', 'security', 'monitoring', 'communication', 'storage'];
+  const categories = ['all', 'database', 'web', 'security', 'monitoring', 'communication', 'storage', 'custom'];
 
   const appsToDisplay = activeTab === 'available' ? availableApps : installedApps;
 
@@ -497,11 +522,19 @@ export function AppsComponent() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleAppAction(app, 'backup')}
-                              disabled={isBackingUp}
-                              title="Create backup"
+                              onClick={() => handleAppAction(app, 'viewBackups')}
+                              title="View all backups"
                             >
                               <Archive className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAppAction(app, 'backup')}
+                              disabled={isBackingUp}
+                              title="Create backup now"
+                            >
+                              {isBackingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
                             </Button>
                             <Button
                               size="sm"
