@@ -84,24 +84,23 @@ export function AppsComponent() {
     const deployedApp = deployedApps.find(d => d.name === app.name);
     return {
       ...app,
-      deploymentStatus: deployedApp?.status as 'added' | 'deployed' | undefined,
+      deploymentStatus: deployedApp?.status,
       url: deployedApp?.url,
-    };
+    } as MergedApp;
   });
 
   // Then, add deployed apps that aren't in the available list (custom apps)
   deployedApps.forEach(deployedApp => {
     if (!availableAppsMap.has(deployedApp.name)) {
-      applications.push({
+      const customApp: MergedApp = {
         name: deployedApp.name,
         description: `Custom app: ${deployedApp.name}`,
-        category: 'custom',
         version: deployedApp.version || '',
-        icon: '',
-        defaultConfig: {},
-        deploymentStatus: deployedApp.status as 'added' | 'deployed',
+        category: 'custom',
+        deploymentStatus: deployedApp.status,
         url: deployedApp.url,
-      } as MergedApp);
+      };
+      applications.push(customApp);
     }
   });
 
