@@ -26,11 +26,32 @@ export function Advanced() {
   const handleCopyToken = async () => {
     if (dashboardToken?.token) {
       try {
-        await navigator.clipboard.writeText(dashboardToken.token);
+        // Use different methods based on browser compatibility
+        if (navigator.clipboard && window.isSecureContext) {
+          // Modern clipboard API (requires HTTPS or localhost)
+          await navigator.clipboard.writeText(dashboardToken.token);
+        } else {
+          // Fallback method for older browsers or non-secure contexts
+          const textArea = document.createElement("textarea");
+          textArea.value = dashboardToken.token;
+          textArea.style.position = "fixed";
+          textArea.style.left = "-999999px";
+          textArea.style.top = "-999999px";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          const successful = document.execCommand('copy');
+          textArea.remove();
+          if (!successful) {
+            throw new Error('Fallback copy failed');
+          }
+        }
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (err) {
         console.error('Failed to copy token:', err);
+        // Show user-friendly error message
+        alert('Failed to copy token to clipboard. Please copy manually: ' + dashboardToken.token);
       }
     }
   };
