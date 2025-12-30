@@ -6,7 +6,7 @@ export interface App {
   icon?: string;
   requires?: AppRequirement[];
   defaultConfig?: Record<string, unknown>;
-  requiredSecrets?: string[];
+  defaultSecrets?: string[];
   dependencies?: string[];
   config?: Record<string, string>;
   status?: AppStatus;
@@ -103,7 +103,7 @@ export interface AppManifest {
   icon?: string;
   dependencies?: string[];
   defaultConfig?: Record<string, unknown>;
-  requiredSecrets?: string[];
+  defaultSecrets?: string[];
 }
 
 export interface EnhancedApp {

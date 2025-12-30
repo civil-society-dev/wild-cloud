@@ -17,9 +17,51 @@ interface AppConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   app: App | null;
-  existingConfig?: Record<string, string>;
-  onSave: (config: Record<string, string>) => void;
+  existingConfig?: Record<string, any>;
+  onSave: (config: Record<string, any>) => void;
   isSaving?: boolean;
+}
+
+// Utility function to flatten nested objects with dot notation
+function flattenObject(obj: Record<string, any>, prefix = ''): Record<string, string> {
+  const flattened: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    const newKey = prefix ? `${prefix}.${key}` : key;
+
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      // Recursively flatten nested objects
+      Object.assign(flattened, flattenObject(value, newKey));
+    } else {
+      // Convert primitive values to strings
+      flattened[newKey] = String(value ?? '');
+    }
+  }
+
+  return flattened;
+}
+
+// Utility function to unflatten dot notation back to nested objects
+function unflattenObject(obj: Record<string, string>): Record<string, any> {
+  const unflattened: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    const keys = key.split('.');
+    let current = unflattened;
+
+    for (let i = 0; i < keys.length - 1; i++) {
+      const k = keys[i];
+      if (!(k in current)) {
+        current[k] = {};
+      }
+      current = current[k];
+    }
+
+    // Set the final value
+    current[keys[keys.length - 1]] = value;
+  }
+
+  return unflattened;
 }
 
 export function AppConfigDialog({
@@ -35,7 +77,7 @@ export function AppConfigDialog({
   // Initialize config when dialog opens or app changes
   useEffect(() => {
     if (app && open) {
-      const initialConfig: Record<string, string> = {};
+      let initialConfig: Record<string, string> = {};
 
       // Debug logging to diagnose the issue
       console.log('[AppConfigDialog] App data:', {
@@ -46,16 +88,15 @@ export function AppConfigDialog({
         existingConfigKeys: existingConfig ? Object.keys(existingConfig) : [],
       });
 
-      // Start with default config
+      // Start with default config - flatten nested objects
       if (app.defaultConfig) {
-        Object.entries(app.defaultConfig).forEach(([key, value]) => {
-          initialConfig[key] = String(value);
-        });
+        initialConfig = flattenObject(app.defaultConfig);
       }
 
-      // Override with existing config if provided
+      // Override with existing config if provided - also flatten
       if (existingConfig) {
-        Object.entries(existingConfig).forEach(([key, value]) => {
+        const flattenedExisting = flattenObject(existingConfig);
+        Object.entries(flattenedExisting).forEach(([key, value]) => {
           initialConfig[key] = value;
         });
       }
@@ -65,24 +106,24 @@ export function AppConfigDialog({
   }, [app, existingConfig, open]);
 
   const handleSave = () => {
-    onSave(config);
+    // Unflatten the config back to nested objects before saving
+    const unflattenedConfig = unflattenObject(config);
+    onSave(unflattenedConfig);
   };
 
   const handleChange = (key: string, value: string) => {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
 
-  // Convert snake_case to Title Case for labels
+  // Convert snake_case and dot notation to Title Case for labels
   const formatLabel = (key: string): string => {
-    return key
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+    return key;
   };
 
   if (!app) return null;
 
-  const configKeys = Object.keys(app.defaultConfig || {});
+  // Use the flattened config keys for display
+  const configKeys = Object.keys(config);
   const hasConfig = configKeys.length > 0;
 
   return (
@@ -98,7 +139,7 @@ export function AppConfigDialog({
         {hasConfig ? (
           <div className="space-y-4 py-4">
             {configKeys.map((key) => {
-              const isRequired = app.requiredSecrets?.some(secret =>
+              const isRequired = app.defaultSecrets?.some(secret =>
                 secret.toLowerCase().includes(key.toLowerCase())
               );
 
@@ -119,7 +160,7 @@ export function AppConfigDialog({
                     id={key}
                     value={config[key] || ''}
                     onChange={(e) => handleChange(key, e.target.value)}
-                    placeholder={String(app.defaultConfig?.[key] || '')}
+                    placeholder={config[key] || ''}
                     required={isRequired}
                   />
                   {isRequired && (
