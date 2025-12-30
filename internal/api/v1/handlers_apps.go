@@ -84,8 +84,8 @@ func (api *API) AppsAdd(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request
 	var req struct {
-		Name   string            `json:"name"`
-		Config map[string]string `json:"config"`
+		Name   string                 `json:"name"`
+		Config map[string]interface{} `json:"config"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -2,16 +2,22 @@ package apps
 
 import "github.com/wild-cloud/wild-central/daemon/internal/tools"
 
+// SecretDefinition represents a secret with optional default value
+type SecretDefinition struct {
+	Key     string `json:"key" yaml:"key"`
+	Default string `json:"default,omitempty" yaml:"default,omitempty"`
+}
+
 // AppManifest represents the complete app manifest from manifest.yaml
 type AppManifest struct {
-	Name            string                 `json:"name" yaml:"name"`
-	Description     string                 `json:"description" yaml:"description"`
-	Version         string                 `json:"version" yaml:"version"`
-	Icon            string                 `json:"icon,omitempty" yaml:"icon,omitempty"`
-	Category        string                 `json:"category,omitempty" yaml:"category,omitempty"`
-	Requires        []AppDependency        `json:"requires,omitempty" yaml:"requires,omitempty"`
-	DefaultConfig   map[string]interface{} `json:"defaultConfig,omitempty" yaml:"defaultConfig,omitempty"`
-	RequiredSecrets []string               `json:"requiredSecrets,omitempty" yaml:"requiredSecrets,omitempty"`
+	Name           string                 `json:"name" yaml:"name"`
+	Description    string                 `json:"description" yaml:"description"`
+	Version        string                 `json:"version" yaml:"version"`
+	Icon           string                 `json:"icon,omitempty" yaml:"icon,omitempty"`
+	Category       string                 `json:"category,omitempty" yaml:"category,omitempty"`
+	Requires       []AppDependency        `json:"requires,omitempty" yaml:"requires,omitempty"`
+	DefaultConfig  map[string]interface{} `json:"defaultConfig,omitempty" yaml:"defaultConfig,omitempty"`
+	DefaultSecrets []SecretDefinition     `json:"defaultSecrets,omitempty" yaml:"defaultSecrets,omitempty"`
 }
 
 // AppDependency represents a dependency on another app
