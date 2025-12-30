@@ -297,7 +297,7 @@ export function AppDetailModal({
                 )}
 
                 {/* Secrets */}
-                {appDetails.manifest?.requiredSecrets && appDetails.manifest.requiredSecrets.length > 0 && (
+                {appDetails.manifest?.defaultSecrets && appDetails.manifest.defaultSecrets.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center justify-between">
@@ -314,7 +314,7 @@ export function AppDetailModal({
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {appDetails.manifest.requiredSecrets.map((secret) => (
+                        {appDetails.manifest.defaultSecrets.map((secret) => (
                           <div key={secret} className="flex justify-between text-sm border-b pb-2">
                             <span className="font-medium text-muted-foreground">{secret}:</span>
                             <span className="font-mono text-xs">
