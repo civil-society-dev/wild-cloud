@@ -27,6 +27,7 @@ export interface DeployedApp {
   version?: string;
   namespace?: string;
   url?: string;
+  icon?: string;
 }
 
 export interface AppStatus {

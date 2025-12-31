@@ -116,6 +116,8 @@ export function AppsComponent() {
       ...app,
       deploymentStatus: deployedApp?.status,
       url: deployedApp?.url,
+      // Prefer deployed app icon if it exists (allows custom icons in local manifests)
+      icon: deployedApp?.icon || app.icon,
     } as MergedApp;
   });
 
@@ -129,6 +131,7 @@ export function AppsComponent() {
         category: 'custom',
         deploymentStatus: deployedApp.status,
         url: deployedApp.url,
+        icon: deployedApp.icon,
       };
       applications.push(customApp);
     }
