@@ -16,10 +16,13 @@ export interface App {
 
 export interface AppRequirement {
   name: string;
+  alias?: string;
+  installedAs?: string;
 }
 
 export interface DeployedApp {
   name: string;
+  is?: string; // The original app type (e.g., "postgres" even if named "postgres-primary")
   status: 'added' | 'deployed';
   version?: string;
   namespace?: string;
@@ -133,6 +136,7 @@ export interface AppListResponse {
 export interface AppAddRequest {
   name: string;
   config?: Record<string, string>;
+  requiredAppMappings?: Record<string, string>;
 }
 
 export interface AppAddResponse {

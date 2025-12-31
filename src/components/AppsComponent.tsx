@@ -278,12 +278,13 @@ export function AppsComponent() {
     }
   };
 
-  const handleConfigSave = (config: Record<string, string>) => {
+  const handleConfigSave = (appName: string, config: Record<string, string>, requiredAppMappings?: Record<string, string>) => {
     if (!selectedAppForConfig) return;
 
     addApp({
-      name: selectedAppForConfig.name,
+      name: appName,
       config: config,
+      requiredAppMappings: requiredAppMappings,
     });
 
     setConfigDialogOpen(false);
@@ -616,6 +617,7 @@ export function AppsComponent() {
         onOpenChange={setConfigDialogOpen}
         app={selectedAppForConfig}
         existingConfig={selectedAppForConfig?.config}
+        existingAppName={selectedAppForConfig?.deploymentStatus ? selectedAppForConfig.name : undefined}
         onSave={handleConfigSave}
         isSaving={isAdding}
       />
