@@ -84,8 +84,9 @@ func (api *API) AppsAdd(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request
 	var req struct {
-		Name   string                 `json:"name"`
-		Config map[string]interface{} `json:"config"`
+		Name                string                 `json:"name"`
+		Config              map[string]interface{} `json:"config"`
+		RequiredAppMappings map[string]string      `json:"requiredAppMappings"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -100,7 +101,7 @@ func (api *API) AppsAdd(w http.ResponseWriter, r *http.Request) {
 
 	// Add app
 	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
-	if err := appsMgr.Add(instanceName, req.Name, req.Config); err != nil {
+	if err := appsMgr.Add(instanceName, req.Name, req.Config, req.RequiredAppMappings); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to add app: %v", err))
 		return
 	}

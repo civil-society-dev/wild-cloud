@@ -38,7 +38,8 @@ type App struct {
 	Version        string                 `json:"version" yaml:"version"`
 	Category       string                 `json:"category,omitempty" yaml:"category,omitempty"`
 	Icon           string                 `json:"icon,omitempty" yaml:"icon,omitempty"`
-	Dependencies   []string               `json:"dependencies" yaml:"dependencies"`
+	Requires       []AppDependency        `json:"requires,omitempty" yaml:"requires,omitempty"`
+	Dependencies   []string               `json:"dependencies" yaml:"dependencies"` // Deprecated: kept for backward compatibility
 	Config         map[string]string      `json:"config,omitempty" yaml:"config,omitempty"`
 	DefaultConfig  map[string]interface{} `json:"defaultConfig,omitempty" yaml:"defaultConfig,omitempty"`
 	DefaultSecrets []string               `json:"defaultSecrets,omitempty" yaml:"defaultSecrets,omitempty"`
@@ -47,6 +48,7 @@ type App struct {
 // DeployedApp represents a deployed application instance
 type DeployedApp struct {
 	Name      string `json:"name"`
+	Is        string `json:"is,omitempty"` // The original app type
 	Status    string `json:"status"`
 	Version   string `json:"version"`
 	Namespace string `json:"namespace"`
@@ -96,6 +98,7 @@ func (m *Manager) ListAvailable() ([]App, error) {
 			Category:      manifest.Category,
 			Icon:          manifest.Icon,
 			DefaultConfig: manifest.DefaultConfig,
+			Requires:      manifest.Requires, // Include full dependency information
 		}
 
 		// Extract secret keys from DefaultSecrets
@@ -106,7 +109,7 @@ func (m *Manager) ListAvailable() ([]App, error) {
 			}
 		}
 
-		// Extract dependencies from Requires field
+		// Extract dependencies from Requires field (for backward compatibility)
 		if len(manifest.Requires) > 0 {
 			app.Dependencies = make([]string, len(manifest.Requires))
 			for i, dep := range manifest.Requires {
@@ -146,6 +149,7 @@ func (m *Manager) Get(appName string) (*App, error) {
 		Category:      manifest.Category,
 		Icon:          manifest.Icon,
 		DefaultConfig: manifest.DefaultConfig,
+		Requires:      manifest.Requires, // Include full dependency information
 	}
 
 	// Extract secret keys from DefaultSecrets
@@ -156,7 +160,7 @@ func (m *Manager) Get(appName string) (*App, error) {
 		}
 	}
 
-	// Extract dependencies from Requires field
+	// Extract dependencies from Requires field (for backward compatibility)
 	if len(manifest.Requires) > 0 {
 		app.Dependencies = make([]string, len(manifest.Requires))
 		for i, dep := range manifest.Requires {
@@ -201,15 +205,17 @@ func (m *Manager) ListDeployed(instanceName string) ([]DeployedApp, error) {
 			Status:    "added", // Default status: added but not deployed
 		}
 
-		// Try to get version from manifest
+		// Try to get version and 'is' from manifest
 		manifestPath := filepath.Join(appsDir, appName, "manifest.yaml")
 		if storage.FileExists(manifestPath) {
 			manifestData, _ := os.ReadFile(manifestPath)
 			var manifest struct {
 				Version string `yaml:"version"`
+				Is      string `yaml:"is"`
 			}
 			if yaml.Unmarshal(manifestData, &manifest) == nil {
 				app.Version = manifest.Version
+				app.Is = manifest.Is
 			}
 		}
 
@@ -442,7 +448,7 @@ func setNestedConfig(yq *tools.YQ, configFile, basePath string, value interface{
 }
 
 // Add adds an app to the instance configuration
-func (m *Manager) Add(instanceName, appName string, config map[string]interface{}) error {
+func (m *Manager) Add(instanceName, appName string, config map[string]interface{}, requiredAppMappings map[string]string) error {
 	// 1. Verify app exists
 	manifestPath := filepath.Join(m.appsDir, appName, "manifest.yaml")
 	if !storage.FileExists(manifestPath) {
@@ -592,7 +598,7 @@ func (m *Manager) Add(instanceName, appName string, config map[string]interface{
 		}
 	}
 
-	// Update manifest with source information
+	// Update manifest with source information and required app mappings
 	manifestDestPath := filepath.Join(appDestDir, "manifest.yaml")
 	if manifest.Source == "" {
 		// Construct source URI based on appsDir location
@@ -602,6 +608,25 @@ func (m *Manager) Add(instanceName, appName string, config map[string]interface{
 			absPath = sourceAppDir
 		}
 		manifest.Source = fmt.Sprintf("file://%s", absPath)
+	}
+
+	// Note: The 'is' field should already be set in the manifest from the directory
+	// It tracks the original app type and is required in all manifests
+
+	// Update Requires field with installedAs values from requiredAppMappings
+	if len(requiredAppMappings) > 0 && len(manifest.Requires) > 0 {
+		for i := range manifest.Requires {
+			// Use alias as key, or name if no alias
+			key := manifest.Requires[i].Name
+			if manifest.Requires[i].Alias != "" {
+				key = manifest.Requires[i].Alias
+			}
+
+			// Set installedAs from the mapping
+			if installedAs, ok := requiredAppMappings[key]; ok {
+				manifest.Requires[i].InstalledAs = installedAs
+			}
+		}
 	}
 
 	// Save updated manifest

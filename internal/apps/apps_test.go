@@ -265,7 +265,7 @@ namespace: loomio
 
 	// Create app manager and add the app
 	manager := NewManager(dataDir, appsDir)
-	err = manager.Add(instanceName, appName, nil)
+	err = manager.Add(instanceName, appName, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to add app: %v", err)
 	}
@@ -554,7 +554,7 @@ namespace: testapp
 
 	// Create app manager and add the app
 	manager := NewManager(dataDir, appsDir)
-	err = manager.Add(instanceName, appName, nil)
+	err = manager.Add(instanceName, appName, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to add app: %v", err)
 	}
@@ -675,7 +675,7 @@ func TestSecretTemplateWithMultipleRandoms(t *testing.T) {
 
 	// Create app manager and add the app
 	manager := NewManager(dataDir, appsDir)
-	err = manager.Add(instanceName, appName, nil)
+	err = manager.Add(instanceName, appName, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to add app: %v", err)
 	}
@@ -823,7 +823,7 @@ resources:
 
 	// Create app manager and add the app
 	manager := NewManager(dataDir, appsDir)
-	err = manager.Add(instanceName, appName, nil)
+	err = manager.Add(instanceName, appName, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to add app: %v", err)
 	}
@@ -983,7 +983,7 @@ func TestExistingSecretsNotOverwritten(t *testing.T) {
 
 	// Create app manager and add the app
 	manager := NewManager(dataDir, appsDir)
-	err = manager.Add(instanceName, appName, nil)
+	err = manager.Add(instanceName, appName, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to add app: %v", err)
 	}
@@ -1079,7 +1079,7 @@ defaultSecrets:
 
 	// Add the app
 	mgr := NewManager(dataDir, appsDir)
-	err = mgr.Add(instanceName, appName, nil)
+	err = mgr.Add(instanceName, appName, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to add app: %v", err)
 	}
@@ -1238,7 +1238,7 @@ defaultConfig:
 
 	// Add the app initially
 	mgr := NewManager(dataDir, appsDir)
-	err = mgr.Add(instanceName, appName, nil)
+	err = mgr.Add(instanceName, appName, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to add app: %v", err)
 	}

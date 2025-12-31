@@ -17,6 +17,7 @@ type ConfigItem struct {
 // AppManifest represents the complete app manifest from manifest.yaml
 type AppManifest struct {
 	Name            string                 `json:"name" yaml:"name"`
+	Is              string                 `json:"is,omitempty" yaml:"is,omitempty"` // The original app type (e.g., "postgres" even if named "postgres-primary")
 	Description     string                 `json:"description" yaml:"description"`
 	Version         string                 `json:"version" yaml:"version"`
 	Icon            string                 `json:"icon,omitempty" yaml:"icon,omitempty"`
@@ -31,6 +32,7 @@ type AppManifest struct {
 // AppDependency represents a dependency on another app
 type AppDependency struct {
 	Name        string `json:"name" yaml:"name"`
+	Alias       string `json:"alias,omitempty" yaml:"alias,omitempty"`
 	InstalledAs string `json:"installedAs,omitempty" yaml:"installedAs,omitempty"`
 }
 
