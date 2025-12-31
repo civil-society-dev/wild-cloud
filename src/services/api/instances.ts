@@ -37,6 +37,28 @@ export const instancesApi = {
     return apiClient.patch(`/api/v1/instances/${instanceName}/config`, { updates });
   },
 
+  // Raw YAML config management (for advanced editor)
+  async getConfigYaml(instanceName: string): Promise<string> {
+    // Request YAML format via Accept header
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055';
+    const url = `${baseUrl}/api/v1/instances/${instanceName}/config`;
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/yaml' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.text();
+  },
+
+  async updateConfigYaml(instanceName: string, yamlContent: string): Promise<{ message: string }> {
+    // Send YAML to API (API expects YAML in body)
+    const result = await apiClient.putText(`/api/v1/instances/${instanceName}/config`, yamlContent);
+    return { message: result.message || 'Config updated successfully' };
+  },
+
   // Secrets management
   async getSecrets(instanceName: string, raw = false): Promise<Record<string, unknown>> {
     const query = raw ? '?raw=true' : '';

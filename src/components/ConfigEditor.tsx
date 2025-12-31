@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import { useConfigYaml } from '../hooks';
 import { Button, Textarea } from './ui';
@@ -13,7 +14,8 @@ import {
   DialogTrigger} from '@/components/ui/dialog';
 
 export function ConfigEditor() {
-  const { yamlContent, isLoading, error, isEndpointMissing, updateYaml, refetch } = useConfigYaml();
+  const { instanceId } = useParams<{ instanceId: string }>();
+  const { yamlContent, isLoading, error, isEndpointMissing, updateYaml, refetch } = useConfigYaml(instanceId || '');
   
   const [editedContent, setEditedContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
@@ -96,7 +98,7 @@ export function ConfigEditor() {
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditedContent(e.target.value)}
             placeholder={isLoading ? "Loading YAML configuration..." : "No configuration found"}
             disabled={isLoading || !!isEndpointMissing}
-            className="font-mono text-sm w-full flex-1 min-h-0 resize-none"
+            className="font-mono text-sm w-full flex-1 min-h-0 resize-none whitespace-pre overflow-x-auto"
           />
           
           {hasChanges && (
