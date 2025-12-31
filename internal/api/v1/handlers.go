@@ -160,6 +160,9 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/apps", api.AppsListDeployed).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/apps", api.AppsAdd).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/deploy", api.AppsDeploy).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/update", api.AppsUpdate).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/eject", api.AppsEject).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/config", api.AppsUpdateConfig).Methods("PATCH")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}", api.AppsDelete).Methods("DELETE")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/status", api.AppsGetStatus).Methods("GET")
 
@@ -332,6 +335,17 @@ func (api *API) GetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check Accept header for content negotiation
+	acceptHeader := r.Header.Get("Accept")
+	if acceptHeader == "application/yaml" || acceptHeader == "text/yaml" {
+		// Return raw YAML
+		w.Header().Set("Content-Type", "application/yaml")
+		w.WriteHeader(http.StatusOK)
+		w.Write(configData)
+		return
+	}
+
+	// Default: return JSON
 	var configMap map[string]interface{}
 	if err := yaml.Unmarshal(configData, &configMap); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to parse config: %v", err))

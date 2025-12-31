@@ -351,11 +351,59 @@ func processConfigTemplates(config map[string]interface{}, configFile string, go
 
 // processSecretTemplate processes a gomplate template for secret defaults
 // This function uses named contexts for config and secrets (e.g., {{ .config.apps.loomio.db.user }}, {{ .secrets.apps.loomio.dbPassword }})
-func processSecretTemplate(template string, configFile, secretsFile string, gomplate *tools.Gomplate) (string, error) {
+func processSecretTemplate(template string, appName string, configFile, secretsFile string, gomplate *tools.Gomplate) (string, error) {
+	// Create merged context file with app-specific config under "app" key
+	mergedContextFile := filepath.Join(filepath.Dir(configFile), fmt.Sprintf(".merged-secrets.%s.tmp.yaml", appName))
+	defer os.Remove(mergedContextFile)
+
+	// Load root config
+	rootData, err := os.ReadFile(configFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var rootConfig map[string]interface{}
+	if err := yaml.Unmarshal(rootData, &rootConfig); err != nil {
+		return "", fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Extract app-specific config and add it under "app" key
+	if apps, ok := rootConfig["apps"].(map[string]interface{}); ok {
+		if appConfig, ok := apps[appName].(map[string]interface{}); ok {
+			rootConfig["app"] = appConfig
+		}
+	}
+
+	// Load secrets and extract app-specific secrets under "secrets" key
+	secretsData, err := os.ReadFile(secretsFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read secrets file: %w", err)
+	}
+
+	var allSecrets map[string]interface{}
+	if err := yaml.Unmarshal(secretsData, &allSecrets); err != nil {
+		return "", fmt.Errorf("failed to parse secrets: %w", err)
+	}
+
+	// Extract app-specific secrets and add them under "secrets" key
+	if apps, ok := allSecrets["apps"].(map[string]interface{}); ok {
+		if appSecrets, ok := apps[appName].(map[string]interface{}); ok {
+			rootConfig["secrets"] = appSecrets
+		}
+	}
+
+	// Write merged config
+	mergedYAML, err := yaml.Marshal(rootConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal merged config: %w", err)
+	}
+	if err := storage.WriteFile(mergedContextFile, mergedYAML, 0644); err != nil {
+		return "", fmt.Errorf("failed to write merged config: %w", err)
+	}
+
 	args := []string{
 		"-i", template,
-		"-c", fmt.Sprintf("config=%s", configFile),
-		"-c", fmt.Sprintf("secrets=%s", secretsFile),
+		"-c", fmt.Sprintf(".=%s", mergedContextFile),
 	}
 
 	compiled, err := gomplate.Exec(args...)
@@ -411,7 +459,18 @@ func (m *Manager) Add(instanceName, appName string, config map[string]interface{
 		return fmt.Errorf("instance config not found: %s", instanceName)
 	}
 
-	// 2. Parse manifest (without processing templates in defaultSecrets)
+	// Create app directory structure
+	if err := storage.EnsureDir(appDestDir, 0755); err != nil {
+		return fmt.Errorf("failed to create app directory: %w", err)
+	}
+
+	// Create .package directory for source preservation
+	packageDir := filepath.Join(appDestDir, ".package")
+	if err := storage.EnsureDir(packageDir, 0755); err != nil {
+		return fmt.Errorf("failed to create package directory: %w", err)
+	}
+
+	// 2. Parse manifest
 	manifestData, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return fmt.Errorf("failed to read manifest: %w", err)
@@ -420,17 +479,6 @@ func (m *Manager) Add(instanceName, appName string, config map[string]interface{
 	var manifest AppManifest
 	if err := yaml.Unmarshal(manifestData, &manifest); err != nil {
 		return fmt.Errorf("failed to parse manifest: %w", err)
-	}
-
-	gomplate := tools.NewGomplate()
-
-	// Process defaultConfig templates recursively
-	if manifest.DefaultConfig != nil {
-		processedConfig, err := processConfigTemplates(manifest.DefaultConfig, configFile, gomplate)
-		if err != nil {
-			return fmt.Errorf("failed to process config templates: %w", err)
-		}
-		manifest.DefaultConfig = processedConfig
 	}
 
 	// 3. Update configuration
@@ -444,27 +492,27 @@ func (m *Manager) Add(instanceName, appName string, config map[string]interface{
 			return fmt.Errorf("failed to ensure apps section: %w", err)
 		}
 
-		// Merge defaultConfig (preserves existing values)
-		if len(manifest.DefaultConfig) > 0 {
-			for key, value := range manifest.DefaultConfig {
-				keyPath := fmt.Sprintf(".apps.%s.%s", appName, key)
-				// Only set if not already present
-				existing, _ := yq.Get(configFile, keyPath)
-				if existing == "" || existing == "null" {
-					// Use our helper function to handle nested objects properly
-					if err := setNestedConfig(yq, configFile, keyPath, value); err != nil {
-						return fmt.Errorf("failed to set config %s: %w", key, err)
-					}
-				}
-			}
+		// Process config in order from manifest YAML to handle {{ .app.X }} references correctly
+		// Use the source manifest since the destination hasn't been copied yet
+		sourceManifestPath := filepath.Join(m.appsDir, appName, "manifest.yaml")
+		if err := processConfigInOrder(sourceManifestPath, appName, configFile); err != nil {
+			return fmt.Errorf("failed to process config in order: %w", err)
 		}
 
-		// Apply user-provided config overrides
-		for key, value := range config {
-			keyPath := fmt.Sprintf(".apps.%s.%s", appName, key)
-			// Use setNestedConfig to handle both simple values and nested objects
-			if err := setNestedConfig(yq, configFile, keyPath, value); err != nil {
-				return fmt.Errorf("failed to set config %s: %w", key, err)
+		// Apply user-provided config overrides (process templates first)
+		if len(config) > 0 {
+			gomplate := tools.NewGomplate()
+			processedConfig, err := processUserConfig(config, appName, configFile, gomplate)
+			if err != nil {
+				return fmt.Errorf("failed to process user config: %w", err)
+			}
+
+			for key, value := range processedConfig {
+				keyPath := fmt.Sprintf(".apps.%s.%s", appName, key)
+				// Use setNestedConfig to handle both simple values and nested objects
+				if err := setNestedConfig(yq, configFile, keyPath, value); err != nil {
+					return fmt.Errorf("failed to set config %s: %w", key, err)
+				}
 			}
 		}
 
@@ -476,10 +524,14 @@ func (m *Manager) Add(instanceName, appName string, config map[string]interface{
 	// 4. Generate required secrets
 	// Process secrets sequentially so later ones can reference earlier ones
 	secretsMgr := secrets.NewManager()
+	gomplate := tools.NewGomplate()
 
 	for _, secretDef := range manifest.DefaultSecrets {
+		// Build the full secret path: apps.<appName>.<key>
+		secretPath := fmt.Sprintf("apps.%s.%s", appName, secretDef.Key)
+
 		// Check if secret already exists
-		existingSecret, _ := secretsMgr.GetSecret(secretsFile, secretDef.Key)
+		existingSecret, _ := secretsMgr.GetSecret(secretsFile, secretPath)
 		if existingSecret != "" && existingSecret != "null" {
 			// Secret already exists, don't overwrite
 			continue
@@ -490,7 +542,7 @@ func (m *Manager) Add(instanceName, appName string, config map[string]interface{
 		if secretDef.Default != "" {
 			// Process the default value using gomplate
 			if strings.Contains(secretDef.Default, "{{") {
-				compiled, err := processSecretTemplate(secretDef.Default, configFile, secretsFile, gomplate)
+				compiled, err := processSecretTemplate(secretDef.Default, appName, configFile, secretsFile, gomplate)
 				if err != nil {
 					return fmt.Errorf("failed to compile secret template for %s: %w", secretDef.Key, err)
 				}
@@ -507,50 +559,114 @@ func (m *Manager) Add(instanceName, appName string, config map[string]interface{
 			}
 		}
 
-		// Set the secret value
-		if err := secretsMgr.SetSecret(secretsFile, secretDef.Key, secretValue); err != nil {
-			return fmt.Errorf("failed to set secret %s: %w", secretDef.Key, err)
+		// Set the secret value with full path
+		if err := secretsMgr.SetSecret(secretsFile, secretPath, secretValue); err != nil {
+			return fmt.Errorf("failed to set secret %s: %w", secretPath, err)
 		}
 	}
 
-	// 5. Copy and compile app files
-	if err := storage.EnsureDir(appDestDir, 0755); err != nil {
-		return fmt.Errorf("failed to create app directory: %w", err)
-	}
-
-	// Copy source app directory
+	// 5. Copy source files to .package directory first
 	sourceAppDir := filepath.Join(m.appsDir, appName)
 	entries, err := os.ReadDir(sourceAppDir)
 	if err != nil {
 		return fmt.Errorf("failed to read app directory: %w", err)
 	}
 
-	// Create context for template processing
-	context := map[string]string{
-		".":       configFile,
-		"secrets": secretsFile,
-	}
-
+	// Copy all source files to .package directory
 	for _, entry := range entries {
+		sourcePath := filepath.Join(sourceAppDir, entry.Name())
+		packagePath := filepath.Join(packageDir, entry.Name())
+
 		if entry.IsDir() {
 			// TODO: Handle subdirectories if needed
 			continue
 		}
 
-		sourcePath := filepath.Join(sourceAppDir, entry.Name())
+		// Copy file to .package
+		data, err := os.ReadFile(sourcePath)
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", entry.Name(), err)
+		}
+		if err := storage.WriteFile(packagePath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write to package %s: %w", entry.Name(), err)
+		}
+	}
+
+	// Update manifest with source information
+	manifestDestPath := filepath.Join(appDestDir, "manifest.yaml")
+	if manifest.Source == "" {
+		// Construct source URI based on appsDir location
+		sourceAppDir := filepath.Join(m.appsDir, appName)
+		absPath, err := filepath.Abs(sourceAppDir)
+		if err != nil {
+			absPath = sourceAppDir
+		}
+		manifest.Source = fmt.Sprintf("file://%s", absPath)
+	}
+
+	// Save updated manifest
+	manifestYAML, err := yaml.Marshal(manifest)
+	if err != nil {
+		return fmt.Errorf("failed to marshal manifest: %w", err)
+	}
+	if err := storage.WriteFile(manifestDestPath, manifestYAML, 0644); err != nil {
+		return fmt.Errorf("failed to write manifest: %w", err)
+	}
+
+	// 6. Compile app files from .package to app directory
+	gomplate = tools.NewGomplate()
+
+	// Extract app's config section to temp files for gomplate
+
+	// Create temp config file with just app's section
+	tempConfigFile := filepath.Join(appDestDir, ".config.tmp.yaml")
+	appConfigYAML, _ := yq.Get(configFile, fmt.Sprintf(".apps.%s", appName))
+	if appConfigYAML != "" && appConfigYAML != "null" {
+		if err := storage.WriteFile(tempConfigFile, []byte(appConfigYAML), 0644); err != nil {
+			return fmt.Errorf("failed to write temp config: %w", err)
+		}
+		defer os.Remove(tempConfigFile)
+	}
+
+	// Create temp secrets file with just app's section
+	tempSecretsFile := filepath.Join(appDestDir, ".secrets.tmp.yaml")
+	appSecretsYAML, err := yq.Get(secretsFile, fmt.Sprintf(".apps.%s", appName))
+	if err == nil && appSecretsYAML != "" && appSecretsYAML != "null" {
+		if err := storage.WriteFile(tempSecretsFile, []byte(appSecretsYAML), 0644); err != nil {
+			return fmt.Errorf("failed to write temp secrets: %w", err)
+		}
+		defer os.Remove(tempSecretsFile)
+	} else {
+		// Write empty secrets file to avoid gomplate errors
+		if err := storage.WriteFile(tempSecretsFile, []byte("apps: {}"), 0644); err != nil {
+			return fmt.Errorf("failed to write empty temp secrets: %w", err)
+		}
+		defer os.Remove(tempSecretsFile)
+	}
+
+	// Create context for template processing - now using temp files with app's config at root
+	context := map[string]string{
+		".":       tempConfigFile,
+		"secrets": tempSecretsFile,
+	}
+
+	// Re-read entries from .package directory for compilation
+	packageEntries, err := os.ReadDir(packageDir)
+	if err != nil {
+		return fmt.Errorf("failed to read package directory: %w", err)
+	}
+
+	for _, entry := range packageEntries {
+		if entry.IsDir() {
+			// TODO: Handle subdirectories if needed
+			continue
+		}
+
+		sourcePath := filepath.Join(packageDir, entry.Name())
 		destPath := filepath.Join(appDestDir, entry.Name())
 
-		// Skip processing manifest.yaml - it contains secret template definitions
-		// that should not be processed. We've already extracted and used what we need from it.
+		// Skip processing manifest.yaml - already saved with source info
 		if entry.Name() == "manifest.yaml" {
-			// Just copy it as-is
-			data, err := os.ReadFile(sourcePath)
-			if err != nil {
-				return fmt.Errorf("failed to read %s: %w", entry.Name(), err)
-			}
-			if err := storage.WriteFile(destPath, data, 0644); err != nil {
-				return fmt.Errorf("failed to write %s: %w", entry.Name(), err)
-			}
 			continue
 		}
 
@@ -629,29 +745,66 @@ func (m *Manager) Deploy(instanceName, appName string) error {
 		}
 	}
 
+	// Load app manifest to check for requiredSecrets
+	manifestPath := filepath.Join(appDir, "manifest.yaml")
+	var manifest AppManifest
+	if storage.FileExists(manifestPath) {
+		manifestData, err := os.ReadFile(manifestPath)
+		if err == nil {
+			yaml.Unmarshal(manifestData, &manifest)
+		}
+	}
+
 	// Create Kubernetes secrets from secrets.yaml
 	if storage.FileExists(secretsFile) {
-		yq := tools.NewYQ()
-		appSecretsPath := fmt.Sprintf(".apps.%s", appName)
-		appSecretsJson, err := yq.Get(secretsFile, fmt.Sprintf("%s | @json", appSecretsPath))
-		if err == nil && appSecretsJson != "" && appSecretsJson != "null" {
-			// Delete existing secret if it exists (to update it)
-			deleteCmd := exec.Command("kubectl", "delete", "secret", fmt.Sprintf("%s-secrets", appName), "-n", appName, "--ignore-not-found")
-			tools.WithKubeconfig(deleteCmd, kubeconfigPath)
-			_, _ = deleteCmd.CombinedOutput()
+		secretsMgr := secrets.NewManager()
 
-			// Create secret from literals
-			createSecretCmd := exec.Command("kubectl", "create", "secret", "generic", fmt.Sprintf("%s-secrets", appName), "-n", appName)
+		// Delete existing secret if it exists (to update it)
+		deleteCmd := exec.Command("kubectl", "delete", "secret", fmt.Sprintf("%s-secrets", appName), "-n", appName, "--ignore-not-found")
+		tools.WithKubeconfig(deleteCmd, kubeconfigPath)
+		_, _ = deleteCmd.CombinedOutput()
 
-			// Parse secrets and add as literals
-			var appSecrets map[string]string
-			if err := yaml.Unmarshal([]byte(appSecretsJson), &appSecrets); err == nil {
-				for key, value := range appSecrets {
-					secretKey := fmt.Sprintf("apps.%s.%s", appName, key)
-					createSecretCmd.Args = append(createSecretCmd.Args, fmt.Sprintf("--from-literal=%s=%s", secretKey, value))
+		// Create secret from literals
+		createSecretCmd := exec.Command("kubectl", "create", "secret", "generic", fmt.Sprintf("%s-secrets", appName), "-n", appName)
+
+		// First, add app's own secrets from defaultSecrets
+		if len(manifest.DefaultSecrets) > 0 {
+			for _, secretDef := range manifest.DefaultSecrets {
+				// Get the secret value from secrets.yaml
+				secretPath := fmt.Sprintf("apps.%s.%s", appName, secretDef.Key)
+				secretValue, err := secretsMgr.GetSecret(secretsFile, secretPath)
+				if err == nil && secretValue != "" && secretValue != "null" {
+					// Add to Kubernetes secret with just the key name (not the full path)
+					createSecretCmd.Args = append(createSecretCmd.Args, fmt.Sprintf("--from-literal=%s=%s", secretDef.Key, secretValue))
 				}
 			}
+		}
 
+		// Add required secrets from dependencies
+		if len(manifest.RequiredSecrets) > 0 {
+			for _, requiredSecret := range manifest.RequiredSecrets {
+				// requiredSecret is in format "app-ref.key" (e.g., "postgres.password")
+				// The value should be looked up from secrets.yaml at apps.<actual-app-name>.<key>
+				// And added to the Kubernetes secret with the key as "app-ref.key"
+
+				// Get the secret value from secrets.yaml
+				secretPath := fmt.Sprintf("apps.%s", requiredSecret)
+				secretValue, err := secretsMgr.GetSecret(secretsFile, secretPath)
+				if err != nil || secretValue == "" || secretValue == "null" {
+					// Try without "apps." prefix for backwards compatibility
+					secretValue, _ = secretsMgr.GetSecret(secretsFile, requiredSecret)
+				}
+
+				if secretValue != "" && secretValue != "null" {
+					// Add to Kubernetes secret with the requiredSecret as the key
+					createSecretCmd.Args = append(createSecretCmd.Args,
+						fmt.Sprintf("--from-literal=%s=%s", requiredSecret, secretValue))
+				}
+			}
+		}
+
+		// Only create secret if we have any secrets to add
+		if len(createSecretCmd.Args) > 5 { // base command has 5 args
 			tools.WithKubeconfig(createSecretCmd, kubeconfigPath)
 			if output, err := createSecretCmd.CombinedOutput(); err != nil {
 				return fmt.Errorf("failed to create secret: %w\nOutput: %s", err, string(output))
@@ -871,7 +1024,7 @@ func (m *Manager) GetEnhanced(instanceName, appName string) (*EnhancedApp, error
 	yq := tools.NewYQ()
 	configJSON, err := yq.Get(configFile, fmt.Sprintf(".apps.%s | @json", appName))
 	if err == nil && configJSON != "" && configJSON != "null" {
-		var config map[string]string
+		var config map[string]interface{}
 		if json.Unmarshal([]byte(configJSON), &config) == nil {
 			enhanced.Config = config
 		}
@@ -1005,6 +1158,256 @@ func (m *Manager) getRuntimeStatus(kubeconfigPath, namespace string) (*RuntimeSt
 	return runtime, nil
 }
 
+// Update updates an app from its source package
+func (m *Manager) Update(instanceName, appName string) error {
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
+	appDestDir := filepath.Join(instancePath, "apps", appName)
+	packageDir := filepath.Join(appDestDir, ".package")
+
+	// Check if .package exists (if not, it's a custom app)
+	if !storage.FileExists(packageDir) {
+		return fmt.Errorf("app %s is custom or not installed (no package source)", appName)
+	}
+
+	// Read manifest to get source
+	manifestPath := filepath.Join(appDestDir, "manifest.yaml")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return fmt.Errorf("failed to read manifest: %w", err)
+	}
+
+	var manifest AppManifest
+	if err := yaml.Unmarshal(manifestData, &manifest); err != nil {
+		return fmt.Errorf("failed to parse manifest: %w", err)
+	}
+
+	// Parse source URI (e.g., "file:///path/to/wild-directory/postgres")
+	sourceParts := strings.Split(manifest.Source, "://")
+	if len(sourceParts) != 2 {
+		return fmt.Errorf("invalid source format: %s", manifest.Source)
+	}
+
+	var sourceAppDir string
+	switch sourceParts[0] {
+	case "file":
+		// Local filesystem path
+		sourceAppDir = sourceParts[1]
+	case "git+https", "git+http", "git+ssh":
+		// Git repository - not yet implemented
+		return fmt.Errorf("git source not yet supported: %s", manifest.Source)
+	default:
+		return fmt.Errorf("unsupported source protocol: %s", sourceParts[0])
+	}
+
+	// Copy new version to temp directory
+	tempDir := filepath.Join(appDestDir, ".package.new")
+	if err := storage.EnsureDir(tempDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir) // Clean up temp dir
+
+	// Copy from source
+	entries, err := os.ReadDir(sourceAppDir)
+	if err != nil {
+		return fmt.Errorf("failed to read source directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		sourcePath := filepath.Join(sourceAppDir, entry.Name())
+		tempPath := filepath.Join(tempDir, entry.Name())
+
+		data, err := os.ReadFile(sourcePath)
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", entry.Name(), err)
+		}
+		if err := storage.WriteFile(tempPath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", entry.Name(), err)
+		}
+	}
+
+	// Replace .package with new version
+	if err := os.RemoveAll(packageDir); err != nil {
+		return fmt.Errorf("failed to remove old package: %w", err)
+	}
+	if err := os.Rename(tempDir, packageDir); err != nil {
+		return fmt.Errorf("failed to update package: %w", err)
+	}
+
+	// Re-compile from .package to app dir
+	configFile := tools.GetInstanceConfigPath(m.dataDir, instanceName)
+	secretsFile := tools.GetInstanceSecretsPath(m.dataDir, instanceName)
+	gomplate := tools.NewGomplate()
+	yq := tools.NewYQ()
+
+	// Extract app's config section to temp files
+	tempConfigFile := filepath.Join(appDestDir, ".config.tmp.yaml")
+	appConfigYAML, err := yq.Get(configFile, fmt.Sprintf(".apps.%s", appName))
+	if err == nil && appConfigYAML != "" && appConfigYAML != "null" {
+		if err := storage.WriteFile(tempConfigFile, []byte(appConfigYAML), 0644); err != nil {
+			return fmt.Errorf("failed to write temp config: %w", err)
+		}
+		defer os.Remove(tempConfigFile)
+	}
+
+	tempSecretsFile := filepath.Join(appDestDir, ".secrets.tmp.yaml")
+	appSecretsYAML, err := yq.Get(secretsFile, fmt.Sprintf(".apps.%s", appName))
+	if err == nil && appSecretsYAML != "" && appSecretsYAML != "null" {
+		if err := storage.WriteFile(tempSecretsFile, []byte(appSecretsYAML), 0644); err != nil {
+			return fmt.Errorf("failed to write temp secrets: %w", err)
+		}
+		defer os.Remove(tempSecretsFile)
+	}
+
+	// Create context for template processing
+	context := map[string]string{
+		".":       tempConfigFile,
+		"secrets": tempSecretsFile,
+	}
+
+	// Re-read entries from .package directory for compilation
+	packageEntries, err := os.ReadDir(packageDir)
+	if err != nil {
+		return fmt.Errorf("failed to read package directory: %w", err)
+	}
+
+	for _, entry := range packageEntries {
+		if entry.IsDir() || entry.Name() == "manifest.yaml" {
+			continue
+		}
+
+		sourcePath := filepath.Join(packageDir, entry.Name())
+		destPath := filepath.Join(appDestDir, entry.Name())
+
+		// Process files with gomplate
+		if err := gomplate.RenderWithContext(sourcePath, destPath, context); err != nil {
+			return fmt.Errorf("failed to compile %s: %w", entry.Name(), err)
+		}
+	}
+
+	return nil
+}
+
+// Eject converts an app from package-managed to custom
+func (m *Manager) Eject(instanceName, appName string) error {
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
+	appDestDir := filepath.Join(instancePath, "apps", appName)
+	packageDir := filepath.Join(appDestDir, ".package")
+
+	// Remove .package directory
+	if err := os.RemoveAll(packageDir); err != nil {
+		return fmt.Errorf("failed to remove package directory: %w", err)
+	}
+
+	// Update manifest to remove source
+	manifestPath := filepath.Join(appDestDir, "manifest.yaml")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return fmt.Errorf("failed to read manifest: %w", err)
+	}
+
+	var manifest AppManifest
+	if err := yaml.Unmarshal(manifestData, &manifest); err != nil {
+		return fmt.Errorf("failed to parse manifest: %w", err)
+	}
+
+	// Remove source field
+	manifest.Source = ""
+
+	// Save updated manifest
+	manifestYAML, err := yaml.Marshal(manifest)
+	if err != nil {
+		return fmt.Errorf("failed to marshal manifest: %w", err)
+	}
+	if err := storage.WriteFile(manifestPath, manifestYAML, 0644); err != nil {
+		return fmt.Errorf("failed to write manifest: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateConfig updates an app's configuration and recompiles if needed
+func (m *Manager) UpdateConfig(instanceName, appName string, config map[string]interface{}) error {
+	instancePath := tools.GetInstancePath(m.dataDir, instanceName)
+	configFile := tools.GetInstanceConfigPath(m.dataDir, instanceName)
+	secretsFile := tools.GetInstanceSecretsPath(m.dataDir, instanceName)
+	appDestDir := filepath.Join(instancePath, "apps", appName)
+	packageDir := filepath.Join(appDestDir, ".package")
+
+	// Update config
+	yq := tools.NewYQ()
+	configLock := configFile + ".lock"
+
+	if err := storage.WithLock(configLock, func() error {
+		for key, value := range config {
+			keyPath := fmt.Sprintf(".apps.%s.%s", appName, key)
+			// Use setNestedConfig to handle both simple values and nested objects
+			if err := setNestedConfig(yq, configFile, keyPath, value); err != nil {
+				return fmt.Errorf("failed to set config %s: %w", key, err)
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// Re-compile if app has .package
+	if storage.FileExists(packageDir) {
+		gomplate := tools.NewGomplate()
+		yq := tools.NewYQ()
+
+		// Extract app's config section to temp files
+		tempConfigFile := filepath.Join(appDestDir, ".config.tmp.yaml")
+		appConfigYAML, err := yq.Get(configFile, fmt.Sprintf(".apps.%s", appName))
+		if err == nil && appConfigYAML != "" && appConfigYAML != "null" {
+			if err := storage.WriteFile(tempConfigFile, []byte(appConfigYAML), 0644); err != nil {
+				return fmt.Errorf("failed to write temp config: %w", err)
+			}
+			defer os.Remove(tempConfigFile)
+		}
+
+		tempSecretsFile := filepath.Join(appDestDir, ".secrets.tmp.yaml")
+		appSecretsYAML, err := yq.Get(secretsFile, fmt.Sprintf(".apps.%s", appName))
+		if err == nil && appSecretsYAML != "" && appSecretsYAML != "null" {
+			if err := storage.WriteFile(tempSecretsFile, []byte(appSecretsYAML), 0644); err != nil {
+				return fmt.Errorf("failed to write temp secrets: %w", err)
+			}
+			defer os.Remove(tempSecretsFile)
+		}
+
+		// Create context for template processing
+		context := map[string]string{
+			".":       tempConfigFile,
+			"secrets": tempSecretsFile,
+		}
+
+		// Re-read entries from .package directory for compilation
+		packageEntries, err := os.ReadDir(packageDir)
+		if err != nil {
+			return fmt.Errorf("failed to read package directory: %w", err)
+		}
+
+		for _, entry := range packageEntries {
+			if entry.IsDir() || entry.Name() == "manifest.yaml" {
+				continue
+			}
+
+			sourcePath := filepath.Join(packageDir, entry.Name())
+			destPath := filepath.Join(appDestDir, entry.Name())
+
+			// Process files with gomplate
+			if err := gomplate.RenderWithContext(sourcePath, destPath, context); err != nil {
+				return fmt.Errorf("failed to compile %s: %w", entry.Name(), err)
+			}
+		}
+	}
+
+	return nil
+}
+
 // getAppURL extracts the ingress URL for an app
 func (m *Manager) getAppURL(kubeconfigPath, appName string) string {
 	// Try Traefik IngressRoute first
@@ -1065,3 +1468,194 @@ func (m *Manager) getAppURL(kubeconfigPath, appName string) string {
 
 	return ""
 }
+
+// processUserConfig processes user-provided config values, compiling any templates
+// Reuses existing processValueNode logic by converting to YAML and back
+func processUserConfig(config map[string]interface{}, appName, configFile string, gomplate *tools.Gomplate) (map[string]interface{}, error) {
+	// Convert map to YAML bytes
+	configYAML, err := yaml.Marshal(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	// Parse into yaml.Node to use existing processValueNode
+	var node yaml.Node
+	if err := yaml.Unmarshal(configYAML, &node); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Process using existing template compilation logic
+	// Note: processValueNode expects the root mapping node's content
+	if node.Kind != yaml.DocumentNode || len(node.Content) == 0 {
+		return config, nil
+	}
+
+	processed, err := processValueNode(node.Content[0], appName, configFile, nil, gomplate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert result back to map
+	result, ok := processed.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type from processValueNode: %T", processed)
+	}
+
+	return result, nil
+}
+
+// processConfigInOrder processes config keys in the order they appear in the manifest YAML
+// processValueNode recursively processes a yaml.Node value, compiling templates in all scalar (leaf) nodes
+func processValueNode(node *yaml.Node, appName, configFile string, appContext map[string]interface{}, gomplate *tools.Gomplate) (interface{}, error) {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		value := node.Value
+		// Process templates if value contains {{
+		if strings.Contains(value, "{{") {
+			// Create merged context file
+			mergedContextFile := filepath.Join(filepath.Dir(configFile), fmt.Sprintf(".merged.%s.tmp.yaml", appName))
+			defer os.Remove(mergedContextFile)
+
+			// Load root config
+			rootData, err := os.ReadFile(configFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read config: %w", err)
+			}
+
+			var rootConfig map[string]interface{}
+			if err := yaml.Unmarshal(rootData, &rootConfig); err != nil {
+				return nil, fmt.Errorf("failed to parse config: %w", err)
+			}
+
+			// Merge app context under the "app" key
+			rootConfig["app"] = appContext
+
+			// Write merged config
+			mergedYAML, err := yaml.Marshal(rootConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal merged config: %w", err)
+			}
+			if err := storage.WriteFile(mergedContextFile, mergedYAML, 0644); err != nil {
+				return nil, fmt.Errorf("failed to write merged config: %w", err)
+			}
+
+			// Process template with merged context
+			args := []string{
+				"-i", value,
+				"-c", fmt.Sprintf(".=%s", mergedContextFile),
+			}
+			compiled, err := gomplate.Exec(args...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to compile template: %w", err)
+			}
+			return strings.TrimSpace(compiled), nil
+		}
+		return value, nil
+
+	case yaml.SequenceNode:
+		// Handle arrays - process each element
+		var arr []interface{}
+		for _, item := range node.Content {
+			processed, err := processValueNode(item, appName, configFile, appContext, gomplate)
+			if err != nil {
+				return nil, err
+			}
+			arr = append(arr, processed)
+		}
+		return arr, nil
+
+	case yaml.MappingNode:
+		// Handle nested objects - recursively process each key-value pair
+		result := make(map[string]interface{})
+		for i := 0; i < len(node.Content); i += 2 {
+			keyNode := node.Content[i]
+			valueNode := node.Content[i+1]
+
+			key := keyNode.Value
+			processed, err := processValueNode(valueNode, appName, configFile, appContext, gomplate)
+			if err != nil {
+				return nil, fmt.Errorf("failed to process nested key %s: %w", key, err)
+			}
+			result[key] = processed
+		}
+		return result, nil
+
+	default:
+		return node.Value, nil
+	}
+}
+
+func processConfigInOrder(manifestPath string, appName string, configFile string) error {
+	// Read the manifest file directly to preserve order
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return fmt.Errorf("failed to read manifest: %w", err)
+	}
+
+	// Parse YAML preserving order
+	var node yaml.Node
+	if err := yaml.Unmarshal(manifestData, &node); err != nil {
+		return fmt.Errorf("failed to parse manifest YAML: %w", err)
+	}
+
+	// Find defaultConfig node
+	var defaultConfigNode *yaml.Node
+	if len(node.Content) > 0 && node.Content[0].Kind == yaml.MappingNode {
+		for i := 0; i < len(node.Content[0].Content); i += 2 {
+			if node.Content[0].Content[i].Value == "defaultConfig" {
+				defaultConfigNode = node.Content[0].Content[i+1]
+				break
+			}
+		}
+	}
+
+	if defaultConfigNode == nil || defaultConfigNode.Kind != yaml.MappingNode {
+		return nil // No defaultConfig to process
+	}
+
+	yq := tools.NewYQ()
+	gomplate := tools.NewGomplate()
+
+	// Build up app context as we process values
+	appContext := make(map[string]interface{})
+
+	// Process each config key in order
+	for i := 0; i < len(defaultConfigNode.Content); i += 2 {
+		keyNode := defaultConfigNode.Content[i]
+		valueNode := defaultConfigNode.Content[i+1]
+
+		key := keyNode.Value
+		keyPath := fmt.Sprintf(".apps.%s.%s", appName, key)
+
+		// Check if already exists
+		existing, _ := yq.Get(configFile, keyPath)
+		if existing != "" && existing != "null" {
+			// Parse the existing value and add to context for later references
+			var existingValue interface{}
+			if err := yaml.Unmarshal([]byte(existing), &existingValue); err == nil {
+				appContext[key] = existingValue
+			} else {
+				appContext[key] = existing
+			}
+			continue // Skip existing values
+		}
+
+		// Recursively process the value node, compiling templates in all leaf nodes
+		value, err := processValueNode(valueNode, appName, configFile, appContext, gomplate)
+		if err != nil {
+			return fmt.Errorf("failed to process config key %s: %w", key, err)
+		}
+
+		// Add processed value to context for future references
+		appContext[key] = value
+
+		// Set the config value in the actual config file
+		if err := setNestedConfig(yq, configFile, keyPath, value); err != nil {
+			return fmt.Errorf("failed to set config %s: %w", key, err)
+		}
+	}
+
+	return nil
+}
+
+

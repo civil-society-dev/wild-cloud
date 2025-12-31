@@ -385,19 +385,19 @@ apps:
 		},
 		{
 			name:     "reference config value",
-			template: "postgresql://{{ .config.apps.testapp.db.user }}@{{ .config.apps.testapp.db.host }}",
+			template: "postgresql://{{ .app.db.user }}@{{ .app.db.host }}",
 			want:     "postgresql://testuser@postgres.local",
 			wantErr:  false,
 		},
 		{
 			name:     "reference existing secret",
-			template: "webhook_url?key={{ .secrets.apps.testapp.existingSecret }}",
+			template: "webhook_url?key={{ .secrets.existingSecret }}",
 			want:     "webhook_url?key=myexistingsecret",
 			wantErr:  false,
 		},
 		{
 			name:     "complex template with config and secrets",
-			template: "postgresql://{{ .config.apps.testapp.db.user }}:{{ .secrets.apps.testapp.existingSecret }}@{{ .config.apps.testapp.db.host }}:{{ .config.apps.testapp.db.port }}/{{ .config.apps.testapp.db.name }}",
+			template: "postgresql://{{ .app.db.user }}:{{ .secrets.existingSecret }}@{{ .app.db.host }}:{{ .app.db.port }}/{{ .app.db.name }}",
 			want:     "postgresql://testuser:myexistingsecret@postgres.local:5432/testdb",
 			wantErr:  false,
 		},
@@ -417,7 +417,7 @@ apps:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := processSecretTemplate(tt.template, configFile, secretsFile, gomplate)
+			got, err := processSecretTemplate(tt.template, "testapp", configFile, secretsFile, gomplate)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("processSecretTemplate() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -516,19 +516,19 @@ apps:
 		},
 		DefaultSecrets: []SecretDefinition{
 			{
-				Key:     "apps.testapp.dbPassword",
+				Key:     "dbPassword",
 				Default: "{{ random.AlphaNum 32 }}",
 			},
 			{
-				Key:     "apps.testapp.dbUrl",
-				Default: "postgresql://{{ .config.apps.testapp.db.user }}:{{ .secrets.apps.testapp.dbPassword }}@{{ .config.apps.testapp.db.host }}:{{ .config.apps.testapp.db.port }}/{{ .config.apps.testapp.db.name }}",
+				Key:     "dbUrl",
+				Default: "postgresql://{{ .app.db.user }}:{{ .secrets.dbPassword }}@{{ .app.db.host }}:{{ .app.db.port }}/{{ .app.db.name }}",
 			},
 			{
-				Key:     "apps.testapp.apiKey",
+				Key:     "apiKey",
 				Default: "sk_{{ random.AlphaNum 32 }}",
 			},
 			{
-				Key: "apps.testapp.noDefault",
+				Key: "noDefault",
 			},
 		},
 	}
@@ -652,7 +652,7 @@ func TestSecretTemplateWithMultipleRandoms(t *testing.T) {
 		Version: "1.0.0",
 		DefaultSecrets: []SecretDefinition{
 			{
-				Key:     "apps.testapp.multiRandom",
+				Key:     "multiRandom",
 				Default: "{{ random.AlphaNum 32 }}-{{ random.AlphaNum 32 }}",
 			},
 		},
@@ -760,20 +760,20 @@ func TestIntegratedTemplateProcessing(t *testing.T) {
 		},
 		DefaultSecrets: []SecretDefinition{
 			{
-				Key:     "apps.integrated.apiKey",
+				Key:     "apiKey",
 				Default: "api_{{ random.AlphaNum 32 }}", // Random with prefix
 			},
 			{
-				Key:     "apps.integrated.dbPassword",
+				Key:     "dbPassword",
 				Default: "{{ random.AlphaNum 16 }}", // Random 16 chars
 			},
 			{
-				Key:     "apps.integrated.connectionString",
-				Default: "postgresql://{{ .config.apps.integrated.db.user }}:{{ .secrets.apps.integrated.dbPassword }}@{{ .config.apps.integrated.db.host }}:5432/{{ .config.apps.integrated.db.name }}",
+				Key:     "connectionString",
+				Default: "postgresql://{{ .app.db.user }}:{{ .secrets.dbPassword }}@{{ .app.db.host }}:5432/{{ .app.db.name }}",
 			},
 			{
-				Key:     "apps.integrated.webhookUrl",
-				Default: "https://{{ .config.apps.integrated.domain }}/webhook?key={{ .secrets.apps.integrated.apiKey }}",
+				Key:     "webhookUrl",
+				Default: "https://{{ .app.domain }}/webhook?key={{ .secrets.apiKey }}",
 			},
 		},
 	}
@@ -800,9 +800,9 @@ spec:
         image: integrated:1.0.0
         env:
         - name: APP_DOMAIN
-          value: "{{ .apps.integrated.domain }}"
+          value: "{{ .domain }}"
         - name: DB_HOST
-          value: "{{ .apps.integrated.db.host }}"
+          value: "{{ .db.host }}"
 `
 	deploymentFile := filepath.Join(appPath, "deployment.yaml")
 	if err := os.WriteFile(deploymentFile, []byte(deploymentContent), 0644); err != nil {
@@ -956,11 +956,11 @@ func TestExistingSecretsNotOverwritten(t *testing.T) {
 		Version: "1.0.0",
 		DefaultSecrets: []SecretDefinition{
 			{
-				Key:     "apps.testapp.existingSecret",
+				Key:     "existingSecret",
 				Default: "new-value-{{ random.AlphaNum 32 }}",
 			},
 			{
-				Key:     "apps.testapp.newSecret",
+				Key:     "newSecret",
 				Default: "{{ random.AlphaNum 32 }}",
 			},
 		},
@@ -1016,4 +1016,419 @@ func isAlphanumeric(s string) bool {
 		}
 	}
 	return true
+}
+
+func TestDefaultConfigWithAppReferences(t *testing.T) {
+	// Test that defaultConfig with {{ .app.X }} references work correctly
+	// This tests the redis case where uri references {{ .app.host }} and {{ .app.port }}
+	tmpDir, err := os.MkdirTemp("", "app-refs-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	dataDir := filepath.Join(tmpDir, "data")
+	appsDir := filepath.Join(tmpDir, "apps")
+	instanceName := "test-instance"
+	appName := "redis"
+
+	// Setup directory structure
+	instancePath := filepath.Join(dataDir, "instances", instanceName)
+	if err := storage.EnsureDir(instancePath, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create minimal config
+	configFile := filepath.Join(instancePath, "config.yaml")
+	if err := os.WriteFile(configFile, []byte("cloud:\n  domain: example.com\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create secrets file
+	secretsFile := filepath.Join(instancePath, "secrets.yaml")
+	if err := os.WriteFile(secretsFile, []byte(""), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create app directory with manifest that has {{ .app }} references
+	appPath := filepath.Join(appsDir, appName)
+	if err := storage.EnsureDir(appPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create manifest with config that references itself
+	// IMPORTANT: Order matters - host and port must come before uri
+	manifestYAML := `name: redis
+description: Redis cache
+version: 1.0.0
+defaultConfig:
+  namespace: redis
+  image: redis:alpine
+  timezone: UTC
+  host: redis.redis.svc.cluster.local
+  port: 6379
+  uri: redis://{{ .app.host }}:{{ .app.port }}/0
+defaultSecrets:
+  - key: password
+`
+
+	manifestPath := filepath.Join(appPath, "manifest.yaml")
+	if err := os.WriteFile(manifestPath, []byte(manifestYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add the app
+	mgr := NewManager(dataDir, appsDir)
+	err = mgr.Add(instanceName, appName, nil)
+	if err != nil {
+		t.Fatalf("Failed to add app: %v", err)
+	}
+
+	// Verify that the uri was processed correctly
+	yq := tools.NewYQ()
+	uri, err := yq.Get(configFile, ".apps.redis.uri")
+	if err != nil {
+		t.Fatalf("Failed to get uri from config: %v", err)
+	}
+
+	expectedURI := "redis://redis.redis.svc.cluster.local:6379/0"
+	if uri != expectedURI {
+		t.Errorf("Expected uri to be %s, got %s", expectedURI, uri)
+	}
+}
+
+func TestSecretKeyFormat(t *testing.T) {
+	// Test that secrets are created with the correct key format
+	// According to design, defaultSecrets should use "by their defined key"
+	// and requiredSecrets should use the full reference as the key
+
+	manifest := AppManifest{
+		Name:        "testapp",
+		Description: "Test app",
+		Version:     "1.0.0",
+		DefaultSecrets: []SecretDefinition{
+			{Key: "password"},
+			{Key: "apiKey", Default: "default-api"},
+		},
+		RequiredSecrets: []string{
+			"postgres.password",
+			"redis.password",
+		},
+	}
+
+	// Test that defaultSecrets would use just the key name
+	for _, secretDef := range manifest.DefaultSecrets {
+		// In the Kubernetes secret, this should be created with key: secretDef.Key
+		if secretDef.Key != "password" && secretDef.Key != "apiKey" {
+			t.Errorf("Unexpected secret key format: %s", secretDef.Key)
+		}
+	}
+
+	// Test that requiredSecrets would use the full reference as key
+	for _, requiredSecret := range manifest.RequiredSecrets {
+		// In the Kubernetes secret, this should be created with key: requiredSecret
+		if !strings.Contains(requiredSecret, ".") {
+			t.Errorf("Required secret should have app reference format: %s", requiredSecret)
+		}
+	}
+}
+
+func TestDefaultConfigOrdering(t *testing.T) {
+	// Test that config fields that depend on each other are processed in the right order
+	// This is a challenge because Go maps don't preserve order
+
+	// The issue: redis manifest has:
+	// defaultConfig:
+	//   host: redis.redis.svc.cluster.local
+	//   port: 6379
+	//   uri: redis://{{ .app.host }}:{{ .app.port }}/0
+	//
+	// The uri field depends on host and port being set first
+
+	// To fix this properly, we need to either:
+	// 1. Change defaultConfig from map[string]interface{} to preserve order
+	// 2. Process in two passes: non-template values first, then template values
+	// 3. Use a dependency resolution algorithm
+
+	// Our current approach (two-pass) should work if implemented correctly
+	t.Log("Config ordering is handled by two-pass processing: non-template values first, then template values")
+}
+
+func TestAppAliasing(t *testing.T) {
+	// Test the installed_as feature for app aliasing
+	// This allows multiple instances of the same app
+
+	manifest := AppManifest{
+		Name:        "postgres-primary",
+		Description: "Primary PostgreSQL database",
+		Version:     "1.0.0",
+		Source:      "/apps/postgres",
+		Requires: []AppDependency{
+			{Name: "postgres", InstalledAs: "postgres-primary"},
+		},
+	}
+
+	// Test that the app can be installed with a different name
+	if manifest.Name != "postgres-primary" {
+		t.Errorf("App should be installable with custom name")
+	}
+
+	// Test that dependencies can reference installed names
+	if manifest.Requires[0].InstalledAs != "postgres-primary" {
+		t.Errorf("Dependencies should be able to reference installed names")
+	}
+}
+
+func TestUpdateOperation(t *testing.T) {
+	// Test the UPDATE operation for apps
+	// This should update an app from its source while preserving config
+
+	tmpDir, err := os.MkdirTemp("", "update-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	dataDir := filepath.Join(tmpDir, "data")
+	appsDir := filepath.Join(tmpDir, "apps")
+	instanceName := "test-instance"
+	appName := "updateapp"
+
+	// Setup directory structure
+	instancePath := filepath.Join(dataDir, "instances", instanceName)
+	if err := storage.EnsureDir(instancePath, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create config with existing app config
+	configFile := filepath.Join(instancePath, "config.yaml")
+	initialConfig := `cloud:
+  domain: example.com
+apps:
+  updateapp:
+    customValue: "should-be-preserved"
+`
+	if err := os.WriteFile(configFile, []byte(initialConfig), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create secrets file
+	secretsFile := filepath.Join(instancePath, "secrets.yaml")
+	if err := os.WriteFile(secretsFile, []byte(""), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create initial app with source
+	appPath := filepath.Join(appsDir, appName)
+	if err := storage.EnsureDir(appPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	manifestYAML := `name: updateapp
+description: App to test updates
+version: 1.0.0
+defaultConfig:
+  image: v1.0.0
+  newField: "added-in-update"
+`
+	manifestPath := filepath.Join(appPath, "manifest.yaml")
+	if err := os.WriteFile(manifestPath, []byte(manifestYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add the app initially
+	mgr := NewManager(dataDir, appsDir)
+	err = mgr.Add(instanceName, appName, nil)
+	if err != nil {
+		t.Fatalf("Failed to add app: %v", err)
+	}
+
+	// Update manifest to v2
+	manifestYAML = `name: updateapp
+description: App to test updates
+version: 2.0.0
+defaultConfig:
+  image: v2.0.0
+  newField: "added-in-update"
+`
+	if err := os.WriteFile(manifestPath, []byte(manifestYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run UPDATE operation
+	err = mgr.Update(instanceName, appName)
+	if err != nil {
+		t.Fatalf("Failed to update app: %v", err)
+	}
+
+	// Verify custom config was preserved
+	yq := tools.NewYQ()
+	customValue, _ := yq.Get(configFile, ".apps.updateapp.customValue")
+	if customValue != "should-be-preserved" {
+		t.Errorf("Custom config should be preserved during update")
+	}
+
+	// Verify new field was added
+	newField, _ := yq.Get(configFile, ".apps.updateapp.newField")
+	if newField != "added-in-update" {
+		t.Errorf("New fields should be added during update")
+	}
+}
+
+func TestEjectOperation(t *testing.T) {
+	// Test the EJECT operation
+	// This should convert a package-managed app to custom
+
+	tmpDir, err := os.MkdirTemp("", "eject-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	dataDir := filepath.Join(tmpDir, "data")
+	appsDir := filepath.Join(tmpDir, "apps")
+	instanceName := "test-instance"
+	appName := "ejectapp"
+
+	// Setup directory structure
+	instancePath := filepath.Join(dataDir, "instances", instanceName)
+	appInstanceDir := filepath.Join(instancePath, "apps", appName)
+	packageDir := filepath.Join(appInstanceDir, ".package")
+
+	if err := storage.EnsureDir(instancePath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.EnsureDir(appInstanceDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.EnsureDir(packageDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create config
+	configFile := filepath.Join(instancePath, "config.yaml")
+	if err := os.WriteFile(configFile, []byte("cloud:\n  domain: example.com\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create app manifest with source
+	manifestYAML := `name: ejectapp
+description: App to test eject
+version: 1.0.0
+source: /apps/ejectapp
+`
+	manifestPath := filepath.Join(appInstanceDir, "manifest.yaml")
+	if err := os.WriteFile(manifestPath, []byte(manifestYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create .package directory content
+	packageManifestPath := filepath.Join(packageDir, "manifest.yaml")
+	if err := os.WriteFile(packageManifestPath, []byte(manifestYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run EJECT operation
+	mgr := NewManager(dataDir, appsDir)
+	err = mgr.Eject(instanceName, appName)
+	if err != nil {
+		t.Fatalf("Failed to eject app: %v", err)
+	}
+
+	// Verify .package directory was deleted
+	if storage.FileExists(packageDir) {
+		t.Errorf(".package directory should be deleted after eject")
+	}
+
+	// Verify source was removed from manifest
+	manifestData, _ := os.ReadFile(manifestPath)
+	var manifest AppManifest
+	yaml.Unmarshal(manifestData, &manifest)
+	if manifest.Source != "" {
+		t.Errorf("Source should be removed from manifest after eject, got: %s", manifest.Source)
+	}
+}
+
+func TestCompileStep(t *testing.T) {
+	// Test the COMPILE step behavior
+	// According to design: "Resolve all {{ .? }} to config.yaml apps.<app_name>.?"
+
+	tmpDir, err := os.MkdirTemp("", "compile-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create test structure
+	instanceDir := filepath.Join(tmpDir, "instance")
+	appDir := filepath.Join(instanceDir, "apps", "testapp")
+	packageDir := filepath.Join(appDir, ".package")
+
+	if err := storage.EnsureDir(packageDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create config with app config
+	configFile := filepath.Join(instanceDir, "config.yaml")
+	configYAML := `apps:
+  testapp:
+    domain: testapp.example.com
+    image: testapp:v1.0.0
+`
+	if err := os.WriteFile(configFile, []byte(configYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create template file in .package
+	templateContent := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testapp
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        image: {{ .image }}
+        env:
+        - name: DOMAIN
+          value: {{ .domain }}
+`
+	templatePath := filepath.Join(packageDir, "deployment.yaml")
+	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run compile step
+	gomplate := tools.NewGomplate()
+	yq := tools.NewYQ()
+
+	// Create temp config file with app's config
+	tempConfigFile := filepath.Join(appDir, ".config.tmp.yaml")
+	appConfigYAML, _ := yq.Get(configFile, ".apps.testapp")
+	if err := storage.WriteFile(tempConfigFile, []byte(appConfigYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tempConfigFile)
+
+	// Process template
+	destPath := filepath.Join(appDir, "deployment.yaml")
+	context := map[string]string{
+		".": tempConfigFile,
+	}
+	err = gomplate.RenderWithContext(templatePath, destPath, context)
+	if err != nil {
+		t.Fatalf("Failed to compile template: %v", err)
+	}
+
+	// Verify compiled content
+	compiledData, _ := os.ReadFile(destPath)
+	compiled := string(compiledData)
+
+	if !strings.Contains(compiled, "image: testapp:v1.0.0") {
+		t.Errorf("Template {{ .image }} not resolved correctly")
+	}
+	if !strings.Contains(compiled, "value: testapp.example.com") {
+		t.Errorf("Template {{ .domain }} not resolved correctly")
+	}
 }

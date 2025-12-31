@@ -169,6 +169,78 @@ func (api *API) AppsDelete(w http.ResponseWriter, r *http.Request) {
 		})
 }
 
+// AppsUpdate updates an app from its source
+func (api *API) AppsUpdate(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	appName := vars["app"]
+
+	api.startAppOperation(w, instanceName, appName, "update_app", "App updated",
+		func(mgr *apps.Manager, instance, app string) error {
+			return mgr.Update(instance, app)
+		})
+}
+
+// AppsEject converts an app from package-managed to custom
+func (api *API) AppsEject(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	appName := vars["app"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Eject app
+	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
+	if err := appsMgr.Eject(instanceName, appName); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to eject app: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "App converted to custom",
+		"app":     appName,
+	})
+}
+
+// AppsUpdateConfig updates an app's configuration
+func (api *API) AppsUpdateConfig(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	appName := vars["app"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Parse request
+	var req struct {
+		Config map[string]interface{} `json:"config"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Update config
+	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
+	if err := appsMgr.UpdateConfig(instanceName, appName, req.Config); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update config: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "App configuration updated",
+		"app":     appName,
+	})
+}
+
 // AppsGetStatus returns app status
 func (api *API) AppsGetStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
