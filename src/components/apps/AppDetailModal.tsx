@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
   Dialog,
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppEnhanced, useAppLogs, useAppEvents, useAppReadme } from '@/hooks/useApps';
+import { apiClient } from '@/services/api/client';
 import {
   RefreshCw,
   Eye,
@@ -40,6 +41,8 @@ export function AppDetailModal({
 }: AppDetailModalProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
   const [showSecrets, setShowSecrets] = useState(false);
+  const [secrets, setSecrets] = useState<Record<string, string>>({});
+  const [loadingSecrets, setLoadingSecrets] = useState(false);
   const [logParams, setLogParams] = useState({ tail: 100, sinceSeconds: 3600 });
 
   const { data: appDetails, isLoading, refetch } = useAppEnhanced(instanceName, appName);
@@ -50,6 +53,26 @@ export function AppDetailModal({
   );
   const { data: eventsData } = useAppEvents(instanceName, appName, 20);
   const { data: readmeContent, isLoading: readmeLoading } = useAppReadme(instanceName, appName);
+
+  // Fetch secrets when show is toggled
+  useEffect(() => {
+    if (showSecrets && Object.keys(secrets).length === 0) {
+      setLoadingSecrets(true);
+      apiClient.get(`/api/v1/instances/${instanceName}/secrets?raw=true`)
+        .then((data: Record<string, any>) => {
+          // Extract only app-specific secrets
+          if (data.apps && data.apps[appName]) {
+            setSecrets(data.apps[appName]);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch secrets:', error);
+        })
+        .finally(() => {
+          setLoadingSecrets(false);
+        });
+    }
+  }, [showSecrets, instanceName, appName, secrets]);
 
   const getPodStatusColor = (status: string | undefined) => {
     if (!status) return 'text-muted-foreground';
@@ -281,16 +304,40 @@ export function AppDetailModal({
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {Object.entries(appDetails.config || appDetails.manifest?.defaultConfig || {}).map(([key, value]) => (
-                          <div key={key} className="flex justify-between text-sm border-b pb-2">
-                            <span className="font-medium text-muted-foreground">{key}:</span>
-                            <span className="font-mono text-xs break-all">
-                              {typeof value === 'object' && value !== null
-                                ? JSON.stringify(value, null, 2)
-                                : String(value)}
-                            </span>
-                          </div>
-                        ))}
+                        {Object.entries(appDetails.config || appDetails.manifest?.defaultConfig || {}).map(([key, value]) => {
+                          // Check if value is a nested object
+                          if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                            return (
+                              <div key={key} className="space-y-2">
+                                <div className="font-medium text-muted-foreground">{key}:</div>
+                                <div className="ml-4 space-y-1 border-l-2 border-muted pl-4">
+                                  {Object.entries(value).map(([nestedKey, nestedValue]) => (
+                                    <div key={`${key}.${nestedKey}`} className="flex justify-between text-sm">
+                                      <span className="text-muted-foreground">{nestedKey}:</span>
+                                      <span className="font-mono text-xs">
+                                        {typeof nestedValue === 'object' && nestedValue !== null
+                                          ? JSON.stringify(nestedValue)
+                                          : String(nestedValue)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // Render simple values
+                          return (
+                            <div key={key} className="flex justify-between text-sm border-b pb-2">
+                              <span className="font-medium text-muted-foreground">{key}:</span>
+                              <span className="font-mono text-xs break-all">
+                                {Array.isArray(value)
+                                  ? JSON.stringify(value)
+                                  : String(value)}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
@@ -306,22 +353,27 @@ export function AppDetailModal({
                           variant="outline"
                           size="sm"
                           onClick={() => setShowSecrets(!showSecrets)}
+                          disabled={loadingSecrets}
                         >
-                          {showSecrets ? 'Hide' : 'Show'}
+                          {loadingSecrets ? 'Loading...' : showSecrets ? 'Hide' : 'Show'}
                         </Button>
                       </CardTitle>
-                      <CardDescription>Sensitive configuration values (redacted)</CardDescription>
+                      <CardDescription>Sensitive configuration values</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {appDetails.manifest.defaultSecrets.map((secret) => (
-                          <div key={secret} className="flex justify-between text-sm border-b pb-2">
-                            <span className="font-medium text-muted-foreground">{secret}:</span>
-                            <span className="font-mono text-xs">
-                              {showSecrets ? '**hidden**' : '••••••••'}
-                            </span>
-                          </div>
-                        ))}
+                        {appDetails.manifest.defaultSecrets.map((secret) => {
+                          const secretKey = typeof secret === 'object' && secret.key ? secret.key : secret;
+                          const secretValue = secrets[secretKey];
+                          return (
+                            <div key={secretKey} className="flex justify-between text-sm border-b pb-2">
+                              <span className="font-medium text-muted-foreground">{secretKey}:</span>
+                              <span className="font-mono text-xs break-all max-w-md text-right">
+                                {showSecrets && secretValue ? secretValue : '••••••••'}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
