@@ -53,6 +53,7 @@ type DeployedApp struct {
 	Version   string `json:"version"`
 	Namespace string `json:"namespace"`
 	URL       string `json:"url,omitempty"`
+	Icon      string `json:"icon,omitempty"`
 }
 
 // ListAvailable lists all available apps from the apps directory
@@ -205,17 +206,19 @@ func (m *Manager) ListDeployed(instanceName string) ([]DeployedApp, error) {
 			Status:    "added", // Default status: added but not deployed
 		}
 
-		// Try to get version and 'is' from manifest
+		// Try to get version, 'is', and icon from manifest
 		manifestPath := filepath.Join(appsDir, appName, "manifest.yaml")
 		if storage.FileExists(manifestPath) {
 			manifestData, _ := os.ReadFile(manifestPath)
 			var manifest struct {
 				Version string `yaml:"version"`
 				Is      string `yaml:"is"`
+				Icon    string `yaml:"icon"`
 			}
 			if yaml.Unmarshal(manifestData, &manifest) == nil {
 				app.Version = manifest.Version
 				app.Is = manifest.Is
+				app.Icon = manifest.Icon
 			}
 		}
 
