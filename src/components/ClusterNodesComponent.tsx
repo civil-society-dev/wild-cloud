@@ -14,6 +14,7 @@ import { NodeStatusBadge } from './nodes/NodeStatusBadge';
 import { NodeFormDrawer } from './nodes/NodeFormDrawer';
 import type { NodeFormData } from './nodes/NodeForm';
 import type { Node, HardwareInfo, DiscoveredNode } from '../services/api/types';
+import { usePageHelp } from '../hooks/usePageHelp';
 
 interface ClusterNodesComponentProps {
   filterRole?: 'controlplane' | 'worker';
@@ -60,6 +61,35 @@ export function ClusterNodesComponent({
   const { data: clusterStatusData } = useClusterStatus(currentInstance || '');
 
   const [addNodeIp, setAddNodeIp] = useState('');
+
+  usePageHelp({
+    title: 'What are Cluster Nodes?',
+    description: (
+      <>
+        <p className="mb-3 leading-relaxed">
+          Think of cluster nodes as the "workers" in your personal cloud factory. Each node is a separate computer
+          that contributes its processing power, memory, and storage to the overall cluster. Some nodes are "controllers"
+          (like managers) that coordinate the work, while others are "workers" that do the heavy lifting.
+        </p>
+        <p className="text-sm">
+          By connecting multiple computers together as nodes, you create a powerful, resilient system where if one
+          computer fails, the others can pick up the work. This is how you scale your personal cloud from one machine to many.
+        </p>
+      </>
+    ),
+    icon: <BookOpen className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />,
+    color: 'bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20',
+    actions: (
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-cyan-700 border-cyan-300 hover:bg-cyan-100 dark:text-cyan-300 dark:border-cyan-700 dark:hover:bg-cyan-900/20"
+      >
+        <ExternalLink className="h-4 w-4 mr-2" />
+        Learn more about distributed computing
+      </Button>
+    ),
+  });
   const [discoverError, setDiscoverError] = useState<string | null>(null);
   const [detectError, setDetectError] = useState<string | null>(null);
   const [discoverSuccess, setDiscoverSuccess] = useState<string | null>(null);
@@ -340,33 +370,6 @@ export function ClusterNodesComponent({
 
   return (
     <div className="space-y-6">
-      {/* Educational Intro Section */}
-      <Card className="p-6 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20 border-cyan-200 dark:border-cyan-800">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
-            <BookOpen className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-cyan-900 dark:text-cyan-100 mb-2">
-              What are Cluster Nodes?
-            </h3>
-            <p className="text-cyan-800 dark:text-cyan-200 mb-3 leading-relaxed">
-              Think of cluster nodes as the "workers" in your personal cloud factory. Each node is a separate computer
-              that contributes its processing power, memory, and storage to the overall cluster. Some nodes are "controllers"
-              (like managers) that coordinate the work, while others are "workers" that do the heavy lifting.
-            </p>
-            <p className="text-cyan-700 dark:text-cyan-300 mb-4 text-sm">
-              By connecting multiple computers together as nodes, you create a powerful, resilient system where if one
-              computer fails, the others can pick up the work. This is how you scale your personal cloud from one machine to many.
-            </p>
-            <Button variant="outline" size="sm" className="text-cyan-700 border-cyan-300 hover:bg-cyan-100 dark:text-cyan-300 dark:border-cyan-700 dark:hover:bg-cyan-900/20">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Learn more about distributed computing
-            </Button>
-          </div>
-        </div>
-      </Card>
-
       {/* Bootstrap Alert */}
       {showBootstrap && needsBootstrap && firstReadyControl && (
         <Alert variant="info" className="mb-6">

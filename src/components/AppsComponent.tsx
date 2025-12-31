@@ -29,6 +29,7 @@ import { BackupRestoreModal } from './BackupRestoreModal';
 import { AppConfigDialog } from './apps/AppConfigDialog';
 import { AppDetailModal } from './apps/AppDetailModal';
 import type { App } from '../services/api';
+import { usePageHelp } from '../hooks/usePageHelp';
 
 interface MergedApp extends App {
   deploymentStatus?: 'added' | 'deployed';
@@ -65,6 +66,35 @@ export function AppsComponent() {
   const [selectedAppForBackup, setSelectedAppForBackup] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAppForDetail, setSelectedAppForDetail] = useState<string | null>(null);
+
+  usePageHelp({
+    title: 'What are Apps in your Personal Cloud?',
+    description: (
+      <>
+        <p className="mb-3 leading-relaxed">
+          Apps are the useful programs that make your personal cloud valuable - like having a personal Netflix
+          (media server), Google Drive (file storage), or Gmail (email server) running on your own hardware.
+          Instead of relying on big tech companies, you control your data and services.
+        </p>
+        <p className="text-sm">
+          Your cluster can run databases, web servers, photo galleries, password managers, backup services, and much more.
+          Each app runs in its own secure container, so they don't interfere with each other and can be easily managed.
+        </p>
+      </>
+    ),
+    icon: <BookOpen className="h-6 w-6 text-pink-600 dark:text-pink-400" />,
+    color: 'bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/20 dark:to-rose-950/20',
+    actions: (
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-pink-700 border-pink-300 hover:bg-pink-100 dark:text-pink-300 dark:border-pink-700 dark:hover:bg-pink-900/20"
+      >
+        <ExternalLink className="h-4 w-4 mr-2" />
+        Learn more about self-hosted applications
+      </Button>
+    ),
+  });
 
   // Fetch backups for the selected app
   const {
@@ -310,33 +340,6 @@ export function AppsComponent() {
 
   return (
     <div className="space-y-6">
-      {/* Educational Intro Section */}
-      <Card className="p-6 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/20 dark:to-rose-950/20 border-pink-200 dark:border-pink-800">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
-            <BookOpen className="h-6 w-6 text-pink-600 dark:text-pink-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-pink-900 dark:text-pink-100 mb-2">
-              What are Apps in your Personal Cloud?
-            </h3>
-            <p className="text-pink-800 dark:text-pink-200 mb-3 leading-relaxed">
-              Apps are the useful programs that make your personal cloud valuable - like having a personal Netflix
-              (media server), Google Drive (file storage), or Gmail (email server) running on your own hardware.
-              Instead of relying on big tech companies, you control your data and services.
-            </p>
-            <p className="text-pink-700 dark:text-pink-300 mb-4 text-sm">
-              Your cluster can run databases, web servers, photo galleries, password managers, backup services, and much more.
-              Each app runs in its own secure container, so they don't interfere with each other and can be easily managed.
-            </p>
-            <Button variant="outline" size="sm" className="text-pink-700 border-pink-300 hover:bg-pink-100 dark:text-pink-300 dark:border-pink-700 dark:hover:bg-pink-900/20">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Learn more about self-hosted applications
-            </Button>
-          </div>
-        </div>
-      </Card>
-
       <Card className="p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-2 bg-primary/10 rounded-lg">

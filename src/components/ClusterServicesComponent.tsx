@@ -9,6 +9,7 @@ import type { Service } from '../services/api';
 import { ServiceDetailModal } from './services/ServiceDetailModal';
 import { ServiceConfigEditor } from './services/ServiceConfigEditor';
 import { Dialog, DialogContent } from './ui/dialog';
+import { usePageHelp } from '../hooks/usePageHelp';
 
 export function ClusterServicesComponent() {
   const { currentInstance } = useInstanceContext();
@@ -26,6 +27,35 @@ export function ClusterServicesComponent() {
 
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [configService, setConfigService] = useState<string | null>(null);
+
+  usePageHelp({
+    title: 'What are Cluster Services?',
+    description: (
+      <>
+        <p className="mb-3 leading-relaxed">
+          Cluster services are like the "essential utilities" that make your personal cloud actually work. Just like a city
+          needs electricity, water, and roads, your cluster needs networking, storage, monitoring, and security services.
+          These services run automatically in the background to keep everything functioning smoothly.
+        </p>
+        <p className="text-sm">
+          Services like Kubernetes orchestration, container networking, ingress routing, and monitoring work together to
+          create a robust platform where you can easily deploy and manage your applications.
+        </p>
+      </>
+    ),
+    icon: <BookOpen className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />,
+    color: 'bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20',
+    actions: (
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-indigo-700 border-indigo-300 hover:bg-indigo-100 dark:text-indigo-300 dark:border-indigo-700 dark:hover:bg-indigo-900/20"
+      >
+        <ExternalLink className="h-4 w-4 mr-2" />
+        Learn more about Kubernetes services
+      </Button>
+    ),
+  });
 
   const getStatusIcon = (status?: string) => {
     switch (status) {
@@ -138,33 +168,6 @@ export function ClusterServicesComponent() {
 
   return (
     <div className="space-y-6">
-      {/* Educational Intro Section */}
-      <Card className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20 border-indigo-200 dark:border-indigo-800">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-            <BookOpen className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-100 mb-2">
-              What are Cluster Services?
-            </h3>
-            <p className="text-indigo-800 dark:text-indigo-200 mb-3 leading-relaxed">
-              Cluster services are like the "essential utilities" that make your personal cloud actually work. Just like a city 
-              needs electricity, water, and roads, your cluster needs networking, storage, monitoring, and security services. 
-              These services run automatically in the background to keep everything functioning smoothly.
-            </p>
-            <p className="text-indigo-700 dark:text-indigo-300 mb-4 text-sm">
-              Services like Kubernetes orchestration, container networking, ingress routing, and monitoring work together to 
-              create a robust platform where you can easily deploy and manage your applications.
-            </p>
-            <Button variant="outline" size="sm" className="text-indigo-700 border-indigo-300 hover:bg-indigo-100 dark:text-indigo-300 dark:border-indigo-700 dark:hover:bg-indigo-900/20">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Learn more about Kubernetes services
-            </Button>
-          </div>
-        </div>
-      </Card>
-
       <Card className="p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-2 bg-primary/10 rounded-lg">

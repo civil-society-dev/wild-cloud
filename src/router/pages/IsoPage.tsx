@@ -16,6 +16,7 @@ import {
 import { useAssetList, useDownloadAsset, useDeleteAsset } from '../../services/api/hooks/useAssets';
 import { assetsApi } from '../../services/api/assets';
 import type { Platform, Asset } from '../../services/api/types/asset';
+import { usePageHelp } from '../../hooks/usePageHelp';
 
 // Helper function to extract platform from filename
 // Filename format: metal-amd64.iso
@@ -40,6 +41,37 @@ export function IsoPage() {
   const [selectedVersion, setSelectedVersion] = useState('v1.11.5');
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('amd64');
   const [isDownloading, setIsDownloading] = useState(false);
+
+  usePageHelp({
+    title: 'What is a Bootable ISO?',
+    description: (
+      <>
+        <p className="mb-3 leading-relaxed">
+          A bootable ISO is a special disk image file that can be written to a USB drive or DVD to create
+          installation media. When you boot a computer from this USB drive, it can install or run an
+          operating system directly from the drive without needing anything pre-installed.
+        </p>
+        <p className="text-sm">
+          This is perfect for setting up individual computers in your cloud infrastructure. Download the
+          Talos ISO here, write it to a USB drive using tools like Balena Etcher or Rufus, then boot
+          your computer from the USB to install Talos Linux.
+        </p>
+      </>
+    ),
+    icon: <BookOpen className="h-6 w-6 text-purple-600 dark:text-purple-400" />,
+    color: 'bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20',
+    actions: (
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-purple-700 border-purple-300 hover:bg-purple-100 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-900/20"
+        onClick={() => window.open('https://www.balena.io/etcher/', '_blank')}
+      >
+        <ExternalLink className="h-4 w-4 mr-2" />
+        Download Balena Etcher
+      </Button>
+    ),
+  });
 
   const handleDownload = async () => {
     if (!schematicId) {
@@ -94,39 +126,6 @@ export function IsoPage() {
 
   return (
     <div className="space-y-6">
-      {/* Educational Intro Section */}
-      <Card className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-            <BookOpen className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">
-              What is a Bootable ISO?
-            </h3>
-            <p className="text-purple-800 dark:text-purple-200 mb-3 leading-relaxed">
-              A bootable ISO is a special disk image file that can be written to a USB drive or DVD to create
-              installation media. When you boot a computer from this USB drive, it can install or run an
-              operating system directly from the drive without needing anything pre-installed.
-            </p>
-            <p className="text-purple-700 dark:text-purple-300 mb-4 text-sm">
-              This is perfect for setting up individual computers in your cloud infrastructure. Download the
-              Talos ISO here, write it to a USB drive using tools like Balena Etcher or Rufus, then boot
-              your computer from the USB to install Talos Linux.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-purple-700 border-purple-300 hover:bg-purple-100 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-900/20"
-              onClick={() => window.open('https://www.balena.io/etcher/', '_blank')}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Download Balena Etcher
-            </Button>
-          </div>
-        </div>
-      </Card>
-
       {/* Download New ISO Section */}
       <Card>
         <CardHeader>

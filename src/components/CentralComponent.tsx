@@ -4,6 +4,7 @@ import { Server, HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink
 import { Badge } from './ui/badge';
 import { useCentralStatus } from '../hooks/useCentralStatus';
 import { useInstanceConfig, useInstanceContext } from '../hooks';
+import { usePageHelp } from '../hooks/usePageHelp';
 
 export function CentralComponent() {
   const { currentInstance } = useInstanceContext();
@@ -11,6 +12,34 @@ export function CentralComponent() {
   const { config: fullConfig, isLoading: configLoading } = useInstanceConfig(currentInstance);
 
   const serverConfig = fullConfig?.server as { host?: string; port?: number } | undefined;
+
+  usePageHelp({
+    title: 'What is the Central Service?',
+    description: (
+      <>
+        <p className="mb-3 leading-relaxed">
+          The Central Service is the "brain" of your personal cloud. It acts as the main coordinator that manages
+          all the different services running on your network. Think of it like the control tower at an airport -
+          it keeps track of what's happening, routes traffic between services, and ensures everything works together smoothly.
+        </p>
+        <p className="text-sm">
+          This service handles configuration management, service discovery, and provides the web interface you're using right now.
+        </p>
+      </>
+    ),
+    icon: <BookOpen className="h-6 w-6 text-blue-600 dark:text-blue-400" />,
+    color: 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20',
+    actions: (
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-blue-700 border-blue-300 hover:bg-blue-100 dark:text-blue-300 dark:border-blue-700 dark:hover:bg-blue-900/20"
+      >
+        <ExternalLink className="h-4 w-4 mr-2" />
+        Learn more about service orchestration
+      </Button>
+    ),
+  });
 
   const formatUptime = (seconds?: number) => {
     if (!seconds) return 'Unknown';
@@ -45,32 +74,6 @@ export function CentralComponent() {
 
   return (
     <div className="space-y-6">
-      {/* Educational Intro Section */}
-      <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-            <BookOpen className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
-              What is the Central Service?
-            </h3>
-            <p className="text-blue-800 dark:text-blue-200 mb-3 leading-relaxed">
-              The Central Service is the "brain" of your personal cloud. It acts as the main coordinator that manages
-              all the different services running on your network. Think of it like the control tower at an airport -
-              it keeps track of what's happening, routes traffic between services, and ensures everything works together smoothly.
-            </p>
-            <p className="text-blue-700 dark:text-blue-300 mb-4 text-sm">
-              This service handles configuration management, service discovery, and provides the web interface you're using right now.
-            </p>
-            <Button variant="outline" size="sm" className="text-blue-700 border-blue-300 hover:bg-blue-100 dark:text-blue-300 dark:border-blue-700 dark:hover:bg-blue-900/20">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Learn more about service orchestration
-            </Button>
-          </div>
-        </div>
-      </Card>
-
       <Card className="p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-2 bg-primary/10 rounded-lg">

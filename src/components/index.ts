@@ -21,3 +21,4 @@ export { ConfigViewer } from './ConfigViewer';
 export { DownloadButton } from './DownloadButton';
 export { CopyButton } from './CopyButton';
 export { ServiceCard } from './ServiceCard';
+export { HelpPanel } from './HelpPanel';
