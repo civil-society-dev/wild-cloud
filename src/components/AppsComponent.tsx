@@ -22,13 +22,19 @@ import {
   RotateCcw,
   Settings,
   Eye,
+  Activity,
+  FileText,
 } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useAvailableApps, useDeployedApps, useAppBackups } from '../hooks/useApps';
 import { BackupRestoreModal } from './BackupRestoreModal';
 import { AppConfigDialog } from './apps/AppConfigDialog';
-import { AppDetailModal } from './apps/AppDetailModal';
+import { AppOverviewDialog } from './apps/AppOverviewDialog';
+import { AppConfigurationDialog } from './apps/AppConfigurationDialog';
+import { AppStatusDialog } from './apps/AppStatusDialog';
+import { AppLogsDialog } from './apps/AppLogsDialog';
 import type { App } from '../services/api';
+import { appsApi } from '../services/api';
 import { usePageHelp } from '../hooks/usePageHelp';
 
 interface MergedApp extends App {
@@ -49,10 +55,13 @@ export function AppsComponent() {
     error: deployedError,
     addApp,
     isAdding,
+    addingAppNames,
     deployApp,
     isDeploying,
+    deployingAppNames,
     deleteApp,
-    isDeleting
+    isDeleting,
+    deletingAppNames
   } = useDeployedApps(currentInstance);
 
   // Determine active tab from URL path
@@ -64,8 +73,11 @@ export function AppsComponent() {
   const [backupModalOpen, setBackupModalOpen] = useState(false);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [selectedAppForBackup, setSelectedAppForBackup] = useState<string | null>(null);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [selectedAppForDetail, setSelectedAppForDetail] = useState<string | null>(null);
+  const [overviewDialogOpen, setOverviewDialogOpen] = useState(false);
+  const [configurationDialogOpen, setConfigurationDialogOpen] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
+  const [selectedAppForDialog, setSelectedAppForDialog] = useState<string | null>(null);
 
   usePageHelp({
     title: 'What are Apps in your Personal Cloud?',
@@ -140,10 +152,10 @@ export function AppsComponent() {
   const isLoading = loadingAvailable || loadingDeployed;
 
   // Filter for available apps (not added or deployed)
-  const availableApps = applications.filter(app => !app.deploymentStatus);
+  const availableApps = applications.filter(app => !app.deploymentStatus).sort((a, b) => a.name.localeCompare(b.name));
 
   // Filter for installed apps (added or deployed)
-  const installedApps = applications.filter(app => app.deploymentStatus);
+  const installedApps = applications.filter(app => app.deploymentStatus).sort((a, b) => a.name.localeCompare(b.name));
 
   // Count running apps - apps that are deployed (not just added)
   const runningApps = installedApps.filter(app => app.deploymentStatus === 'deployed').length;
@@ -241,7 +253,7 @@ export function AppsComponent() {
     );
   };
 
-  const handleAppAction = (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore' | 'view' | 'viewBackups') => {
+  const handleAppAction = async (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore' | 'overview' | 'configuration' | 'status' | 'logs' | 'viewBackups') => {
     if (!currentInstance) return;
 
     switch (action) {
@@ -251,8 +263,29 @@ export function AppsComponent() {
           hasDefaultConfig: !!app.defaultConfig,
           defaultConfigKeys: app.defaultConfig ? Object.keys(app.defaultConfig) : [],
           fullApp: app,
+          deploymentStatus: app.deploymentStatus,
         });
-        setSelectedAppForConfig(app);
+
+        // If app is already added, fetch its current config from the instance
+        if (app.deploymentStatus === 'added' || app.deploymentStatus === 'deployed') {
+          try {
+            const instanceConfig = await appsApi.getConfig(currentInstance, app.name);
+            console.log('[AppsComponent] Fetched instance config:', instanceConfig);
+            // Merge the instance config into the app object
+            setSelectedAppForConfig({
+              ...app,
+              config: instanceConfig,
+            });
+          } catch (error) {
+            console.error('[AppsComponent] Failed to fetch instance config:', error);
+            // Fall back to default config if fetch fails
+            setSelectedAppForConfig(app);
+          }
+        } else {
+          // For available apps, use default config
+          setSelectedAppForConfig(app);
+        }
+
         setConfigDialogOpen(true);
         break;
       case 'deploy':
@@ -271,9 +304,21 @@ export function AppsComponent() {
         setSelectedAppForBackup(app.name);
         setRestoreModalOpen(true);
         break;
-      case 'view':
-        setSelectedAppForDetail(app.name);
-        setDetailModalOpen(true);
+      case 'overview':
+        setSelectedAppForDialog(app.name);
+        setOverviewDialogOpen(true);
+        break;
+      case 'configuration':
+        setSelectedAppForDialog(app.name);
+        setConfigurationDialogOpen(true);
+        break;
+      case 'status':
+        setSelectedAppForDialog(app.name);
+        setStatusDialogOpen(true);
+        break;
+      case 'logs':
+        setSelectedAppForDialog(app.name);
+        setLogsDialogOpen(true);
         break;
       case 'viewBackups':
         navigate(`/instances/${currentInstance}/backups?app=${app.name}`);
@@ -425,10 +470,10 @@ export function AppsComponent() {
                 <Button
                   size="sm"
                   onClick={() => handleAppAction(app, 'configure')}
-                  disabled={isAdding}
+                  disabled={addingAppNames.includes(app.name)}
                   className="w-full"
                 >
-                  {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Configure & Add'}
+                  {addingAppNames.includes(app.name) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Configure & Add'}
                 </Button>
               </div>
             </Card>
@@ -450,6 +495,7 @@ export function AppsComponent() {
                       </Badge>
                     )}
                     {getStatusIcon(app.status?.status || app.deploymentStatus)}
+                    {getStatusBadge(app)}
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">{app.description}</p>
 
@@ -467,7 +513,7 @@ export function AppsComponent() {
                   )}
 
                   {app.status?.status === 'running' && (
-                    <div className="space-y-1 text-xs text-muted-foreground">
+                    <div className="space-y-1 text-xs text-muted-foreground mb-2">
                       {app.status.namespace && (
                         <div>Namespace: {app.status.namespace}</div>
                       )}
@@ -476,13 +522,9 @@ export function AppsComponent() {
                       )}
                     </div>
                   )}
-                </div>
 
-                <div className="flex flex-col gap-2">
-                  {getStatusBadge(app)}
-                  <div className="flex flex-col gap-1">
-                    {/* Available: not added yet - shouldn't show here */}
-
+                  {/* Action buttons - horizontal layout */}
+                  <div className="flex flex-wrap gap-2 mt-3">
                     {/* Added: in config but not deployed */}
                     {app.deploymentStatus === 'added' && (
                       <>
@@ -492,22 +534,25 @@ export function AppsComponent() {
                           onClick={() => handleAppAction(app, 'configure')}
                           title="Edit configuration"
                         >
-                          <Settings className="h-4 w-4" />
+                          <Settings className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Configure</span>
                         </Button>
                         <Button
                           size="sm"
                           onClick={() => handleAppAction(app, 'deploy')}
-                          disabled={isDeploying}
+                          disabled={deployingAppNames.includes(app.name)}
                         >
-                          {isDeploying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Deploy'}
+                          {deployingAppNames.includes(app.name) && <Loader2 className="h-4 w-4 animate-spin sm:mr-1" />}
+                          <span className="hidden sm:inline">Deploy</span>
                         </Button>
                         <Button
                           size="sm"
                           variant="destructive"
                           onClick={() => handleAppAction(app, 'delete')}
-                          disabled={isDeleting}
+                          disabled={deletingAppNames.includes(app.name)}
+                          title="Delete"
                         >
-                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          {deletingAppNames.includes(app.name) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                         </Button>
                       </>
                     )}
@@ -518,10 +563,38 @@ export function AppsComponent() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleAppAction(app, 'view')}
-                          title="View details"
+                          onClick={() => handleAppAction(app, 'overview')}
+                          title="Overview"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Overview</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAppAction(app, 'configuration')}
+                          title="Configuration"
+                        >
+                          <Settings className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Config</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAppAction(app, 'status')}
+                          title="Status"
+                        >
+                          <Activity className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Status</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAppAction(app, 'logs')}
+                          title="Logs"
+                        >
+                          <FileText className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Logs</span>
                         </Button>
                         {app.status?.status === 'running' && (
                           <>
@@ -531,7 +604,8 @@ export function AppsComponent() {
                               onClick={() => handleAppAction(app, 'viewBackups')}
                               title="View all backups"
                             >
-                              <Archive className="h-4 w-4" />
+                              <Archive className="h-4 w-4 sm:mr-1" />
+                              <span className="hidden sm:inline">Backups</span>
                             </Button>
                             <Button
                               size="sm"
@@ -540,7 +614,8 @@ export function AppsComponent() {
                               disabled={isBackingUp}
                               title="Create backup now"
                             >
-                              {isBackingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+                              {isBackingUp ? <Loader2 className="h-4 w-4 animate-spin sm:mr-1" /> : <Archive className="h-4 w-4 sm:mr-1" />}
+                              <span className="hidden sm:inline">Backup Now</span>
                             </Button>
                             <Button
                               size="sm"
@@ -549,7 +624,8 @@ export function AppsComponent() {
                               disabled={isRestoring}
                               title="Restore from backup"
                             >
-                              <RotateCcw className="h-4 w-4" />
+                              <RotateCcw className="h-4 w-4 sm:mr-1" />
+                              <span className="hidden sm:inline">Restore</span>
                             </Button>
                           </>
                         )}
@@ -557,9 +633,10 @@ export function AppsComponent() {
                           size="sm"
                           variant="destructive"
                           onClick={() => handleAppAction(app, 'delete')}
-                          disabled={isDeleting}
+                          disabled={deletingAppNames.includes(app.name)}
+                          title="Delete"
                         >
-                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          {deletingAppNames.includes(app.name) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                         </Button>
                       </>
                     )}
@@ -625,17 +702,46 @@ export function AppsComponent() {
         isSaving={isAdding}
       />
 
-      {/* App Detail Modal */}
-      {selectedAppForDetail && currentInstance && (
-        <AppDetailModal
-          instanceName={currentInstance}
-          appName={selectedAppForDetail}
-          open={detailModalOpen}
-          onClose={() => {
-            setDetailModalOpen(false);
-            setSelectedAppForDetail(null);
-          }}
-        />
+      {/* App Dialog Modals */}
+      {selectedAppForDialog && currentInstance && (
+        <>
+          <AppOverviewDialog
+            instanceName={currentInstance}
+            appName={selectedAppForDialog}
+            open={overviewDialogOpen}
+            onClose={() => {
+              setOverviewDialogOpen(false);
+              setSelectedAppForDialog(null);
+            }}
+          />
+          <AppConfigurationDialog
+            instanceName={currentInstance}
+            appName={selectedAppForDialog}
+            open={configurationDialogOpen}
+            onClose={() => {
+              setConfigurationDialogOpen(false);
+              setSelectedAppForDialog(null);
+            }}
+          />
+          <AppStatusDialog
+            instanceName={currentInstance}
+            appName={selectedAppForDialog}
+            open={statusDialogOpen}
+            onClose={() => {
+              setStatusDialogOpen(false);
+              setSelectedAppForDialog(null);
+            }}
+          />
+          <AppLogsDialog
+            instanceName={currentInstance}
+            appName={selectedAppForDialog}
+            open={logsDialogOpen}
+            onClose={() => {
+              setLogsDialogOpen(false);
+              setSelectedAppForDialog(null);
+            }}
+          />
+        </>
       )}
     </div>
   );

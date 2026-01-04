@@ -1,6 +1,31 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { appsApi } from '../services/api';
+import { useQuery, useMutation, useQueryClient, useMutationState } from '@tanstack/react-query';
+import { appsApi, operationsApi } from '../services/api';
 import type { AppAddRequest } from '../services/api';
+import { toast } from 'sonner';
+
+// Poll an operation until completion
+async function pollOperation(instanceName: string, operationId: string): Promise<void> {
+  const maxAttempts = 60; // 60 attempts * 1 second = 1 minute timeout
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    const operation = await operationsApi.get(instanceName, operationId);
+
+    if (operation.status === 'completed') {
+      return;
+    }
+
+    if (operation.status === 'failed') {
+      throw new Error(operation.error || 'Operation failed');
+    }
+
+    // Wait 1 second before next poll
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    attempts++;
+  }
+
+  throw new Error('Operation timed out');
+}
 
 export function useAvailableApps() {
   return useQuery({
@@ -29,6 +54,7 @@ export function useDeployedApps(instanceName: string | null | undefined) {
   });
 
   const addMutation = useMutation({
+    mutationKey: ['addApp', instanceName],
     mutationFn: (app: AppAddRequest) => appsApi.add(instanceName!, app),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'apps'] });
@@ -36,18 +62,53 @@ export function useDeployedApps(instanceName: string | null | undefined) {
   });
 
   const deployMutation = useMutation({
-    mutationFn: (appName: string) => appsApi.deploy(instanceName!, appName),
-    onSuccess: () => {
-      // Deployment is async, so start polling for updates
+    mutationKey: ['deployApp', instanceName],
+    mutationFn: async (appName: string) => {
+      toast.loading(`Deploying ${appName}...`, { id: `deploy-${appName}` });
+      const response = await appsApi.deploy(instanceName!, appName);
+      await pollOperation(instanceName!, response.operation_id);
+      return response;
+    },
+    onSuccess: (_, appName) => {
+      toast.success(`${appName} deployed successfully`, { id: `deploy-${appName}` });
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'apps'] });
+    },
+    onError: (error, appName) => {
+      toast.error(`Failed to deploy ${appName}: ${error.message}`, { id: `deploy-${appName}` });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (appName: string) => appsApi.delete(instanceName!, appName),
-    onSuccess: () => {
+    mutationKey: ['deleteApp', instanceName],
+    mutationFn: async (appName: string) => {
+      toast.loading(`Deleting ${appName}...`, { id: `delete-${appName}` });
+      const response = await appsApi.delete(instanceName!, appName);
+      await pollOperation(instanceName!, response.operation_id);
+      return response;
+    },
+    onSuccess: (_, appName) => {
+      toast.success(`${appName} deleted successfully`, { id: `delete-${appName}` });
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'apps'] });
     },
+    onError: (error, appName) => {
+      toast.error(`Failed to delete ${appName}: ${error.message}`, { id: `delete-${appName}` });
+    },
+  });
+
+  // Track all pending mutations using mutation state
+  const pendingDeploys = useMutationState({
+    filters: { mutationKey: ['deployApp', instanceName], status: 'pending' },
+    select: (mutation) => mutation.state.variables as string,
+  });
+
+  const pendingDeletes = useMutationState({
+    filters: { mutationKey: ['deleteApp', instanceName], status: 'pending' },
+    select: (mutation) => mutation.state.variables as string,
+  });
+
+  const pendingAdds = useMutationState({
+    filters: { mutationKey: ['addApp', instanceName], status: 'pending' },
+    select: (mutation) => (mutation.state.variables as AppAddRequest)?.name,
   });
 
   return {
@@ -57,12 +118,15 @@ export function useDeployedApps(instanceName: string | null | undefined) {
     refetch: appsQuery.refetch,
     addApp: addMutation.mutate,
     isAdding: addMutation.isPending,
+    addingAppNames: pendingAdds,
     addResult: addMutation.data,
     deployApp: deployMutation.mutate,
     isDeploying: deployMutation.isPending,
+    deployingAppNames: pendingDeploys,
     deployResult: deployMutation.data,
     deleteApp: deleteMutation.mutate,
     isDeleting: deleteMutation.isPending,
+    deletingAppNames: pendingDeletes,
   };
 }
 

@@ -39,6 +39,10 @@ export const appsApi = {
     return apiClient.delete(`/api/v1/instances/${instanceName}/apps/${appName}`);
   },
 
+  async getConfig(instanceName: string, appName: string): Promise<Record<string, any>> {
+    return apiClient.get(`/api/v1/instances/${instanceName}/apps/${appName}/config`);
+  },
+
   async getStatus(instanceName: string, appName: string): Promise<AppStatus> {
     return apiClient.get(`/api/v1/instances/${instanceName}/apps/${appName}/status`);
   },
