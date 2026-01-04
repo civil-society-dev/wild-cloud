@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"gopkg.in/yaml.v3"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/apps"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
@@ -205,6 +206,48 @@ func (api *API) AppsEject(w http.ResponseWriter, r *http.Request) {
 		"message": "App converted to custom",
 		"app":     appName,
 	})
+}
+
+// AppsGetConfig returns current config values for an app instance
+func (api *API) AppsGetConfig(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	appName := vars["app"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Load instance config
+	configPath := tools.GetInstanceConfigPath(api.dataDir, instanceName)
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read instance config: %v", err))
+		return
+	}
+
+	var instanceConfig map[string]interface{}
+	if err := yaml.Unmarshal(configData, &instanceConfig); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to parse instance config: %v", err))
+		return
+	}
+
+	// Extract app config
+	var appConfig map[string]interface{}
+	if appsSection, ok := instanceConfig["apps"].(map[string]interface{}); ok {
+		if appConfigData, ok := appsSection[appName].(map[string]interface{}); ok {
+			appConfig = appConfigData
+		}
+	}
+
+	if appConfig == nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Config not found for app: %s", appName))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, appConfig)
 }
 
 // AppsUpdateConfig updates an app's configuration
