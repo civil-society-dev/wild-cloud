@@ -1,23 +1,30 @@
-import { useNavigate, Link } from 'react-router';
-import { useInstanceContext } from '../../hooks/useInstanceContext';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
+import { useNavigate } from 'react-router';
+import { useInstances } from '../../hooks/useInstances';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Server, Usb, HardDrive, CloudLightning } from 'lucide-react';
+import { Server, CloudLightning, Loader2, Plus } from 'lucide-react';
+import { useState } from 'react';
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const { currentInstance } = useInstanceContext();
+  const { instances, isLoading, error, createInstance, isCreating } = useInstances();
+  const [newInstanceName, setNewInstanceName] = useState('');
 
-  // For now, we'll use a default instance
-  // In the future, this will show an instance selector
-  const handleSelectInstance = () => {
-    const instanceId = currentInstance || 'default';
-    navigate(`/instances/${instanceId}/dashboard`);
+  const handleSelectInstance = (instanceName: string) => {
+    navigate(`/instances/${instanceName}/dashboard`);
+  };
+
+  const handleCreateInstance = () => {
+    // TODO: Show a modal/dialog to collect instance name and configuration
+    const instanceName = prompt('Enter instance name:');
+    if (instanceName) {
+      createInstance({ name: instanceName });
+    }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
-      <div className="container max-w-4xl px-4">
+      <div className="container max-w-2xl px-4">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <CloudLightning className="h-12 w-12 text-primary" />
@@ -28,57 +35,63 @@ export function LandingPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader className="text-center">
-              <CardTitle className="text-xl">Cloud Instance</CardTitle>
-              <CardDescription>
-                Manage your Wild Cloud instance
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl">Clouds</CardTitle>
+            <CardDescription>
+              Select a Wild Cloud instance to manage
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {error && (
+              <p className="text-sm text-red-600 text-center py-4">
+                Failed to load instances
+              </p>
+            )}
+            {!isLoading && !error && instances.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No clouds available. Create one to get started.
+              </p>
+            )}
+            {!isLoading && !error && instances.map((instanceName: string) => (
               <Button
-                onClick={handleSelectInstance}
+                key={instanceName}
+                onClick={() => handleSelectInstance(instanceName)}
                 className="w-full"
                 size="lg"
+                variant="outline"
               >
                 <Server className="mr-2 h-5 w-5" />
-                {currentInstance ? `Continue to ${currentInstance}` : 'Go to Default Instance'}
+                {instanceName}
               </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="text-center">
-              <CardTitle className="text-xl">Boot Assets</CardTitle>
-              <CardDescription>
-                Download Talos installation media
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Link to="/iso" className="block">
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  size="lg"
-                >
-                  <Usb className="mr-2 h-5 w-5" />
-                  ISO / USB Boot
-                </Button>
-              </Link>
-              <Link to="/pxe" className="block">
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  size="lg"
-                >
-                  <HardDrive className="mr-2 h-5 w-5" />
-                  PXE Network Boot
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
+            ))}
+          </CardContent>
+          <CardFooter>
+            <Button
+              onClick={handleCreateInstance}
+              className="w-full"
+              variant="default"
+              disabled={isCreating}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-5 w-5" />
+                  Create New Cloud
+                </>
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );
