@@ -1,9 +1,11 @@
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/config"
 )
@@ -16,10 +18,7 @@ func (api *API) DnsmasqStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if status.Status != "active" {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}
-
+	// Always return 200 OK with status in body - let client handle inactive status
 	respondJSON(w, http.StatusOK, status)
 }
 
@@ -49,8 +48,12 @@ func (api *API) DnsmasqRestart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// DnsmasqGenerate generates the dnsmasq configuration without applying it (dry-run)
+// DnsmasqGenerate generates the dnsmasq configuration from all instances
+// Query param ?overwrite=true will write the config and restart the service
 func (api *API) DnsmasqGenerate(w http.ResponseWriter, r *http.Request) {
+	// Check if overwrite flag is set
+	overwrite := r.URL.Query().Get("overwrite") == "true"
+
 	// Get all instances
 	instanceNames, err := api.instance.ListInstances()
 	if err != nil {
@@ -78,25 +81,75 @@ func (api *API) DnsmasqGenerate(w http.ResponseWriter, r *http.Request) {
 		instanceConfigs = append(instanceConfigs, *instanceCfg)
 	}
 
-	// Generate config without writing or restarting
+	// Generate config
 	configContent := api.dnsmasq.Generate(globalCfg, instanceConfigs)
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "dnsmasq configuration generated (dry-run mode)",
-		"config":  configContent,
-	})
+	if overwrite {
+		// Check if this is the first time dnsmasq is being started
+		status, err := api.dnsmasq.GetStatus()
+		isFirstStart := err != nil || status.Status != "active"
+
+		// Write config and restart service
+		if err := api.dnsmasq.UpdateConfig(globalCfg, instanceConfigs, true); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update dnsmasq: %v", err))
+			return
+		}
+
+		// Configure system DNS to use local dnsmasq on first start
+		if isFirstStart {
+			if err := api.dnsmasq.ConfigureSystemDNS(); err != nil {
+				log.Printf("Warning: Failed to configure system DNS: %v", err)
+				// Don't fail the request - dnsmasq is still running
+			}
+		}
+
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"message": "dnsmasq configuration generated and applied successfully",
+			"config":  configContent,
+		})
+	} else {
+		// Just return the generated config
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"message": "dnsmasq configuration generated (preview mode)",
+			"config":  configContent,
+		})
+	}
 }
 
-// DnsmasqUpdate regenerates and updates the dnsmasq configuration with all instances
-func (api *API) DnsmasqUpdate(w http.ResponseWriter, r *http.Request) {
-	if err := api.updateDnsmasqForAllInstances(); err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update dnsmasq: %v", err))
+// DnsmasqWriteConfig writes custom config content to the dnsmasq config file
+func (api *API) DnsmasqWriteConfig(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Content string `json:"content"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request: %v", err))
+		return
+	}
+
+	if req.Content == "" {
+		respondError(w, http.StatusBadRequest, "Config content is required")
+		return
+	}
+
+	// Write the config directly using the dnsmasq config generator's WriteConfig
+	configPath := api.dnsmasq.GetConfigPath()
+	if err := writeConfigFile(configPath, req.Content); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config: %v", err))
 		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "dnsmasq configuration updated successfully",
+		"message": "dnsmasq configuration written successfully",
 	})
+}
+
+// writeConfigFile writes content to a file
+func writeConfigFile(path, content string) error {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("writing config: %w", err)
+	}
+	return nil
 }
 
 // updateDnsmasqForAllInstances helper regenerates dnsmasq config from all instances
@@ -126,8 +179,8 @@ func (api *API) updateDnsmasqForAllInstances() error {
 		instanceConfigs = append(instanceConfigs, *instanceCfg)
 	}
 
-	// Regenerate and write dnsmasq config
-	return api.dnsmasq.UpdateConfig(globalCfg, instanceConfigs)
+	// Regenerate and write dnsmasq config with restart
+	return api.dnsmasq.UpdateConfig(globalCfg, instanceConfigs, true)
 }
 
 // getGlobalConfigPath returns the path to the global config file

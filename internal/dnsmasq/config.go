@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/config"
+	"github.com/wild-cloud/wild-central/daemon/internal/network"
 )
 
 // ConfigGenerator handles dnsmasq configuration generation
@@ -33,12 +34,29 @@ func (g *ConfigGenerator) GetConfigPath() string {
 }
 
 // Generate creates a dnsmasq configuration from the app config
+// If the DNS IP or interface in the config don't match the current network,
+// it will auto-detect and use the current values
 func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.InstanceConfig) string {
+	// Auto-detect network info to ensure we use the correct interface and IP
+	netInfo, err := network.DetectNetworkInfo()
+	if err != nil {
+		log.Printf("Warning: Failed to auto-detect network info, using config values: %v", err)
+		// Fall back to config values if detection fails
+		netInfo = &network.NetworkInfo{
+			PrimaryIP:        cfg.Cloud.DNS.IP,
+			PrimaryInterface: cfg.Cloud.Dnsmasq.Interface,
+		}
+	}
+
+	// Use detected network info (this ensures dnsmasq works even if config is outdated)
+	dnsIP := netInfo.PrimaryIP
+	iface := netInfo.PrimaryInterface
 
 	resolution_section := ""
 	for _, cloud := range clouds {
-		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Cloud.Domain, cloud.Cloud.Domain, cfg.Cluster.EndpointIP)
-		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Cloud.InternalDomain, cloud.Cloud.InternalDomain, cfg.Cluster.EndpointIP)
+		// Use detected DNS IP (Wild Central's actual IP) for domain resolution
+		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Cloud.Domain, cloud.Cloud.Domain, dnsIP)
+		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Cloud.InternalDomain, cloud.Cloud.InternalDomain, dnsIP)
 	}
 
 	template := `# Configuration file for dnsmasq.
@@ -46,6 +64,7 @@ func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.Ins
 # Basic Settings
 interface=%s
 listen-address=%s
+bind-interfaces
 domain-needed
 bogus-priv
 no-resolv
@@ -60,8 +79,8 @@ log-dhcp
 `
 
 	return fmt.Sprintf(template,
-		cfg.Cloud.Dnsmasq.Interface,
-		cfg.Cloud.DNS.IP,
+		iface,
+		dnsIP,
 		resolution_section,
 	)
 }
@@ -71,6 +90,7 @@ func (g *ConfigGenerator) WriteConfig(cfg *config.GlobalConfig, clouds []config.
 	configContent := g.Generate(cfg, clouds)
 
 	log.Printf("Writing dnsmasq config to: %s", configPath)
+
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		return fmt.Errorf("writing dnsmasq config: %w", err)
 	}
@@ -78,11 +98,13 @@ func (g *ConfigGenerator) WriteConfig(cfg *config.GlobalConfig, clouds []config.
 	return nil
 }
 
-// RestartService restarts the dnsmasq service
+// RestartService restarts the dnsmasq service using systemd's DBus API
 func (g *ConfigGenerator) RestartService() error {
-	cmd := exec.Command("sudo", "/usr/bin/systemctl", "restart", "dnsmasq.service")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to restart dnsmasq: %w", err)
+	// Use systemctl without sudo - systemd handles permissions via polkit
+	cmd := exec.Command("systemctl", "restart", "dnsmasq.service")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to restart dnsmasq: %w (output: %s)", err, string(output))
 	}
 	return nil
 }
@@ -161,7 +183,7 @@ func (g *ConfigGenerator) ReadConfig() (string, error) {
 }
 
 // UpdateConfig regenerates and writes the dnsmasq configuration for all instances
-func (g *ConfigGenerator) UpdateConfig(cfg *config.GlobalConfig, instances []config.InstanceConfig) error {
+func (g *ConfigGenerator) UpdateConfig(cfg *config.GlobalConfig, instances []config.InstanceConfig, restart bool) error {
 	// Generate fresh config from scratch
 	configContent := g.Generate(cfg, instances)
 
@@ -171,6 +193,42 @@ func (g *ConfigGenerator) UpdateConfig(cfg *config.GlobalConfig, instances []con
 		return fmt.Errorf("writing dnsmasq config: %w", err)
 	}
 
-	// Restart service to apply changes
-	return g.RestartService()
+	// Restart service to apply changes if requested
+	if restart {
+		return g.RestartService()
+	}
+
+	return nil
+}
+
+// ConfigureSystemDNS configures systemd-resolved to use the local dnsmasq server
+// This should only be called on first start of dnsmasq
+func (g *ConfigGenerator) ConfigureSystemDNS() error {
+	// Auto-detect network info to get the DNS IP
+	netInfo, err := network.DetectNetworkInfo()
+	if err != nil {
+		return fmt.Errorf("failed to detect network info: %w", err)
+	}
+
+	dnsIP := netInfo.PrimaryIP
+
+	// Write systemd-resolved configuration to file owned by wildcloud user
+	// (created during package installation in postinst)
+	resolvedConfPath := "/etc/systemd/resolved.conf.d/wild-cloud.conf"
+	resolvedConf := fmt.Sprintf("[Resolve]\nDNS=%s\nDomains=~.\n", dnsIP)
+
+	if err := os.WriteFile(resolvedConfPath, []byte(resolvedConf), 0644); err != nil {
+		return fmt.Errorf("failed to write resolved.conf: %w", err)
+	}
+
+	log.Printf("Configured systemd-resolved to use DNS at %s", dnsIP)
+
+	// Restart systemd-resolved to apply changes (via polkit)
+	cmd := exec.Command("systemctl", "restart", "systemd-resolved")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		log.Printf("Warning: Failed to restart systemd-resolved: %v (output: %s)", err, string(output))
+		// Don't return error - the config was written successfully
+	}
+
+	return nil
 }

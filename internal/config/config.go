@@ -11,38 +11,38 @@ import (
 // GlobalConfig represents the main configuration structure
 type GlobalConfig struct {
 	Wildcloud struct {
-		Repository      string   `yaml:"repository" json:"repository"`
-		CurrentPhase    string   `yaml:"currentPhase" json:"currentPhase"`
-		CompletedPhases []string `yaml:"completedPhases" json:"completedPhases"`
-	} `yaml:"wildcloud" json:"wildcloud"`
+		Repository      string   `yaml:"repository,omitempty" json:"repository,omitempty"`
+		CurrentPhase    string   `yaml:"currentPhase,omitempty" json:"currentPhase,omitempty"`
+		CompletedPhases []string `yaml:"completedPhases,omitempty" json:"completedPhases,omitempty"`
+	} `yaml:"wildcloud,omitempty" json:"wildcloud,omitempty"`
 	Server struct {
-		Port int    `yaml:"port" json:"port"`
-		Host string `yaml:"host" json:"host"`
-	} `yaml:"server" json:"server"`
+		Port int    `yaml:"port,omitempty" json:"port,omitempty"`
+		Host string `yaml:"host,omitempty" json:"host,omitempty"`
+	} `yaml:"server,omitempty" json:"server,omitempty"`
 	Operator struct {
-		Email string `yaml:"email" json:"email"`
-	} `yaml:"operator" json:"operator"`
+		Email string `yaml:"email,omitempty" json:"email,omitempty"`
+	} `yaml:"operator,omitempty" json:"operator,omitempty"`
 	Cloud struct {
 		DNS struct {
-			IP               string `yaml:"ip" json:"ip"`
-			ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
-		} `yaml:"dns" json:"dns"`
+			IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
+			ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
+		} `yaml:"dns,omitempty" json:"dns,omitempty"`
 		Router struct {
-			IP         string `yaml:"ip" json:"ip"`
-			DynamicDns string `yaml:"dynamicDns" json:"dynamicDns"`
-		} `yaml:"router" json:"router"`
+			IP         string `yaml:"ip,omitempty" json:"ip,omitempty"`
+			DynamicDns string `yaml:"dynamicDns,omitempty" json:"dynamicDns,omitempty"`
+		} `yaml:"router,omitempty" json:"router,omitempty"`
 		Dnsmasq struct {
-			Interface string `yaml:"interface" json:"interface"`
-		} `yaml:"dnsmasq" json:"dnsmasq"`
-	} `yaml:"cloud" json:"cloud"`
+			Interface string `yaml:"interface,omitempty" json:"interface,omitempty"`
+		} `yaml:"dnsmasq,omitempty" json:"dnsmasq,omitempty"`
+	} `yaml:"cloud,omitempty" json:"cloud,omitempty"`
 	Cluster struct {
-		EndpointIP string `yaml:"endpointIp" json:"endpointIp"`
+		EndpointIP string `yaml:"endpointIp,omitempty" json:"endpointIp,omitempty"`
 		Nodes      struct {
 			Talos struct {
-				Version string `yaml:"version" json:"version"`
-			} `yaml:"talos" json:"talos"`
-		} `yaml:"nodes" json:"nodes"`
-	} `yaml:"cluster" json:"cluster"`
+				Version string `yaml:"version,omitempty" json:"version,omitempty"`
+			} `yaml:"talos,omitempty" json:"talos,omitempty"`
+		} `yaml:"nodes,omitempty" json:"nodes,omitempty"`
+	} `yaml:"cluster,omitempty" json:"cluster,omitempty"`
 }
 
 // LoadGlobalConfig loads configuration from the specified path

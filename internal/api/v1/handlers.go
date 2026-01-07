@@ -17,6 +17,7 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/context"
 	"github.com/wild-cloud/wild-central/daemon/internal/dnsmasq"
 	"github.com/wild-cloud/wild-central/daemon/internal/instance"
+	"github.com/wild-cloud/wild-central/daemon/internal/network"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/secrets"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
@@ -202,6 +203,10 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/backup-schedules/{schedule_id}/history", api.ScheduleHistoryHandler).Methods("GET")
 	r.HandleFunc("/api/v1/scheduler/status", api.SchedulerStatusHandler).Methods("GET")
 
+	// Global Configuration
+	r.HandleFunc("/api/v1/config", api.GetGlobalConfig).Methods("GET")
+	r.HandleFunc("/api/v1/config", api.UpdateGlobalConfig).Methods("PUT")
+
 	// Backup Configuration
 	r.HandleFunc("/api/v1/config/backup", api.GetBackupConfig).Methods("GET")
 	r.HandleFunc("/api/v1/config/backup", api.UpdateBackupConfig).Methods("PUT")
@@ -220,9 +225,13 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	// dnsmasq management
 	r.HandleFunc("/api/v1/dnsmasq/status", api.DnsmasqStatus).Methods("GET")
 	r.HandleFunc("/api/v1/dnsmasq/config", api.DnsmasqGetConfig).Methods("GET")
+	r.HandleFunc("/api/v1/dnsmasq/config", api.DnsmasqWriteConfig).Methods("PUT")
 	r.HandleFunc("/api/v1/dnsmasq/restart", api.DnsmasqRestart).Methods("POST")
 	r.HandleFunc("/api/v1/dnsmasq/generate", api.DnsmasqGenerate).Methods("POST")
-	r.HandleFunc("/api/v1/dnsmasq/update", api.DnsmasqUpdate).Methods("POST")
+
+	// Network detection
+	r.HandleFunc("/api/v1/network/info", api.NetworkInfoHandler).Methods("GET")
+	r.HandleFunc("/api/v1/network/resolve", api.NetworkResolveHandler).Methods("GET")
 }
 
 // CreateInstance creates a new instance
@@ -557,6 +566,39 @@ func (api *API) StatusHandler(w http.ResponseWriter, r *http.Request, startTime 
 			"count": len(instances),
 			"names": instances,
 		},
+	})
+}
+
+// NetworkInfoHandler returns detected network configuration
+func (api *API) NetworkInfoHandler(w http.ResponseWriter, r *http.Request) {
+	info, err := network.DetectNetworkInfo()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to detect network info: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, info)
+}
+
+func (api *API) NetworkResolveHandler(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	if domain == "" {
+		respondError(w, http.StatusBadRequest, "domain parameter is required")
+		return
+	}
+
+	ip, err := network.ResolveDomain(domain)
+	if err != nil {
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"ip":      ip,
 	})
 }
 
