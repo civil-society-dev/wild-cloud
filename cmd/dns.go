@@ -121,24 +121,21 @@ var dnsUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update DNS configuration",
 	Long: `Regenerate dnsmasq configuration from all instances and restart the service.
-	
-	--dry-run  See what config would be applied.`,
+
+	--dry-run  See what config would be applied without writing it.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-		var resp *client.APIResponse
-		var err error
-
+		var endpoint string
 		if dryRun {
-			resp, err = apiClient.Post("/api/v1/dnsmasq/generate", nil)
-			if err != nil {
-				return fmt.Errorf("failed to generate DNS configuration: %w", err)
-			}
+			endpoint = "/api/v1/dnsmasq/generate"
 		} else {
-			resp, err = apiClient.Post("/api/v1/dnsmasq/update", nil)
-			if err != nil {
-				return fmt.Errorf("failed to update DNS configuration: %w", err)
-			}
+			endpoint = "/api/v1/dnsmasq/generate?overwrite=true"
+		}
+
+		resp, err := apiClient.Post(endpoint, nil)
+		if err != nil {
+			return fmt.Errorf("failed to generate DNS configuration: %w", err)
 		}
 
 		if outputFormat == "json" {
