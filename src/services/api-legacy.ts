@@ -1,4 +1,4 @@
-import type { Status, ConfigResponse, Config, HealthResponse, StatusResponse } from '../types';
+import type { Status, ConfigResponse, Config, HealthResponse, StatusResponse, NetworkInfo, DnsmasqStatus, DnsmasqConfigResponse } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055';
 
@@ -71,14 +71,39 @@ class ApiService {
     });
   }
 
-  async getDnsmasqConfig(): Promise<string> {
-    return this.requestText('/api/v1/dnsmasq/config');
+  async getDnsmasqStatus(): Promise<DnsmasqStatus> {
+    return this.request<DnsmasqStatus>('/api/v1/dnsmasq/status');
+  }
+
+  async getDnsmasqConfig(): Promise<DnsmasqConfigResponse> {
+    return this.request<DnsmasqConfigResponse>('/api/v1/dnsmasq/config');
+  }
+
+  async writeDnsmasqConfig(content: string): Promise<StatusResponse> {
+    return this.request<StatusResponse>('/api/v1/dnsmasq/config', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async generateDnsmasqConfig(overwrite: boolean = false): Promise<DnsmasqConfigResponse> {
+    const url = overwrite ? '/api/v1/dnsmasq/generate?overwrite=true' : '/api/v1/dnsmasq/generate';
+    return this.request<DnsmasqConfigResponse>(url, {
+      method: 'POST'
+    });
   }
 
   async restartDnsmasq(): Promise<StatusResponse> {
     return this.request<StatusResponse>('/api/v1/dnsmasq/restart', {
       method: 'POST'
     });
+  }
+
+  async getNetworkInfo(): Promise<NetworkInfo> {
+    return this.request<NetworkInfo>('/api/v1/network/info');
   }
 
   async downloadPXEAssets(): Promise<StatusResponse> {

@@ -1,28 +1,58 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
 import { FileText, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { useConfig, useMessages } from '../hooks';
 import { configFormSchema, defaultConfigValues, type ConfigFormData } from '../schemas/config';
 import { Message } from './Message';
 import { Card, CardHeader, CardTitle, CardContent, Button, Form, FormField, FormItem, FormLabel, FormControl, FormMessage, Input } from './ui';
+import { apiService } from '../services/api-legacy';
 
 export const ConfigurationSection = () => {
-  const { 
-    config, 
-    isConfigured, 
-    showConfigSetup, 
-    isLoading, 
-    isCreating, 
-    error, 
-    createConfig, 
-    refetch 
+  const {
+    config,
+    isConfigured,
+    showConfigSetup,
+    isLoading,
+    isCreating,
+    error,
+    createConfig,
+    refetch
   } = useConfig();
   const { messages } = useMessages();
+  const [detectedDefaults, setDetectedDefaults] = useState(defaultConfigValues);
 
   const form = useForm<ConfigFormData>({
     resolver: zodResolver(configFormSchema),
-    defaultValues: defaultConfigValues,
+    defaultValues: detectedDefaults,
   });
+
+  // Fetch network info when component mounts and setup is shown
+  useEffect(() => {
+    if (showConfigSetup) {
+      apiService.getNetworkInfo()
+        .then(networkInfo => {
+          const updatedDefaults = {
+            ...defaultConfigValues,
+            cloud: {
+              ...defaultConfigValues.cloud,
+              dns: {
+                ip: networkInfo.primary_ip,
+              },
+              dnsmasq: {
+                interface: networkInfo.primary_interface,
+              },
+            },
+          };
+          setDetectedDefaults(updatedDefaults);
+          form.reset(updatedDefaults);
+        })
+        .catch(err => {
+          console.error('Failed to detect network info:', err);
+          // Keep using static defaults on error
+        });
+    }
+  }, [showConfigSetup, form]);
 
   const onSubmit = (data: ConfigFormData) => {
     createConfig(data);

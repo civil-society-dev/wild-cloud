@@ -1,17 +1,139 @@
+import { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
-import { Server, HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree } from 'lucide-react';
+import { Input, Label } from './ui';
+import { Server, HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useCentralStatus } from '../hooks/useCentralStatus';
-import { useInstanceConfig, useInstanceContext } from '../hooks';
+import { useInstanceConfig, useInstanceContext, useConfig } from '../hooks';
 import { usePageHelp } from '../hooks/usePageHelp';
+
+interface GlobalConfigForm {
+  operator?: {
+    email?: string;
+  };
+  cloud?: {
+    router?: {
+      ip?: string;
+      dynamicDns?: string;
+    };
+  };
+}
 
 export function CentralComponent() {
   const { currentInstance } = useInstanceContext();
   const { data: centralStatus, isLoading: statusLoading, error: statusError } = useCentralStatus();
   const { config: fullConfig, isLoading: configLoading } = useInstanceConfig(currentInstance);
+  const { config: globalConfig, updateConfig: updateGlobalConfig, isUpdating } = useConfig();
+
+  const [editingOperator, setEditingOperator] = useState(false);
+  const [editingRouter, setEditingRouter] = useState(false);
+  const [formValues, setFormValues] = useState<GlobalConfigForm>({});
 
   const serverConfig = fullConfig?.server as { host?: string; port?: number } | undefined;
+
+  // Sync form values when globalConfig loads
+  useEffect(() => {
+    if (globalConfig) {
+      setFormValues({
+        operator: globalConfig.operator,
+        cloud: {
+          router: globalConfig.cloud?.router,
+        },
+      });
+    }
+  }, [globalConfig]);
+
+  const handleOperatorEdit = () => {
+    setEditingOperator(true);
+  };
+
+  const handleOperatorSave = async () => {
+    if (!globalConfig || !formValues.operator?.email) return;
+    try {
+      await updateGlobalConfig({
+        ...globalConfig,
+        operator: {
+          ...globalConfig.operator,
+          email: formValues.operator.email,
+        },
+      });
+      setEditingOperator(false);
+    } catch (err) {
+      console.error('Failed to save operator:', err);
+    }
+  };
+
+  const handleOperatorCancel = () => {
+    if (globalConfig) {
+      setFormValues(prev => ({
+        ...prev,
+        operator: globalConfig.operator,
+      }));
+    }
+    setEditingOperator(false);
+  };
+
+  const handleRouterEdit = () => {
+    setEditingRouter(true);
+  };
+
+  const handleRouterSave = async () => {
+    if (!globalConfig || !formValues.cloud?.router) return;
+    try {
+      await updateGlobalConfig({
+        ...globalConfig,
+        cloud: {
+          ...globalConfig.cloud,
+          router: formValues.cloud.router,
+        },
+      });
+      setEditingRouter(false);
+    } catch (err) {
+      console.error('Failed to save router:', err);
+    }
+  };
+
+  const handleRouterCancel = () => {
+    if (globalConfig) {
+      setFormValues(prev => ({
+        ...prev,
+        cloud: {
+          ...prev.cloud,
+          router: globalConfig.cloud?.router,
+        },
+      }));
+    }
+    setEditingRouter(false);
+  };
+
+  const updateFormValue = (path: string, value: string) => {
+    setFormValues(prev => {
+      const keys = path.split('.');
+      if (keys.length === 2 && keys[0] === 'operator') {
+        return {
+          ...prev,
+          operator: {
+            ...prev.operator,
+            [keys[1]]: value,
+          },
+        };
+      }
+      if (keys.length === 3 && keys[0] === 'cloud' && keys[1] === 'router') {
+        return {
+          ...prev,
+          cloud: {
+            ...prev.cloud,
+            router: {
+              ...prev.cloud?.router,
+              [keys[2]]: value,
+            },
+          },
+        };
+      }
+      return prev;
+    });
+  };
 
   usePageHelp({
     title: 'What is the Central Service?',
@@ -182,6 +304,152 @@ export function CentralComponent() {
                     </div>
                   </div>
                 </Card>
+
+                {(globalConfig?.operator?.email || editingOperator) && (
+                  <Card className="p-4 border-l-4 border-l-amber-500">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-5 w-5 text-amber-500" />
+                        <div className="text-sm text-muted-foreground">Operator Email</div>
+                      </div>
+                      {!editingOperator && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleOperatorEdit}
+                          disabled={isUpdating}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {editingOperator ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="operator-email">Email</Label>
+                          <Input
+                            id="operator-email"
+                            type="email"
+                            value={formValues.operator?.email || ''}
+                            onChange={(e) => updateFormValue('operator.email', e.target.value)}
+                            placeholder="email@example.com"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleOperatorCancel}
+                            disabled={isUpdating}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleOperatorSave}
+                            disabled={isUpdating || !formValues.operator?.email}
+                          >
+                            {isUpdating ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4 mr-1" />
+                            )}
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="font-medium font-mono text-sm ml-7">
+                        {globalConfig?.operator?.email}
+                      </div>
+                    )}
+                  </Card>
+                )}
+
+                {(globalConfig?.cloud?.router || editingRouter) && (
+                  <Card className="p-4 border-l-4 border-l-teal-500">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Router className="h-5 w-5 text-teal-500" />
+                        <div className="text-sm text-muted-foreground">Router</div>
+                      </div>
+                      {!editingRouter && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRouterEdit}
+                          disabled={isUpdating}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {editingRouter ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="router-ip">Router IP</Label>
+                          <Input
+                            id="router-ip"
+                            value={formValues.cloud?.router?.ip || ''}
+                            onChange={(e) => updateFormValue('cloud.router.ip', e.target.value)}
+                            placeholder="192.168.1.1"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="router-ddns">Dynamic DNS</Label>
+                          <Input
+                            id="router-ddns"
+                            value={formValues.cloud?.router?.dynamicDns || ''}
+                            onChange={(e) => updateFormValue('cloud.router.dynamicDns', e.target.value)}
+                            placeholder="example.ddns.com"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRouterCancel}
+                            disabled={isUpdating}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleRouterSave}
+                            disabled={isUpdating}
+                          >
+                            {isUpdating ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4 mr-1" />
+                            )}
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 ml-7">
+                        {globalConfig?.cloud?.router?.ip && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground w-16">IP:</span>
+                            <span className="font-medium font-mono text-sm">{globalConfig.cloud.router.ip}</span>
+                          </div>
+                        )}
+                        {globalConfig?.cloud?.router?.dynamicDns && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground w-16">DDNS:</span>
+                            <span className="font-medium font-mono text-sm">{globalConfig.cloud.router.dynamicDns}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                )}
               </div>
             </div>
           </div>

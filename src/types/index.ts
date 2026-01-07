@@ -84,4 +84,25 @@ export interface HealthResponse {
 
 export interface StatusResponse {
   status: string;
+  message?: string;
+}
+
+export interface DnsmasqStatus {
+  status: string;
+  pid: number;
+  config_file: string;
+  instances_configured: number;
+  last_restart: string;
+}
+
+export interface DnsmasqConfigResponse {
+  config_file: string;
+  content: string;
+  message?: string;
+  config?: string;
+}
+
+export interface NetworkInfo {
+  primary_ip: string;
+  primary_interface: string;
 }

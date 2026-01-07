@@ -1,77 +1,589 @@
-import { Card } from './ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Globe, CheckCircle, BookOpen, ExternalLink } from 'lucide-react';
+import { Alert, AlertDescription } from './ui/alert';
+import { Badge } from './ui/badge';
+import { Textarea } from './ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import {
+  Globe,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Play,
+  RotateCw,
+  Settings,
+  Loader2,
+  Copy,
+  ChevronDown,
+  ChevronUp,
+  Edit,
+  TestTube2
+} from 'lucide-react';
+import { useDnsmasq } from '../hooks/useDnsmasq';
+import { useConfig } from '../hooks';
+import { apiService } from '../services/api-legacy';
 import { usePageHelp } from '../hooks/usePageHelp';
 
 export function DnsComponent() {
+  const { config: globalConfig } = useConfig();
+  const dnsIp = globalConfig?.cloud?.dns?.ip;
+
   usePageHelp({
-    title: 'What is DNS?',
+    title: 'How DNS Works in Wild Cloud',
     description: (
       <>
         <p className="mb-3 leading-relaxed">
-          DNS (Domain Name System) is like the "phone book" of the internet. Instead of remembering complex IP addresses
-          like "192.168.1.100", you can use friendly names like "my-server.local". When you type a name, DNS translates
-          it to the correct IP address so your devices can find each other.
+          The DNS service resolves domain names for your Wild Cloud instances. When running, it allows
+          devices on your network to access services like{' '}
+          <code className="bg-muted px-1 rounded">photos.cloud.local</code> instead
+          of remembering IP addresses.
         </p>
-        <p className="text-sm">
-          Your personal cloud runs its own DNS service so devices can easily find services like "photos.home" or "media.local"
-          without needing to remember numbers.
+        <p className="leading-relaxed">
+          <strong>Router Setup:</strong> Configure your router's primary DNS server to{' '}
+          <code className="bg-muted px-1 rounded font-semibold">{dnsIp || 'the IP shown above'}</code> so
+          all devices on your network can resolve Wild Cloud domains automatically.
         </p>
       </>
     ),
-    icon: <BookOpen className="h-6 w-6 text-green-600 dark:text-green-400" />,
-    color: 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20',
-    actions: (
-      <Button
-        variant="outline"
-        size="sm"
-        className="text-green-700 border-green-300 hover:bg-green-100 dark:text-green-300 dark:border-green-700 dark:hover:bg-green-900/20"
-      >
-        <ExternalLink className="h-4 w-4 mr-2" />
-        Learn more about DNS
-      </Button>
-    ),
+    icon: <Globe className="h-6 w-6" />,
   });
+
+  const {
+    status,
+    isLoadingStatus,
+    config,
+    isLoadingConfig,
+    fetchConfig,
+    generateConfig,
+    isGenerating,
+    generateData,
+    restart,
+    isRestarting,
+    restartData,
+    generateError,
+    restartError
+  } = useDnsmasq();
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editedConfig, setEditedConfig] = useState('');
+  const [copiedIp, setCopiedIp] = useState(false);
+  const [isLoadingFromInstances, setIsLoadingFromInstances] = useState(false);
+  const [testingDomain, setTestingDomain] = useState<string | null>(null);
+  const [testType, setTestType] = useState<'internal' | 'external' | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, {
+    internal?: { success: boolean; message: string };
+    external?: { success: boolean; message: string };
+  }>>({});
+
+  const isRunning = status?.status === 'active';
+
+  // Fetch config on mount to populate Configured Instances section
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  // Parse configured instance domains from config
+  const configuredDomains = (() => {
+    if (!config?.content) return [];
+    const lines = config.content.split('\n');
+    const domains: string[] = [];
+    for (const line of lines) {
+      const match = line.match(/^local=\/(.+?)\/$/);
+      if (match && !match[1].startsWith('internal.')) {
+        domains.push(match[1]);
+      }
+    }
+    return domains;
+  })();
+
+  const handleCopyIp = () => {
+    if (dnsIp) {
+      navigator.clipboard.writeText(dnsIp);
+      setCopiedIp(true);
+      setTimeout(() => setCopiedIp(false), 2000);
+    }
+  };
+
+  const handleTestDomain = async (domain: string, type: 'internal' | 'external') => {
+    setTestingDomain(domain);
+    setTestType(type);
+
+    try {
+      if (type === 'external') {
+        // Use DNS-over-HTTPS to test external resolution
+        const response = await fetch(`https://dns.google/resolve?name=${domain}&type=A`);
+        const data = await response.json();
+
+        if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
+          const resolvedIp = data.Answer[0].data;
+          setTestResults(prev => ({
+            ...prev,
+            [domain]: {
+              ...prev[domain],
+              external: {
+                success: true,
+                message: resolvedIp
+              }
+            }
+          }));
+        } else {
+          setTestResults(prev => ({
+            ...prev,
+            [domain]: {
+              ...prev[domain],
+              external: {
+                success: false,
+                message: 'No public DNS record (LAN-only)'
+              }
+            }
+          }));
+        }
+      } else {
+        // Test internal resolution via Wild Central API
+        const response = await fetch(`http://localhost:5055/api/v1/network/resolve?domain=${domain}`);
+        const data = await response.json();
+
+        if (data.success && data.ip) {
+          setTestResults(prev => ({
+            ...prev,
+            [domain]: {
+              ...prev[domain],
+              internal: {
+                success: true,
+                message: data.ip
+              }
+            }
+          }));
+        } else {
+          setTestResults(prev => ({
+            ...prev,
+            [domain]: {
+              ...prev[domain],
+              internal: {
+                success: false,
+                message: data.error || 'Not found'
+              }
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      setTestResults(prev => ({
+        ...prev,
+        [domain]: {
+          ...prev[domain],
+          [type]: {
+            success: false,
+            message: 'Test failed'
+          }
+        }
+      }));
+    } finally {
+      setTestingDomain(null);
+      setTestType(null);
+    }
+  };
+
+  const handleStart = () => {
+    // Generate config and apply it (overwrite=true)
+    generateConfig(true);
+  };
+
+  const handleRegenerateAndRestart = () => {
+    // Regenerate from instances and restart
+    generateConfig(true);
+  };
+
+  const handleLoadFromInstances = async () => {
+    setIsLoadingFromInstances(true);
+    try {
+      // Generate config without overwriting, load into editor
+      const result = await apiService.generateDnsmasqConfig(false);
+      const configText = result.config || result.content || '';
+      if (configText) {
+        setEditedConfig(configText);
+      } else {
+        console.error('No config content in response:', result);
+      }
+    } catch (error) {
+      console.error('Failed to load config from instances:', error);
+    } finally {
+      setIsLoadingFromInstances(false);
+    }
+  };
+
+  const handleShowAdvanced = () => {
+    if (!showAdvanced && !config) {
+      fetchConfig();
+    }
+    setShowAdvanced(!showAdvanced);
+  };
+
+  const handleEditConfig = () => {
+    // Load current config into editor
+    if (config?.content) {
+      setEditedConfig(config.content);
+    } else if (generateData?.config || generateData?.content) {
+      setEditedConfig(generateData.config || generateData.content || '');
+    }
+    setShowEditDialog(true);
+  };
+
+  const handleSaveConfig = async () => {
+    try {
+      await apiService.writeDnsmasqConfig(editedConfig);
+      setShowEditDialog(false);
+      // Refetch config to show updated content
+      fetchConfig();
+    } catch (error) {
+      console.error('Failed to save config:', error);
+    }
+  };
+
+  const handleSaveAndRestart = async () => {
+    try {
+      await apiService.writeDnsmasqConfig(editedConfig);
+      await apiService.restartDnsmasq();
+      setShowEditDialog(false);
+      // Refetch status and config
+      fetchConfig();
+    } catch (error) {
+      console.error('Failed to save and restart:', error);
+    }
+  };
 
   return (
     <div className="space-y-6">
+      {/* Main Status Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Globe className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle>DNS Service</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Local domain name resolution for your Wild Cloud
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant={isRunning ? 'default' : 'secondary'}
+              className="gap-2"
+            >
+              {isLoadingStatus ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isRunning ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <XCircle className="h-4 w-4" />
+              )}
+              {isLoadingStatus ? 'Checking...' : isRunning ? 'Running' : 'Stopped'}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* DNS IP Address - Prominent Display */}
+          {dnsIp && (
+            <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                      DNS Server IP Address
+                    </p>
+                  </div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                    Configure your router to use this IP as the primary DNS server
+                  </p>
+                  <code className="text-2xl font-mono font-bold bg-white dark:bg-gray-900 px-4 py-2 rounded border border-blue-300 dark:border-blue-700 inline-block">
+                    {dnsIp}
+                  </code>
+                </div>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleCopyIp}
+                  className="ml-4 border-blue-300 hover:bg-blue-100 dark:border-blue-700 dark:hover:bg-blue-900/20"
+                >
+                  <Copy className="h-5 w-5 mr-2" />
+                  {copiedIp ? 'Copied!' : 'Copy IP'}
+                </Button>
+              </div>
+            </div>
+          )}
 
-      <Card className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Globe className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold">DNS Configuration</h2>
-            <p className="text-muted-foreground">
-              Manage DNS settings and domain resolution
-            </p>
-          </div>
-        </div>
+          {/* Status Details */}
+          {status && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg border">
+                <p className="text-sm text-muted-foreground mb-2">Configured Instances</p>
+                {isLoadingConfig ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : configuredDomains.length > 0 ? (
+                  <div className="space-y-2">
+                    {configuredDomains.map((domain) => (
+                      <div key={domain} className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                            <code className="text-sm font-mono">{domain}</code>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleTestDomain(domain, 'internal')}
+                              disabled={testingDomain === domain && testType === 'internal'}
+                              className="h-7 px-2"
+                              title="Test internal DNS"
+                            >
+                              {testingDomain === domain && testType === 'internal' ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <TestTube2 className="h-3 w-3" />
+                              )}
+                              <span className="ml-1 text-xs">Int</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleTestDomain(domain, 'external')}
+                              disabled={testingDomain === domain && testType === 'external'}
+                              className="h-7 px-2"
+                              title="Test external DNS"
+                            >
+                              {testingDomain === domain && testType === 'external' ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <TestTube2 className="h-3 w-3" />
+                              )}
+                              <span className="ml-1 text-xs">Ext</span>
+                            </Button>
+                          </div>
+                        </div>
+                        {testResults[domain] && (
+                          <div className="ml-5 space-y-0.5">
+                            {testResults[domain].internal && (
+                              <div className={`text-xs flex items-center gap-1 ${testResults[domain].internal.success ? 'text-green-600' : 'text-red-600'}`}>
+                                <span className="font-medium">Internal:</span>
+                                <span className="font-mono">{testResults[domain].internal.message}</span>
+                              </div>
+                            )}
+                            {testResults[domain].external && (
+                              <div className={`text-xs flex items-center gap-1 ${testResults[domain].external.success ? 'text-green-600' : 'text-red-600'}`}>
+                                <span className="font-medium">External:</span>
+                                <span className="font-mono">{testResults[domain].external.message}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No instances configured</p>
+                )}
+              </div>
+              {status.last_restart && status.last_restart !== '0001-01-01T00:00:00Z' && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Last restart:</span>
+                  <span className="font-mono">
+                    {new Date(status.last_restart).toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-500" />
-            <span className="text-sm">Local resolution: Active</span>
-          </div>
-          
-          <div className="mt-4">
-            <h4 className="font-medium mb-2">DNS Status</h4>
-            <p className="text-sm text-muted-foreground">
-              DNS service is running and resolving domains correctly.
-            </p>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            {!isRunning ? (
+              <Button
+                onClick={handleStart}
+                disabled={isGenerating}
+                className="gap-2"
+                size="lg"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                Start DNS
+              </Button>
+            ) : (
+              <Button
+                onClick={() => restart()}
+                disabled={isRestarting}
+                variant="outline"
+                className="gap-2"
+              >
+                {isRestarting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCw className="h-4 w-4" />
+                )}
+                Restart
+              </Button>
+            )}
           </div>
 
-          <div className="flex gap-2 justify-end mt-4">
-            <Button variant="outline" onClick={() => console.log('Test DNS')}>
-              Test DNS
-            </Button>
-            <Button onClick={() => console.log('Configure DNS')}>
-              Configure
-            </Button>
-          </div>
-        </div>
+          {/* Success Messages */}
+          {restartData && (
+            <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 dark:text-green-200">
+                {restartData.message || 'DNS service restarted successfully'}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Error Messages */}
+          {generateError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Failed to generate config: {generateError.message}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {restartError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Failed to restart service: {restartError.message}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
       </Card>
+
+      {/* Advanced Section */}
+      <Card>
+        <CardHeader>
+          <Button
+            variant="ghost"
+            className="w-full justify-between p-0 h-auto"
+            onClick={handleShowAdvanced}
+          >
+            <CardTitle className="text-lg">Advanced Configuration</CardTitle>
+            {showAdvanced ? (
+              <ChevronUp className="h-5 w-5" />
+            ) : (
+              <ChevronDown className="h-5 w-5" />
+            )}
+          </Button>
+        </CardHeader>
+        {showAdvanced && (
+          <CardContent className="space-y-4">
+            {/* Current Config Display */}
+            {config && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Current Configuration</p>
+                    <code className="text-xs text-muted-foreground font-mono">
+                      {config.config_file}
+                    </code>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditConfig}
+                    className="gap-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit
+                  </Button>
+                </div>
+                <pre className="p-4 bg-muted rounded-md text-xs overflow-auto max-h-96 font-mono border">
+                  {config.content}
+                </pre>
+              </div>
+            )}
+
+            {!isGenerating && !generateData && !config && (
+              <div className="text-center p-8 text-sm text-muted-foreground">
+                <p>Configuration preview will appear here</p>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Edit Config Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Edit DNS Configuration</DialogTitle>
+            <DialogDescription>
+              Modify the dnsmasq configuration. Changes will take effect after saving and restarting.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoadFromInstances}
+                disabled={isLoadingFromInstances}
+                className="gap-2"
+              >
+                {isLoadingFromInstances ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Settings className="h-4 w-4" />
+                )}
+                Load from Instances
+              </Button>
+            </div>
+            <Textarea
+              value={editedConfig}
+              onChange={(e) => setEditedConfig(e.target.value)}
+              className="font-mono text-xs min-h-[400px]"
+              placeholder="# dnsmasq configuration"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleSaveConfig}
+            >
+              Save
+            </Button>
+            <Button
+              onClick={handleSaveAndRestart}
+            >
+              Save & Restart
+            </Button>
+          </DialogFooter>
+          <p className="text-xs text-muted-foreground text-center">
+            Save: Write config without restarting | Save & Restart: Write config and restart service
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

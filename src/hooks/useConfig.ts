@@ -30,11 +30,19 @@ export const useConfig = () => {
   }, [configQuery.data]);
 
   const createConfigMutation = useMutation<CreateConfigResponse, Error, Config>({
-    mutationFn: apiService.createConfig,
+    mutationFn: (config) => apiService.createConfig(config),
     onSuccess: () => {
       // Invalidate and refetch config after successful creation
       queryClient.invalidateQueries({ queryKey: ['config'] });
       setShowConfigSetup(false);
+    },
+  });
+
+  const updateConfigMutation = useMutation<CreateConfigResponse, Error, Config>({
+    mutationFn: (config) => apiService.updateConfig(config),
+    onSuccess: () => {
+      // Invalidate and refetch config after successful update
+      queryClient.invalidateQueries({ queryKey: ['config'] });
     },
   });
 
@@ -45,8 +53,10 @@ export const useConfig = () => {
     setShowConfigSetup,
     isLoading: configQuery.isLoading,
     isCreating: createConfigMutation.isPending,
-    error: configQuery.error || createConfigMutation.error,
+    isUpdating: updateConfigMutation.isPending,
+    error: configQuery.error || createConfigMutation.error || updateConfigMutation.error,
     createConfig: createConfigMutation.mutate,
+    updateConfig: updateConfigMutation.mutateAsync,
     refetch: configQuery.refetch,
   };
 };
