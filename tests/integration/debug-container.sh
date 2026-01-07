@@ -4,6 +4,16 @@ set -e
 
 echo "🐳 Starting wild-cloud-central debug container..."
 
+# Change to project root directory
+cd "$(dirname "$0")/../.."
+
+# Check if package exists
+if [ ! -f build/wild-cloud-central_*_amd64.deb ]; then
+    echo "❌ No .deb package found in build/ directory"
+    echo "   Run 'make package' first to build the package"
+    exit 1
+fi
+
 # Build the Docker image if it doesn't exist
 if ! docker images | grep -q wild-cloud-central-test; then
     echo "🔨 Building Docker image..."

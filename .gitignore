@@ -5,6 +5,10 @@ wildd
 *.deb
 __debug*
 
+# APT repository build artifacts
+.aptly/
+.aptly.conf
+
 # Go build cache
 *.o
 *.a
@@ -22,3 +26,4 @@ __debug*
 # Go workspace file
 go.work
 go.work.sum
+gpg/wild-cloud-central.gpg

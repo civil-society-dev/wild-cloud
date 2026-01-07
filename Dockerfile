@@ -1,30 +1,24 @@
-# Test Dockerfile for wild-cloud-central apt installation
+# Test Dockerfile for wild-cloud-central package installation
 FROM debian:bookworm-slim
 
-# Install build dependencies and runtime packages
+# Install only runtime dependencies (no build tools needed)
 RUN apt-get update && apt-get install -y \
-    golang-go \
-    make \
-    dpkg-dev \
     curl \
-    systemctl \
     dnsmasq \
     nginx \
     ca-certificates \
+    policykit-1 \
+    systemd \
     && rm -rf /var/lib/apt/lists/*
 
-# Create build directory
-WORKDIR /build
-
-# Copy source code
-COPY . .
-
-# Build the .deb package using the Makefile
-RUN make package
+# Copy pre-built .deb package from build directory
+# This must be built on the host first with: make package-arm64 or make package-amd64
+COPY build/wild-cloud-central_*.deb /tmp/
 
 # Install the .deb package (simulating what a user would do)
-RUN dpkg -i build/wild-cloud-central_0.1.1_amd64.deb || true
-RUN apt-get update && apt-get install -f -y
+RUN dpkg -i /tmp/wild-cloud-central_*.deb || true && \
+    apt-get update && apt-get install -f -y && \
+    rm /tmp/*.deb
 
 # Copy example config to the installed location
 RUN cp /etc/wild-cloud-central/config.yaml.example /etc/wild-cloud-central/config.yaml

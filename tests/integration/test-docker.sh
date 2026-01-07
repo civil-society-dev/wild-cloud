@@ -7,6 +7,13 @@ echo "🧪 Testing wild-cloud-central Docker installation..."
 # Change to project root directory
 cd "$(dirname "$0")/../.."
 
+# Check if package exists
+if [ ! -f build/wild-cloud-central_*_amd64.deb ]; then
+    echo "❌ No .deb package found in build/ directory"
+    echo "   Run 'make package' first to build the package"
+    exit 1
+fi
+
 # Build the Docker image
 echo "🔨 Building Docker image..."
 docker build -t wild-cloud-central-test .
