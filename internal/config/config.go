@@ -133,7 +133,7 @@ type InstanceConfig struct {
 		CertManager    struct {
 			Cloudflare struct {
 				Domain string `yaml:"domain" json:"domain"`
-				ZoneID string `yaml:"zoneID" json:"zoneID"`
+				ZoneId string `yaml:"zoneId" json:"zoneId"`
 			} `yaml:"cloudflare" json:"cloudflare"`
 		} `yaml:"certManager" json:"certManager"`
 		ExternalDns struct {

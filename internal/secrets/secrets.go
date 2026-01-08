@@ -66,9 +66,8 @@ func (m *Manager) EnsureSecretsFile(instancePath string) error {
 cluster:
   talosSecrets: ""
   kubeconfig: ""
-certManager:
-  cloudflare:
-    apiToken: ""
+cloudflare:
+  token: ""
 `
 
 	// Ensure instance directory exists

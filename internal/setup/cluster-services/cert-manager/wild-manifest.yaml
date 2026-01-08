@@ -18,8 +18,3 @@ serviceConfig:
     prompt: "Enter Cloudflare domain"
     default: "{{ .cloud.baseDomain }}"
     type: string
-  cloudflareZoneID:
-    path: cluster.certManager.cloudflare.zoneID
-    prompt: "Enter Cloudflare zone ID"
-    default: ""
-    type: string
