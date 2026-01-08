@@ -1,6 +1,6 @@
-# Wild Central
+# Wild Cloud
 
-## Installation
+## Installing Wild Central
 
 ### APT Repository (Recommended)
 
