@@ -1,0 +1,12 @@
+[submodule "wild-central-api"]
+	path = wild-central-api
+	url = https://git.civilsociety.dev/wild-cloud/wild-central-api.git
+[submodule "wild-web-app"]
+	path = wild-web-app
+	url = https://git.civilsociety.dev/wild-cloud/wild-web-app.git
+[submodule "wild-cli"]
+	path = wild-cli
+	url = https://git.civilsociety.dev/wild-cloud/wild-cli.git
+[submodule "wild-central-dist"]
+	path = wild-central-dist
+	url = https://git.civilsociety.dev/wild-cloud/wild-central-dist.git
