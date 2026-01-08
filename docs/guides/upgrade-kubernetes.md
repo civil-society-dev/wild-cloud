@@ -1,3 +1,0 @@
-# Upgrade Kubernetes
-
-TBD

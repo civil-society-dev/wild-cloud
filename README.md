@@ -1,6 +1,8 @@
-# Wild Central
+# Packaging Wild Central
 
-## Installation
+## Desired Experience
+
+This is the desired experience for installing Wild Cloud Central on a fresh Debian/Ubuntu system:
 
 ### APT Repository (Recommended)
 
@@ -50,54 +52,28 @@ sudo apt-get install -f  # Fix any dependency issues
 3. **Access the web interface**:
    Open http://your-server-ip in your browser
 
-## Features
+## Developer tooling
 
-- **Web Management Interface** - Browser-based configuration and monitoring
-- **REST API** - JSON API for programmatic management
-- **DNS/DHCP Services** - Integrated dnsmasq configuration management
-- **PXE Boot Support** - Automatic Talos Linux asset downloading and serving
+Makefile commands for packaging:
 
-## Basic Configuration
+Package targets (create .deb packages):
 
-The service uses `/etc/wild-cloud-central/config.yaml` for configuration:
+make package         - Create .deb package for current arch
+make package-arm64   - Create arm64 .deb package
+make package-amd64   - Create amd64 .deb package
+make package-all     - Create all .deb packages
 
-```yaml
-cloud:
-  domain: "wildcloud.local"
-  dns:
-    ip: "192.168.8.50" # Your server's IP
-  dhcpRange: "192.168.8.100,192.168.8.200"
+Repository targets:
 
-cluster:
-  endpointIp: "192.168.8.60" # Talos cluster endpoint
-  nodes:
-    talos:
-      version: "v1.8.0" # Talos version to use
-```
+make repo            - Build APT repository from packages
+make deploy-repo     - Deploy repository to server
 
-## Service Management
+Directory structure:
 
-```bash
-# Check status
-sudo systemctl status wild-cloud-central
+build/          - Intermediate build artifacts
+dist/bin/       - Final binaries for distribution
+dist/packages/  - OS packages (.deb files)
+dist/repositories/ - APT repository for deployment
 
-# View logs
-sudo journalctl -u wild-cloud-central -f
-
-# Restart service
-sudo systemctl restart wild-cloud-central
-
-# Stop service
-sudo systemctl stop wild-cloud-central
-```
-
-## Support
-
-- **Documentation**: See `docs/` directory for detailed guides
-- **Issues**: Report problems on the project issue tracker
-- **API Reference**: Available at `/api/v1/` endpoints when service is running
-
-## Documentation
-
-- [Developer Guide](docs/DEVELOPER.md) - Development setup, testing, and API reference
-- [Maintainer Guide](docs/MAINTAINER.md) - Package management and repository deployment
+Example workflows:
+make clean && make repo      - Full release build
