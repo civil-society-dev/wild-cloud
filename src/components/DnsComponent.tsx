@@ -96,10 +96,19 @@ export function DnsComponent() {
     if (!config?.content) return [];
     const lines = config.content.split('\n');
     const domains: string[] = [];
+    const seenDomains = new Set<string>();
+
     for (const line of lines) {
-      const match = line.match(/^local=\/(.+?)\/$/);
-      if (match && !match[1].startsWith('internal.')) {
-        domains.push(match[1]);
+      // Match both "local=/domain/" and "address=/domain/ip" patterns
+      const localMatch = line.match(/^local=\/(.+?)\/$/);
+      const addressMatch = line.match(/^address=\/(.+?)\//);
+
+      const domain = localMatch?.[1] || addressMatch?.[1];
+
+      // Skip internal domains and duplicates
+      if (domain && !domain.startsWith('internal.') && !seenDomains.has(domain)) {
+        domains.push(domain);
+        seenDomains.add(domain);
       }
     }
     return domains;
@@ -119,12 +128,16 @@ export function DnsComponent() {
 
     try {
       if (type === 'external') {
-        // Use DNS-over-HTTPS to test external resolution
-        const response = await fetch(`https://dns.google/resolve?name=${domain}&type=A`);
+        // Use Cloudflare DNS-over-HTTPS to test external resolution
+        const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${domain}&type=A`, {
+          headers: { 'accept': 'application/dns-json' }
+        });
         const data = await response.json();
 
         if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
-          const resolvedIp = data.Answer[0].data;
+          // Find the A record (type 1) in the answer chain (may have CNAME first)
+          const aRecord = data.Answer.find((ans: any) => ans.type === 1);
+          const resolvedIp = aRecord ? aRecord.data : data.Answer[data.Answer.length - 1].data;
           setTestResults(prev => ({
             ...prev,
             [domain]: {
