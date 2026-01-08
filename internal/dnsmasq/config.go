@@ -54,9 +54,18 @@ func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.Ins
 
 	resolution_section := ""
 	for _, cloud := range clouds {
-		// Use detected DNS IP (Wild Central's actual IP) for domain resolution
-		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Cloud.Domain, cloud.Cloud.Domain, dnsIP)
-		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Cloud.InternalDomain, cloud.Cloud.InternalDomain, dnsIP)
+		// Point cloud domains to the cluster load balancer IP
+		loadBalancerIP := cloud.Cluster.LoadBalancerIp
+		if loadBalancerIP == "" {
+			log.Printf("Warning: No load balancer IP configured for instance %s, skipping DNS config", cloud.Cluster.Name)
+			continue
+		}
+		// Internal domain (.internal.cloud.example.tld) - local only, no external DNS
+		resolution_section += fmt.Sprintf("local=/%s/\naddress=/%s/%s\n", cloud.Cloud.InternalDomain, cloud.Cloud.InternalDomain, loadBalancerIP)
+
+		// External domain (cloud.example.tld) - resolve to load balancer IP without external DNS lookup
+		// This makes LAN traffic go directly to load balancer instead of routing through external DNS first
+		resolution_section += fmt.Sprintf("address=/%s/%s\n", cloud.Cloud.Domain, loadBalancerIP)
 	}
 
 	template := `# Configuration file for dnsmasq.
