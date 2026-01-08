@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/wild-cloud/wild-central/wild/internal/client"
 )
 
 // DNS commands

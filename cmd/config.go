@@ -30,7 +30,7 @@ var configGetCmd = &cobra.Command{
 			return err
 		}
 
-		// Use nested path lookup for dot notation (e.g., certManager.cloudflare.zoneId)
+		// Use nested path lookup for dot notation (e.g., cluster.certManager.cloudflare.domain)
 		val := config.GetValue(resp.Data, key)
 		if val != nil {
 			fmt.Println(val)
