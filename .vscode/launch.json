@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [],
+    "compounds": [
+        {
+            "name": "Full Stack",
+            "configurations": [
+                "Daemon (debug)",
+                "Web App (dev)"
+            ],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "Full Stack",
+                "order": 1
+            }
+        }
+    ]
+}
