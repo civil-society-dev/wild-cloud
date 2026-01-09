@@ -1,0 +1,4 @@
+- `gpg/wild-cloud-central.gpg` should be put somewhere safe. For now, it's here, and .gitignored
+- When building the apt package, we need to sign it with this key. For that to happen, we need to copy this key to `../dist/` before we run `make repo`
+- `aptly` creates `dist/repositories/apt`. We need to wrap this in an nginx docker container and deploy it to our cloud somewhere... like `apt.civilsociety.dev` or `apt.mywildcloud.org`.
+- consider whether aptly should be a server-level thing with .aptly being put in ~ instead of in this dir. That probably makes sense since that db will probably have all package artifacts from multiple runs. If that's the case, we should have a separate script for setting up aptly correctly and some way to back up the artifacts. lifecycle management, yo.
