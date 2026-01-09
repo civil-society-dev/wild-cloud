@@ -1,2 +1,0 @@
-# Allow wildcloud user to manage dnsmasq service without password
-wildcloud ALL=NOPASSWD: /usr/bin/systemctl start dnsmasq.service, /usr/bin/systemctl stop dnsmasq.service, /usr/bin/systemctl restart dnsmasq.service, /usr/bin/systemctl status dnsmasq.service

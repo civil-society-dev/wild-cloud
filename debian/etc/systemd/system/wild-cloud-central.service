@@ -21,7 +21,7 @@ NoNewPrivileges=no
 PrivateTmp=yes
 ProtectSystem=no
 ProtectHome=yes
-ReadWritePaths=/etc/wild-cloud-central /var/lib/wild-cloud-central /var/log/wild-cloud-central /etc/dnsmasq.conf /var/www/html/talos /var/ftpd
+ReadWritePaths=/etc/wild-cloud-central /var/lib/wild-cloud-central /var/log/wild-cloud-central /etc/dnsmasq.d /etc/systemd/resolved.conf.d /var/www/html/talos /var/ftpd
 
 [Install]
 WantedBy=multi-user.target
