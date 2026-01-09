@@ -1,0 +1,11 @@
+name: kubernetes-dashboard
+description: Web-based Kubernetes user interface
+namespace: kubernetes-dashboard
+category: infrastructure
+
+dependencies:
+  - traefik
+  - cert-manager
+
+configReferences:
+  - cloud.internalDomain

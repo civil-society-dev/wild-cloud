@@ -1,0 +1,19 @@
+name: metallb
+description: Bare metal load-balancer for Kubernetes
+namespace: metallb-system
+category: infrastructure
+
+configReferences:
+  - cluster.name
+
+serviceConfig:
+  ipRange:
+    path: cluster.ipAddressPool
+    prompt: "Enter IP range for MetalLB (e.g., 192.168.1.240-192.168.1.250)"
+    default: "192.168.1.240-192.168.1.250"
+    type: string
+  loadBalancerIp:
+    path: cluster.loadBalancerIp
+    prompt: "Enter primary load balancer IP"
+    default: "192.168.1.240"
+    type: string

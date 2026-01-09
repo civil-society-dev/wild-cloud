@@ -1,0 +1,2 @@
+- `wild-cloud-central.gpg` should be put somewhere safe. For now, it's here, and .gitignored
+- When building the apt package, we need to sign it with this key. For that to happen, we need to copy this key to `../dist/` before we run `make repo`

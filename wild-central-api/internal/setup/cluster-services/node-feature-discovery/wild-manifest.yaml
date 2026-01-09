@@ -1,0 +1,4 @@
+name: node-feature-discovery
+description: Detects hardware features available on each node
+namespace: node-feature-discovery
+category: infrastructure

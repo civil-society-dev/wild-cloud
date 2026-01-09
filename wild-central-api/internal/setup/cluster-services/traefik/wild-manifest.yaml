@@ -1,0 +1,10 @@
+name: traefik
+description: Cloud-native reverse proxy and ingress controller
+namespace: traefik
+category: infrastructure
+
+dependencies:
+  - metallb
+
+configReferences:
+  - cluster.loadBalancerIp

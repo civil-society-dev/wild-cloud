@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-feature-discovery-worker
+  namespace: node-feature-discovery
+spec:
+  selector:
+    matchLabels:
+      name: node-feature-discovery-worker
+  template:
+    metadata:
+      labels:
+        name: node-feature-discovery-worker
+    spec:
+      serviceAccountName: node-feature-discovery
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: worker
+        image: registry.k8s.io/nfd/node-feature-discovery:v0.17.3
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 5m
+            memory: 64Mi
+        command:
+        - "nfd-worker"
+        args:
+        - "-metrics=8081"
+        - "-grpc-health=8082"
+        ports:
+        - containerPort: 8081
+          name: metrics
+        - containerPort: 8082
+          name: health
+        volumeMounts:
+        - name: host-boot
+          mountPath: "/host-boot"
+          readOnly: true
+        - name: host-os-release
+          mountPath: "/host-etc/os-release"
+          readOnly: true
+        - name: host-sys
+          mountPath: "/host-sys"
+          readOnly: true
+        - name: host-usr-lib
+          mountPath: "/host-usr/lib"
+          readOnly: true
+        - name: host-lib
+          mountPath: "/host-lib"
+          readOnly: true
+        - name: host-proc-swaps
+          mountPath: "/host-proc/swaps"
+          readOnly: true
+      volumes:
+      - name: host-boot
+        hostPath:
+          path: "/boot"
+      - name: host-os-release
+        hostPath:
+          path: "/etc/os-release"
+      - name: host-sys
+        hostPath:
+          path: "/sys"
+      - name: host-usr-lib
+        hostPath:
+          path: "/usr/lib"
+      - name: host-lib
+        hostPath:
+          path: "/lib"
+      - name: host-proc-swaps
+        hostPath:
+          path: "/proc/swaps"

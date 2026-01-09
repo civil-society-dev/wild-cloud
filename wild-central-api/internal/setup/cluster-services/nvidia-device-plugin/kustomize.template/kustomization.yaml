@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kube-system
+resources:
+  - daemonset.yaml
+  - runtimeclass.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/name: nvidia-device-plugin
+      app.kubernetes.io/component: device-plugin
+      managedBy: kustomize
+      partOf: wild-cloud

@@ -1,0 +1,15 @@
+name: externaldns
+description: Automatically configures DNS records for services
+namespace: externaldns
+category: infrastructure
+
+configReferences:
+  - cloud.internalDomain
+  - cluster.name
+
+serviceConfig:
+  ownerId:
+    path: cluster.externalDns.ownerId
+    prompt: "Enter ExternalDNS owner ID (unique identifier for this cluster)"
+    default: "wild-cloud-{{ .cluster.name }}"
+    type: string

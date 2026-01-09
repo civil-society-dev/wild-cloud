@@ -1,0 +1,5 @@
+#!ipxe
+imgfree
+kernel http://{{ .cloud.dns.ip }}/amd64/vmlinuz talos.platform=metal console=tty0 init_on_alloc=1 slab_nomerge pti=on consoleblank=0 nvme_core.io_timeout=4294967295 printk.devkmsg=on ima_template=ima-ng ima_appraise=fix ima_hash=sha512 selinux=1 net.ifnames=0
+initrd http://{{ .cloud.dns.ip }}/amd64/initramfs.xz
+boot

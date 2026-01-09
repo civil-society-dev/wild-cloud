@@ -1,0 +1,13 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: internal-only
+  namespace: kube-system
+spec:
+  ipWhiteList:
+    # Restrict to local private network ranges - adjust these to match your network
+    sourceRange:
+      - 127.0.0.1/32    # localhost
+      - 10.0.0.0/8      # Private network
+      - 172.16.0.0/12   # Private network
+      - 192.168.0.0/16  # Private network

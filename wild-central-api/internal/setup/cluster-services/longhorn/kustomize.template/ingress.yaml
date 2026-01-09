@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn-ingress
+  namespace: longhorn-system
+spec:
+  rules:
+    - host: "longhorn.{{ .cloud.internalDomain }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: longhorn-frontend
+                port:
+                  number: 80
+  tls:
+    - secretName: wildcard-internal-wild-cloud-tls
+      hosts:
+        - "longhorn.{{ .cloud.internalDomain }}"

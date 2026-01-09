@@ -1,0 +1,116 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+    configure)
+        echo "Configuring wild-cloud-central..."
+
+        # Create wildcloud user if it doesn't exist
+        if ! id wildcloud >/dev/null 2>&1; then
+            useradd --system --home-dir /var/lib/wild-cloud-central --create-home --shell /bin/false wildcloud
+        fi
+
+        # Create required directories
+        mkdir -p /var/lib/wild-cloud-central
+        mkdir -p /var/log/wild-cloud-central
+        mkdir -p /var/www/html/talos
+        mkdir -p /var/ftpd
+
+        # Set ownership of wildcloud-managed files and directories
+        chown wildcloud:wildcloud /var/lib/wild-cloud-central
+        chown wildcloud:wildcloud /var/log/wild-cloud-central
+        
+        # Force ownership of talos directory (critical for PXE assets)
+        echo "Setting ownership of /var/www/html/talos/ to wildcloud"
+        chown -R wildcloud:wildcloud /var/www/html/talos/
+        
+        echo "Setting ownership of /var/ftpd/ to wildcloud"
+        chown -R wildcloud:wildcloud /var/ftpd
+
+        # Set up dnsmasq directories and permissions
+        mkdir -p /etc/dnsmasq.d
+
+        # Create or fix ownership of wild-cloud.conf
+        if [ ! -f /etc/dnsmasq.d/wild-cloud.conf ]; then
+            # Create new file
+            touch /etc/dnsmasq.d/wild-cloud.conf
+            echo "Created /etc/dnsmasq.d/wild-cloud.conf"
+        else
+            # File exists - fix ownership if needed
+            echo "Found existing /etc/dnsmasq.d/wild-cloud.conf - updating ownership"
+        fi
+
+        # Always set correct ownership and permissions
+        chown wildcloud:wildcloud /etc/dnsmasq.d/wild-cloud.conf
+        chmod 644 /etc/dnsmasq.d/wild-cloud.conf
+
+        # Set up systemd-resolved configuration directory and file
+        mkdir -p /etc/systemd/resolved.conf.d
+
+        # Create wild-cloud DNS configuration file owned by wildcloud
+        if [ ! -f /etc/systemd/resolved.conf.d/wild-cloud.conf ]; then
+            touch /etc/systemd/resolved.conf.d/wild-cloud.conf
+            echo "Created /etc/systemd/resolved.conf.d/wild-cloud.conf"
+        else
+            echo "Found existing /etc/systemd/resolved.conf.d/wild-cloud.conf"
+        fi
+        chown wildcloud:wildcloud /etc/systemd/resolved.conf.d/wild-cloud.conf
+        chmod 644 /etc/systemd/resolved.conf.d/wild-cloud.conf
+
+        # Ensure /etc/resolv.conf is a symlink to systemd-resolved stub (best practice)
+        # Skip in Docker/container environments where resolv.conf might be bind-mounted
+        if [ ! -L /etc/resolv.conf ] || [ "$(readlink /etc/resolv.conf)" != "/run/systemd/resolve/stub-resolv.conf" ]; then
+            echo "Configuring /etc/resolv.conf to use systemd-resolved stub mode"
+            # Backup existing resolv.conf if it's a regular file
+            if [ -f /etc/resolv.conf ] && [ ! -L /etc/resolv.conf ]; then
+                cp /etc/resolv.conf /etc/resolv.conf.wild-backup 2>/dev/null || echo "Note: Could not backup /etc/resolv.conf (may be read-only)"
+            fi
+            # Create symlink to systemd-resolved stub (skip if file is busy/read-only)
+            if rm -f /etc/resolv.conf 2>/dev/null; then
+                ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+                echo "Set /etc/resolv.conf to use systemd-resolved stub mode"
+            else
+                echo "Note: /etc/resolv.conf is read-only or busy (container environment?), skipping symlink setup"
+            fi
+        fi
+
+        # Install polkit rules for service management
+        mkdir -p /etc/polkit-1/rules.d
+        cat > /etc/polkit-1/rules.d/50-wild-cloud-central.rules << 'POLKIT_EOF'
+/* Allow wildcloud user to manage dnsmasq and systemd-resolved services */
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        (action.lookup("unit") == "dnsmasq.service" ||
+         action.lookup("unit") == "systemd-resolved.service") &&
+        subject.user == "wildcloud") {
+        return polkit.Result.YES;
+    }
+});
+POLKIT_EOF
+        chmod 644 /etc/polkit-1/rules.d/50-wild-cloud-central.rules
+        echo "Installed polkit rules for service management"
+
+        # Enable and start the service (skip in container environments)
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload
+            systemctl enable wild-cloud-central.service
+            echo "wild-cloud-central configured successfully"
+            echo "Start the service with: sudo systemctl start wild-cloud-central"
+            echo "View logs with: sudo journalctl -u wild-cloud-central -f"
+        else
+            echo "Note: systemd not detected (container environment?), skipping service enable"
+            echo "wild-cloud-central installed successfully"
+        fi
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

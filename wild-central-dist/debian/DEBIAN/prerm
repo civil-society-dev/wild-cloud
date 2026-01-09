@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        echo "Stopping wild-cloud-central service..."
+        
+        # Stop and disable the service
+        if systemctl is-active --quiet wild-cloud-central; then
+            systemctl stop wild-cloud-central
+        fi
+        
+        if systemctl is-enabled --quiet wild-cloud-central; then
+            systemctl disable wild-cloud-central
+        fi
+        ;;
+
+    failed-upgrade)
+        ;;
+
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

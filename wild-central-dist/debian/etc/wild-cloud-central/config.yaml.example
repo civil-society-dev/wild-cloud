@@ -1,0 +1,18 @@
+server:
+    port: 5055
+    host: 0.0.0.0
+cloud:
+    domain: wildcloud.local
+    internalDomain: cluster.local
+    dns:
+        ip: 192.168.8.50
+    router:
+        ip: 192.168.8.1
+    dhcpRange: 192.168.8.100,192.168.8.200
+    dnsmasq:
+        interface: eth0
+cluster:
+    endpointIp: 192.168.8.60
+    nodes:
+        talos:
+            version: v1.8.0

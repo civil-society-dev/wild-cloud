@@ -1,0 +1,15 @@
+name: coredns
+description: DNS server for internal cluster DNS resolution
+namespace: kube-system
+category: infrastructure
+
+configReferences:
+  - cloud.internalDomain
+  - cluster.loadBalancerIp
+
+serviceConfig:
+  externalResolver:
+    path: cloud.dns.externalResolver
+    prompt: "Enter external DNS resolver"
+    default: "8.8.8.8"
+    type: string

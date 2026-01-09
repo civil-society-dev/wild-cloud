@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: debug
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: netdebug
+  namespace: debug
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: netdebug
+subjects:
+- kind: ServiceAccount
+  name: netdebug
+  namespace: debug
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netdebug
+  namespace: debug
+  labels:
+    app: netdebug
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netdebug
+  template:
+    metadata:
+      labels:
+        app: netdebug
+    spec:
+      serviceAccountName: netdebug
+      containers:
+      - name: netdebug
+        image: nicolaka/netshoot:latest
+        command: ["/bin/bash"]
+        args: ["-c", "while true; do sleep 3600; done"]
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          privileged: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netdebug
+  namespace: debug
+spec:
+  selector:
+    app: netdebug
+  ports:
+  - port: 22
+    targetPort: 22
+    name: ssh
+  type: ClusterIP

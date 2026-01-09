@@ -1,0 +1,18 @@
+# Exclude build artifacts but allow pre-built packages
+build/src/
+build/bin/
+build/debian-package-*/
+build/wild-cloud-central-*
+
+# Allow: build/*.deb (pre-built packages for Docker testing)
+
+# Other exclusions
+debian-package/
+.git/
+.gitignore
+*.md
+ref/
+Dockerfile
+docker-compose.yml
+.dockerignore
+dist/

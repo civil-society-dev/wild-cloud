@@ -1,0 +1,29 @@
+# Daemon build artifacts
+build/
+dist/
+wildd
+*.deb
+__debug*
+
+# APT repository build artifacts
+.aptly/
+.aptly.conf
+
+# Go build cache
+*.o
+*.a
+*.so
+__debug*
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.cover
+*.coverage
+
+# Go workspace file
+go.work
+go.work.sum
+gpg/wild-cloud-central.gpg

@@ -1,0 +1,36 @@
+name: smtp
+description: SMTP relay service for cluster applications
+namespace: smtp-system
+category: infrastructure
+
+serviceConfig:
+  smtpHost:
+    path: cloud.smtp.host
+    prompt: "Enter SMTP host (e.g., email-smtp.us-east-2.amazonaws.com for AWS SES)"
+    default: ""
+    type: string
+  smtpPort:
+    path: cloud.smtp.port
+    prompt: "Enter SMTP port (usually 465 for SSL, 587 for STARTTLS)"
+    default: "465"
+    type: string
+  smtpUser:
+    path: cloud.smtp.user
+    prompt: "Enter SMTP username/access key"
+    default: ""
+    type: string
+  smtpFrom:
+    path: cloud.smtp.from
+    prompt: "Enter default 'from' email address"
+    default: "no-reply@{{ .cloud.domain }}"
+    type: string
+  smtpTls:
+    path: cloud.smtp.tls
+    prompt: "Enable TLS? (true/false)"
+    default: "true"
+    type: string
+  smtpStartTls:
+    path: cloud.smtp.startTls
+    prompt: "Enable STARTTLS? (true/false)"
+    default: "true"
+    type: string

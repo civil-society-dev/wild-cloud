@@ -1,0 +1,23 @@
+machine:
+  install:
+    disk: {{ index .cluster.nodes.active "{{NODE_NAME}}" "disk" }}
+    image: factory.talos.dev/metal-installer/{{ .cluster.nodes.talos.schematicId}}:{{ .cluster.nodes.talos.version}}
+  network:
+    hostname: "{{NODE_NAME}}"
+    interfaces:
+      - interface: {{ index .cluster.nodes.active "{{NODE_NAME}}" "interface" }}
+        dhcp: true
+        addresses:
+          - "{{NODE_IP}}/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: {{ .cloud.router.ip }}
+  kubelet:
+    extraMounts:
+      - destination: /var/lib/longhorn
+        type: bind
+        source: /var/lib/longhorn
+        options:
+          - bind
+          - rshared
+          - rw
