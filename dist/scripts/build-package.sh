@@ -8,7 +8,7 @@ BUILD_DIR="build"
 SRC_DIR="$BUILD_DIR/src"
 BINARY_NAME="wild-cloud-central"
 
-# Monorepo source paths (relative to wild-central-dist directory)
+# Monorepo source paths (relative to dist directory)
 API_SOURCE="../api"
 WEBAPP_SOURCE="../wild-web-app"
 
