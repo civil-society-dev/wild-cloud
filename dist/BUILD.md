@@ -28,7 +28,7 @@ The build process:
 
 1. **Uses source from monorepo:**
    - `../api` - Go daemon
-   - `../wild-web-app` - React web interface
+   - `../web` - React web interface
 
 2. **Builds artifacts:**
    - Compiles Go daemon binary

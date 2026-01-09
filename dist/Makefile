@@ -19,7 +19,7 @@ help:
 	@echo "This repository builds .deb packages from the monorepo."
 	@echo "For development, use the individual component directories:"
 	@echo "  - api (Go daemon)"
-	@echo "  - wild-web-app (React frontend)"
+	@echo "  - web (React frontend)"
 	@echo ""
 	@echo "📦 Build targets:"
 	@echo "  build           - Build for current architecture (amd64)"
@@ -58,11 +58,11 @@ define package_deb
 
 	@# Copy static web files from built web app
 	@mkdir -p $(BUILD_DIR)/$(DEB_DIR)-$(1)/var/www/html/wild-central
-	@if [ -d "$(BUILD_DIR)/src/wild-web-app/dist" ]; then \
-		cp -r $(BUILD_DIR)/src/wild-web-app/dist/* $(BUILD_DIR)/$(DEB_DIR)-$(1)/var/www/html/wild-central/; \
+	@if [ -d "$(BUILD_DIR)/src/web/dist" ]; then \
+		cp -r $(BUILD_DIR)/src/web/dist/* $(BUILD_DIR)/$(DEB_DIR)-$(1)/var/www/html/wild-central/; \
 		echo "✅ Copied web app files"; \
 	else \
-		echo "⚠️  Warning: Web app dist not found at $(BUILD_DIR)/src/wild-web-app/dist"; \
+		echo "⚠️  Warning: Web app dist not found at $(BUILD_DIR)/src/web/dist"; \
 	fi
 
 	@# Set script permissions

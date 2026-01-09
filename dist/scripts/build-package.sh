@@ -10,7 +10,7 @@ BINARY_NAME="wild-cloud-central"
 
 # Monorepo source paths (relative to dist directory)
 API_SOURCE="../api"
-WEBAPP_SOURCE="../wild-web-app"
+WEBAPP_SOURCE="../web"
 
 echo "🔨 Building Wild Cloud Central v${VERSION} for ${ARCH}"
 echo "================================================"
@@ -44,8 +44,8 @@ echo "✅ Daemon binary built: $BUILD_DIR/bin/$BINARY_NAME"
 # Copy web app source from monorepo
 echo ""
 echo "📦 Copying web app source from monorepo..."
-cp -r "$WEBAPP_SOURCE" "$SRC_DIR/wild-web-app"
-cd "$SRC_DIR/wild-web-app"
+cp -r "$WEBAPP_SOURCE" "$SRC_DIR/web"
+cd "$SRC_DIR/web"
 
 # Build the web app
 echo "🔧 Building web application..."
@@ -58,9 +58,9 @@ pnpm run build --mode production || {
 }
 
 cd - > /dev/null
-echo "✅ Web app built: $SRC_DIR/wild-web-app/dist/"
+echo "✅ Web app built: $SRC_DIR/web/dist/"
 
 echo ""
 echo "🎉 Build complete!"
 echo "   Binary: $BUILD_DIR/bin/$BINARY_NAME"
-echo "   Web App: $SRC_DIR/wild-web-app/dist/"
+echo "   Web App: $SRC_DIR/web/dist/"

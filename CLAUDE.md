@@ -18,7 +18,7 @@ The Wild Cloud API maintains data for each Wild Cloud instance in its configured
 
 We provide a command-line interface (CLI) tool called Wild CLI, implemented in the cli project, that allows users to interact with the Wild Cloud API and manage their Wild Cloud instances from the terminal. This allows users to automate tasks and integrate Wild Cloud management into their existing workflows. @cli/README.md
 
-To make Wild Cloud more accessible to less-experienced users, the Wild Central device hosts a web-based interface for managing Wild Cloud instances, which is implemented in the wild-web-app project. @wild-web-app/CLAUDE.md
+To make Wild Cloud more accessible to less-experienced users, the Wild Central device hosts a web-based interface for managing Wild Cloud instances, which is implemented in the web project. @web/CLAUDE.md
 
 ## Additional Documentation
 
