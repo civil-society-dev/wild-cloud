@@ -7,7 +7,7 @@ The Wild Cloud Web App is a web-based interface for managing Wild Cloud instance
 Before starting the web app, ensure the Wild Central API is running:
 
 ```bash
-cd ../wild-central-api
+cd ../api
 make dev
 ```
 

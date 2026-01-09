@@ -8,13 +8,9 @@ BUILD_DIR="build"
 SRC_DIR="$BUILD_DIR/src"
 BINARY_NAME="wild-cloud-central"
 
-# Repository URLs
-API_REPO="https://git.civilsociety.dev/wild-cloud/wild-central-api.git"
-WEBAPP_REPO="https://git.civilsociety.dev/wild-cloud/wild-web-app.git"
-
-# Optional: specify tags/commits to build from
-API_REF="${API_REF:-main}"
-WEBAPP_REF="${WEBAPP_REF:-main}"
+# Monorepo source paths (relative to wild-central-dist directory)
+API_SOURCE="../api"
+WEBAPP_SOURCE="../wild-web-app"
 
 echo "🔨 Building Wild Cloud Central v${VERSION} for ${ARCH}"
 echo "================================================"
@@ -25,11 +21,11 @@ rm -rf "$SRC_DIR"
 mkdir -p "$SRC_DIR"
 mkdir -p "$BUILD_DIR/bin"
 
-# Clone wild-central-api
+# Copy API source from monorepo
 echo ""
-echo "📦 Cloning wild-central-api (${API_REF})..."
-git clone --depth 1 --branch "$API_REF" "$API_REPO" "$SRC_DIR/wild-central-api"
-cd "$SRC_DIR/wild-central-api"
+echo "📦 Copying API source from monorepo..."
+cp -r "$API_SOURCE" "$SRC_DIR/api"
+cd "$SRC_DIR/api"
 
 # Build the daemon
 echo "🔧 Building daemon binary..."
@@ -45,10 +41,10 @@ fi
 cd - > /dev/null
 echo "✅ Daemon binary built: $BUILD_DIR/bin/$BINARY_NAME"
 
-# Clone wild-web-app
+# Copy web app source from monorepo
 echo ""
-echo "📦 Cloning wild-web-app (${WEBAPP_REF})..."
-git clone --depth 1 --branch "$WEBAPP_REF" "$WEBAPP_REPO" "$SRC_DIR/wild-web-app"
+echo "📦 Copying web app source from monorepo..."
+cp -r "$WEBAPP_SOURCE" "$SRC_DIR/wild-web-app"
 cd "$SRC_DIR/wild-web-app"
 
 # Build the web app

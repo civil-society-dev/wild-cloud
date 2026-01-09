@@ -26,9 +26,9 @@ make repo
 
 The build process:
 
-1. **Clones source repositories:**
-   - `wild-central-api` - Go daemon
-   - `wild-web-app` - React web interface
+1. **Uses source from monorepo:**
+   - `../api` - Go daemon
+   - `../wild-web-app` - React web interface
 
 2. **Builds artifacts:**
    - Compiles Go daemon binary

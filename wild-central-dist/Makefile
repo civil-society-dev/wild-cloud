@@ -16,9 +16,9 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 help:
 	@echo "📦 Wild Cloud Central Package Builder"
 	@echo ""
-	@echo "This repository builds .deb packages by cloning source repos."
-	@echo "For development, use the individual component repositories:"
-	@echo "  - wild-central-api (Go daemon)"
+	@echo "This repository builds .deb packages from the monorepo."
+	@echo "For development, use the individual component directories:"
+	@echo "  - api (Go daemon)"
 	@echo "  - wild-web-app (React frontend)"
 	@echo ""
 	@echo "📦 Build targets:"
@@ -43,8 +43,6 @@ help:
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  VERSION         - Package version (default: 0.1.1)"
-	@echo "  API_REF         - wild-central-api git ref (default: main)"
-	@echo "  WEBAPP_REF      - wild-web-app git ref (default: main)"
 
 # Function to create debian package for specific architecture
 define package_deb
