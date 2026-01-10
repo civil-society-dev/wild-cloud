@@ -1,0 +1,84 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: crowdsec-bouncer
+  namespace: crowdsec
+  labels:
+    app: crowdsec
+    managedBy: kustomize
+    partOf: wild-cloud
+spec:
+  forwardAuth:
+    address: http://traefik-crowdsec-bouncer.crowdsec.svc.cluster.local:8080/api/v1/forwardAuth
+    authResponseHeaders:
+    - X-Crowdsec-Decision
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+  namespace: crowdsec
+  labels:
+    app: crowdsec
+    managedBy: kustomize
+    partOf: wild-cloud
+spec:
+  rateLimit:
+    average: {{ .cluster.crowdsec.rateLimitAverage }}
+    burst: {{ .cluster.crowdsec.rateLimitBurst }}
+    period: 1m
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: crowdsec
+  labels:
+    app: crowdsec
+    managedBy: kustomize
+    partOf: wild-cloud
+spec:
+  headers:
+    browserXssFilter: true
+    contentTypeNosniff: true
+    forceSTSHeader: true
+    frameDeny: true
+    sslRedirect: true
+    stsIncludeSubdomains: true
+    stsPreload: true
+    stsSeconds: 31536000
+    addVaryHeader: true
+    accessControlAllowMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+    accessControlAllowOriginList:
+    - "*"
+    accessControlMaxAge: 100
+    customRequestHeaders:
+      X-Forwarded-Proto: https
+    customResponseHeaders:
+      Server: ""
+      X-Robots-Tag: noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-chain
+  namespace: crowdsec
+  labels:
+    app: crowdsec
+    managedBy: kustomize
+    partOf: wild-cloud
+spec:
+  chain:
+    middlewares:
+    - name: security-headers
+      namespace: crowdsec
+    - name: rate-limit
+      namespace: crowdsec
+    - name: crowdsec-bouncer
+      namespace: crowdsec

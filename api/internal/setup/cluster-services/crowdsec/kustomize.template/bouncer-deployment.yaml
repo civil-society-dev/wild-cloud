@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik-crowdsec-bouncer
+  namespace: crowdsec
+  labels:
+    app: traefik-crowdsec-bouncer
+    managedBy: kustomize
+    partOf: wild-cloud
+spec:
+  replicas: {{ .cluster.crowdsec.bouncerReplicas }}
+  selector:
+    matchLabels:
+      app: traefik-crowdsec-bouncer
+      managedBy: kustomize
+      partOf: wild-cloud
+  template:
+    metadata:
+      labels:
+        app: traefik-crowdsec-bouncer
+        managedBy: kustomize
+        partOf: wild-cloud
+    spec:
+      containers:
+      - name: traefik-crowdsec-bouncer
+        image: fbonalair/traefik-crowdsec-bouncer:latest
+        env:
+        - name: CROWDSEC_BOUNCER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: crowdsec-bouncer-secret
+              key: api-key
+        - name: CROWDSEC_AGENT_HOST
+          value: "crowdsec-lapi.crowdsec.svc.cluster.local:8080"
+        - name: CROWDSEC_BOUNCER_LOG_LEVEL
+          value: "info"
+        - name: GIN_MODE
+          value: "release"
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /api/v1/ping
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/v1/ping
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi

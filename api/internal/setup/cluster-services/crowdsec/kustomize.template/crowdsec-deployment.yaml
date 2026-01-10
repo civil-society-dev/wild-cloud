@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crowdsec
+  namespace: crowdsec
+  labels:
+    app: crowdsec
+    managedBy: kustomize
+    partOf: wild-cloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crowdsec
+      managedBy: kustomize
+      partOf: wild-cloud
+  template:
+    metadata:
+      labels:
+        app: crowdsec
+        managedBy: kustomize
+        partOf: wild-cloud
+    spec:
+      serviceAccountName: crowdsec
+      securityContext:
+        runAsUser: 0
+        runAsNonRoot: false
+        fsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: crowdsec
+        image: crowdsecurity/crowdsec:v1.6.3
+        env:
+        - name: COLLECTIONS
+          value: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/iptables crowdsecurity/linux"
+        - name: PARSERS
+          value: "crowdsecurity/traefik-logs crowdsecurity/http-logs crowdsecurity/nginx-logs"
+        - name: SCENARIOS
+          value: "crowdsecurity/http-crawl-non_statics crowdsecurity/http-probing crowdsecurity/http-sensitive-files crowdsecurity/http-bad-user-agent crowdsecurity/http-path-traversal-probing crowdsecurity/ssh-bf crowdsecurity/ssh-slow-bf"
+        - name: POSTOVERFLOWS
+          value: "crowdsecurity/rdns crowdsecurity/cdn-whitelist"
+        - name: GID
+          value: "1000"
+        - name: LEVEL_TRACE
+          value: "false"
+        - name: LEVEL_DEBUG
+          value: "false"
+        - name: LEVEL_INFO
+          value: "true"
+        - name: AGENT_USERNAME
+          value: "kubernetes-cluster"
+        - name: AGENT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: crowdsec-agent-secret
+              key: password
+        ports:
+        - name: lapi
+          containerPort: 8080
+          protocol: TCP
+        - name: prometheus
+          containerPort: 6060
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 200Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: false
+        volumeMounts:
+        - name: crowdsec-config
+          mountPath: /etc/crowdsec/acquis.yaml
+          subPath: acquis.yaml
+          readOnly: true
+        - name: crowdsec-config
+          mountPath: /etc/crowdsec/profiles.yaml
+          subPath: profiles.yaml
+          readOnly: true
+        - name: crowdsec-data
+          mountPath: /var/lib/crowdsec/data
+        - name: crowdsec-config-dir
+          mountPath: /etc/crowdsec/config
+      volumes:
+      - name: crowdsec-config
+        configMap:
+          name: crowdsec-config
+      - name: crowdsec-data
+        emptyDir: {}
+      - name: crowdsec-config-dir
+        emptyDir: {}

@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: crowdsec
+commonLabels:
+  managedBy: kustomize
+  partOf: wild-cloud
+resources:
+- namespace.yaml
+- serviceaccount.yaml
+- configmap.yaml
+- crowdsec-deployment.yaml
+- crowdsec-service.yaml
+- bouncer-deployment.yaml
+- bouncer-service.yaml
+- middleware.yaml

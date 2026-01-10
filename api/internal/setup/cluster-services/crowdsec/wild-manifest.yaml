@@ -1,0 +1,27 @@
+name: crowdsec
+description: CrowdSec security engine with Traefik bouncer for threat detection and rate limiting
+namespace: crowdsec
+category: infrastructure
+
+dependencies:
+  - traefik
+
+configReferences:
+  - cloud.domain
+
+serviceConfig:
+  bouncerReplicas:
+    path: cluster.crowdsec.bouncerReplicas
+    prompt: "Number of bouncer replicas for high availability"
+    default: "2"
+    type: string
+  rateLimitAverage:
+    path: cluster.crowdsec.rateLimitAverage
+    prompt: "Rate limit average requests per minute"
+    default: "100"
+    type: string
+  rateLimitBurst:
+    path: cluster.crowdsec.rateLimitBurst
+    prompt: "Rate limit burst requests per minute"
+    default: "100"
+    type: string
