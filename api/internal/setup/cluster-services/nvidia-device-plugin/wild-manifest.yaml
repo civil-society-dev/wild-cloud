@@ -1,6 +1,7 @@
 name: nvidia-device-plugin
 description: NVIDIA device plugin for Kubernetes
-namespace: nvidia-device-plugin
+namespace: kube-system
+deploymentName: nvidia-device-plugin-daemonset
 category: infrastructure
 
 dependencies:

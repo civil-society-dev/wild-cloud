@@ -24,6 +24,7 @@ type ServiceManifest struct {
 	Version          string                      `yaml:"version"`
 	Category         string                      `yaml:"category"`
 	Namespace        string                      `yaml:"namespace"`
+	DeploymentName   string                      `yaml:"deploymentName,omitempty"` // Optional: defaults to Name
 	Dependencies     []string                    `yaml:"dependencies,omitempty"`
 	ConfigReferences []string                    `yaml:"configReferences,omitempty"`
 	ServiceConfig    map[string]ConfigDefinition `yaml:"serviceConfig,omitempty"`

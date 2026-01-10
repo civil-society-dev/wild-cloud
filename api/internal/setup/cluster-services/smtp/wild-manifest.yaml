@@ -1,6 +1,6 @@
 name: smtp
 description: SMTP relay service for cluster applications
-namespace: smtp-system
+namespace: smtp
 category: infrastructure
 
 serviceConfig:

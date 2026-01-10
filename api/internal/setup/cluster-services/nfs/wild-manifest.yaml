@@ -1,6 +1,6 @@
 name: nfs
 description: NFS client provisioner for external NFS storage
-namespace: nfs-system
+namespace: nfs
 category: infrastructure
 
 serviceConfig:

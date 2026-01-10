@@ -52,6 +52,7 @@ func NewManager(dataDir string) *Manager {
 					Name:             manifest.Name,
 					Description:      manifest.Description,
 					Namespace:        manifest.Namespace,
+					DeploymentName:   manifest.DeploymentName,
 					Category:         manifest.Category,
 					Dependencies:     manifest.Dependencies,
 					ConfigReferences: manifest.ConfigReferences,
@@ -86,27 +87,9 @@ var BaseServices = []string{
 	"longhorn",     // Storage
 }
 
-// serviceDeployments maps service directory names to their actual namespace and deployment name
-var serviceDeployments = map[string]struct {
-	namespace      string
-	deploymentName string
-}{
-	"cert-manager":           {"cert-manager", "cert-manager"},
-	"coredns":                {"kube-system", "coredns"},
-	"docker-registry":        {"docker-registry", "docker-registry"},
-	"externaldns":            {"externaldns", "external-dns"},
-	"kubernetes-dashboard":   {"kubernetes-dashboard", "kubernetes-dashboard"},
-	"longhorn":               {"longhorn-system", "longhorn-ui"},
-	"metallb":                {"metallb-system", "controller"},
-	"nfs":                    {"nfs-system", "nfs-server"},
-	"node-feature-discovery": {"node-feature-discovery", "node-feature-discovery-master"},
-	"nvidia-device-plugin":   {"nvidia-device-plugin", "nvidia-device-plugin-daemonset"},
-	"smtp":                   {"smtp-system", "smtp"},
-	"traefik":                {"traefik", "traefik"},
-	"utils":                  {"utils-system", "utils"},
-}
 
-// checkServiceStatus checks if a service is deployed
+// checkServiceStatus checks the deployment status of a service
+// Returns: "not-deployed", "deployed", "degraded", or "progressing"
 func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
 
@@ -127,26 +110,38 @@ func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 		return "not-deployed"
 	}
 
-	var namespace, deploymentName string
-
-	// Check hardcoded map first for deployment name (has correct names)
-	if deployment, ok := serviceDeployments[serviceName]; ok {
-		namespace = deployment.namespace
-		deploymentName = deployment.deploymentName
-	} else if manifest, ok := m.manifests[serviceName]; ok {
-		// Fall back to manifest if not in hardcoded map
-		namespace = manifest.Namespace
-		deploymentName = manifest.GetDeploymentName()
-	} else {
-		// Service not found anywhere, assume not deployed
+	// Special case: SMTP is configuration-only, no deployment to check
+	if serviceName == "smtp" {
 		return "not-deployed"
 	}
 
-	if kubectl.DeploymentExists(deploymentName, namespace) {
-		return "deployed"
+	manifest, ok := m.manifests[serviceName]
+	if !ok {
+		return "not-deployed"
 	}
 
-	return "not-deployed"
+	namespace := manifest.Namespace
+	deploymentName := manifest.GetDeploymentName()
+
+	// Get deployment info to check health status
+	deploymentInfo, err := kubectl.GetDeployment(deploymentName, namespace)
+	if err != nil {
+		return "not-deployed"
+	}
+
+	// Determine deployment status based on replica counts
+	if deploymentInfo.Ready == deploymentInfo.Desired && deploymentInfo.Desired > 0 {
+		return "deployed"
+	} else if deploymentInfo.Ready < deploymentInfo.Desired {
+		if deploymentInfo.Current > deploymentInfo.Desired {
+			return "progressing"
+		}
+		return "degraded"
+	} else if deploymentInfo.Desired == 0 {
+		return "deployed" // Scaled to zero is still "deployed"
+	}
+
+	return "deployed"
 }
 
 // List returns all base services and their status
@@ -173,11 +168,8 @@ func (m *Manager) List(instanceName string) ([]Service, error) {
 			dependencies = manifest.Dependencies
 			hasConfig = len(manifest.ServiceConfig) > 0
 		} else {
-			// Fall back to hardcoded map
-			namespace = name + "-system" // default
-			if deployment, ok := serviceDeployments[name]; ok {
-				namespace = deployment.namespace
-			}
+			// Service not in manifests, skip
+			continue
 		}
 
 		service := Service{
@@ -198,16 +190,15 @@ func (m *Manager) List(instanceName string) ([]Service, error) {
 
 // Get returns a specific service
 func (m *Manager) Get(instanceName, serviceName string) (*Service, error) {
-	// Get the correct namespace from the map
-	namespace := serviceName + "-system" // default
-	if deployment, ok := serviceDeployments[serviceName]; ok {
-		namespace = deployment.namespace
+	manifest, ok := m.manifests[serviceName]
+	if !ok {
+		return nil, fmt.Errorf("service not found: %s", serviceName)
 	}
 
 	service := &Service{
 		Name:      serviceName,
 		Status:    m.checkServiceStatus(instanceName, serviceName),
-		Namespace: namespace,
+		Namespace: manifest.Namespace,
 	}
 
 	return service, nil
@@ -284,15 +275,14 @@ func (m *Manager) Delete(instanceName, serviceName string) error {
 
 // GetStatus returns detailed status for a service
 func (m *Manager) GetStatus(instanceName, serviceName string) (*Service, error) {
-	// Get the correct namespace from the map
-	namespace := serviceName + "-system" // default
-	if deployment, ok := serviceDeployments[serviceName]; ok {
-		namespace = deployment.namespace
+	manifest, ok := m.manifests[serviceName]
+	if !ok {
+		return nil, fmt.Errorf("service not found: %s", serviceName)
 	}
 
 	service := &Service{
 		Name:      serviceName,
-		Namespace: namespace,
+		Namespace: manifest.Namespace,
 		Status:    m.checkServiceStatus(instanceName, serviceName),
 	}
 

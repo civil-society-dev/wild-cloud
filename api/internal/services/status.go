@@ -23,12 +23,6 @@ func (m *Manager) GetDetailedStatus(instanceName, serviceName string) (*contract
 	namespace := manifest.Namespace
 	deploymentName := manifest.GetDeploymentName()
 
-	// Check hardcoded map for correct deployment name
-	if deployment, ok := serviceDeployments[serviceName]; ok {
-		namespace = deployment.namespace
-		deploymentName = deployment.deploymentName
-	}
-
 	// 2. Get kubeconfig path
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
 	if !storage.FileExists(kubeconfigPath) {

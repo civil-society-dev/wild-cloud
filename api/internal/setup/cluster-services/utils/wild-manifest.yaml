@@ -1,4 +1,5 @@
 name: utils
 description: Utility tools and scripts for cluster administration
-namespace: utils-system
+namespace: debug
+deploymentName: netdebug
 category: infrastructure

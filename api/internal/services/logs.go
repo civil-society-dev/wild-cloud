@@ -21,9 +21,6 @@ func (m *Manager) GetLogs(instanceName, serviceName string, opts contracts.Servi
 	}
 
 	namespace := manifest.Namespace
-	if deployment, ok := serviceDeployments[serviceName]; ok {
-		namespace = deployment.namespace
-	}
 
 	// 2. Get kubeconfig path
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
@@ -125,9 +122,6 @@ func (m *Manager) StreamLogs(instanceName, serviceName string, opts contracts.Se
 	}
 
 	namespace := manifest.Namespace
-	if deployment, ok := serviceDeployments[serviceName]; ok {
-		namespace = deployment.namespace
-	}
 
 	// 2. Get kubeconfig path
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)

@@ -1,6 +1,7 @@
 name: externaldns
 description: Automatically configures DNS records for services
 namespace: externaldns
+deploymentName: external-dns
 category: infrastructure
 
 configReferences:

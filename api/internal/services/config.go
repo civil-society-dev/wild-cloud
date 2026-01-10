@@ -22,9 +22,6 @@ func (m *Manager) UpdateConfig(instanceName, serviceName string, update contract
 	}
 
 	namespace := manifest.Namespace
-	if deployment, ok := serviceDeployments[serviceName]; ok {
-		namespace = deployment.namespace
-	}
 
 	// 2. Load instance config
 	configPath := tools.GetInstanceConfigPath(m.dataDir, instanceName)

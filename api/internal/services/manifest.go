@@ -16,6 +16,7 @@ type ServiceManifest struct {
 	Name             string                      `yaml:"name" json:"name"`
 	Description      string                      `yaml:"description" json:"description"`
 	Namespace        string                      `yaml:"namespace" json:"namespace"`
+	DeploymentName   string                      `yaml:"deploymentName,omitempty" json:"deploymentName,omitempty"` // Optional: defaults to Name
 	Category         string                      `yaml:"category,omitempty" json:"category,omitempty"`
 	Dependencies     []string                    `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
 	ConfigReferences []string                    `yaml:"configReferences,omitempty" json:"configReferences,omitempty"`
@@ -87,10 +88,11 @@ func LoadAllManifests(servicesDir string) (map[string]*ServiceManifest, error) {
 }
 
 // GetDeploymentName returns the primary deployment name for this service
-// Uses name as the deployment name by default
+// Uses DeploymentName if set, otherwise defaults to Name
 func (m *ServiceManifest) GetDeploymentName() string {
-	// For now, assume deployment name matches service name
-	// This can be made configurable if needed
+	if m.DeploymentName != "" {
+		return m.DeploymentName
+	}
 	return m.Name
 }
 
