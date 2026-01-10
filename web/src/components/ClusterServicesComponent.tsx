@@ -83,9 +83,11 @@ export function ClusterServicesComponent() {
       available: 'secondary',
       deploying: 'default',
       installing: 'default',
+      progressing: 'default',
       running: 'success',
       ready: 'success',
       deployed: 'success',
+      degraded: 'destructive',
       error: 'destructive',
     };
 
@@ -94,8 +96,10 @@ export function ClusterServicesComponent() {
       available: 'Available',
       deploying: 'Deploying',
       installing: 'Installing',
+      progressing: 'Progressing',
       running: 'Running',
       ready: 'Ready',
+      degraded: 'Degraded',
       error: 'Error',
       deployed: 'Deployed',
     };
@@ -245,8 +249,8 @@ export function ClusterServicesComponent() {
                         {isInstalling ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Install'}
                       </Button>
                     )}
-                    {((typeof service.status === 'string' && service.status === 'deployed') ||
-                      (typeof service.status === 'object' && service.status?.status === 'deployed')) && (
+                    {((typeof service.status === 'string' && ['deployed', 'degraded', 'progressing'].includes(service.status)) ||
+                      (typeof service.status === 'object' && ['deployed', 'degraded', 'progressing'].includes(service.status?.status || ''))) && (
                       <>
                         <Button
                           size="sm"
