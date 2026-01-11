@@ -20,7 +20,9 @@ import { WorkerNodesPage } from './pages/WorkerNodesPage';
 import { ClusterPage } from './pages/ClusterPage';
 import { AppsPage } from './pages/AppsPage';
 import { BackupsPage } from './pages/BackupsPage';
-import { AdvancedPage } from './pages/AdvancedPage';
+import { AdvancedConfigPage } from './pages/AdvancedConfigPage';
+import { TerminalPage } from './pages/TerminalPage';
+import { KubernetesDashboardPage } from './pages/KubernetesDashboardPage';
 import { AssetsIsoPage } from './pages/AssetsIsoPage';
 import { AssetsPxePage } from './pages/AssetsPxePage';
 
@@ -128,7 +130,24 @@ export const routes: RouteObject[] = [
       },
       {
         path: 'advanced',
-        element: <AdvancedPage />,
+        children: [
+          {
+            index: true,
+            element: <Navigate to="config" replace />,
+          },
+          {
+            path: 'config',
+            element: <AdvancedConfigPage />,
+          },
+          {
+            path: 'terminal',
+            element: <TerminalPage />,
+          },
+          {
+            path: 'k8s-dashboard',
+            element: <KubernetesDashboardPage />,
+          },
+        ],
       },
     ],
   },

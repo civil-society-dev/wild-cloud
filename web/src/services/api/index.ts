@@ -11,6 +11,7 @@ export { dnsmasqApi } from './dnsmasq';
 export { utilitiesApi } from './utilities';
 export { pxeApi } from './pxe';
 export { assetsApi } from './assets';
+export { terminalApi } from './terminal';
 
 // React Query hooks
 export { useInstance, useInstanceOperations, useInstanceClusterHealth } from './hooks/useInstance';

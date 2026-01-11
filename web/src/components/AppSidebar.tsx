@@ -1,5 +1,5 @@
 import { NavLink, useParams } from 'react-router';
-import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Usb, Download, CheckCircle, Archive, Cpu, HardDrive } from 'lucide-react';
+import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Usb, Download, CheckCircle, Archive, Cpu, HardDrive, TerminalSquare, Cog, LayoutDashboard } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   Sidebar,
@@ -293,16 +293,53 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
 
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Advanced settings and system configuration">
-              <NavLink to={`/instances/${instanceId}/advanced`}>
-                <div className="p-1 rounded-md">
+          <Collapsible defaultOpen className="group/collapsible">
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton>
                   <Settings className="h-4 w-4" />
-                </div>
-                <span className="truncate">Advanced</span>
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+                  Advanced
+                  <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <NavLink to={`/instances/${instanceId}/advanced/config`}>
+                        <div className="p-1 rounded-md">
+                          <Cog className="h-4 w-4" />
+                        </div>
+                        <span className="truncate">Configuration</span>
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <NavLink to={`/instances/${instanceId}/advanced/terminal`}>
+                        <div className="p-1 rounded-md">
+                          <TerminalSquare className="h-4 w-4" />
+                        </div>
+                        <span className="truncate">Terminal</span>
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <NavLink to={`/instances/${instanceId}/advanced/k8s-dashboard`}>
+                        <div className="p-1 rounded-md">
+                          <LayoutDashboard className="h-4 w-4" />
+                        </div>
+                        <span className="truncate">K8s Dashboard</span>
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
