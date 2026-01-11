@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useConfigYaml } from '../hooks';
+import { useConfigYaml, useCentralStatus } from '../hooks';
 import { Button, Textarea } from './ui';
 import {
   Card,
@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { Settings, Save, RotateCcw } from 'lucide-react';
+import { Settings, Save, RotateCcw, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface ConfigEditorProps {
@@ -18,7 +18,13 @@ interface ConfigEditorProps {
 
 export function ConfigEditor({ className }: ConfigEditorProps) {
   const { instanceId } = useParams<{ instanceId: string }>();
-  const { yamlContent, isLoading, error, isEndpointMissing, updateYaml, refetch } = useConfigYaml(instanceId || '');
+  const { yamlContent, isLoading, error, isEndpointMissing, updateYaml } = useConfigYaml(instanceId || '');
+  const { data: centralStatus } = useCentralStatus();
+
+  // Construct the file path from the data directory and instance name
+  const configFilePath = centralStatus?.dataDir && instanceId
+    ? `${centralStatus.dataDir}/instances/${instanceId}/config.yaml`
+    : null;
 
   const [editedContent, setEditedContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
@@ -65,6 +71,9 @@ export function ConfigEditor({ className }: ConfigEditorProps) {
         </CardTitle>
         <CardDescription>
           Edit the raw YAML configuration file. This provides direct access to all configuration options.
+          <span className="block mt-2 text-orange-600 dark:text-orange-400">
+            Warning: Incorrect changes can break this instance. Most users don't need to edit this manually. Ensure you have a backup before making changes.
+          </span>
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col flex-1 min-h-0">
@@ -81,6 +90,15 @@ export function ConfigEditor({ className }: ConfigEditorProps) {
             <p className="text-sm text-orange-800 dark:text-orange-200">
               Backend endpoints missing. Raw YAML editing not available.
             </p>
+          </div>
+        )}
+
+        {configFilePath && (
+          <div className="flex items-center gap-2 mb-3 p-2 bg-muted rounded-md shrink-0">
+            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+            <code className="text-sm font-mono text-muted-foreground truncate">
+              {configFilePath}
+            </code>
           </div>
         )}
 
