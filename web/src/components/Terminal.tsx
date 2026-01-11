@@ -23,8 +23,11 @@ const MAX_OUTPUT_LINES = 1000;
 const getOutputKey = (instanceId: string) => `wild-terminal-output-${instanceId}`;
 const getHistoryKey = (instanceId: string) => `wild-terminal-history-${instanceId}`;
 
-const getWelcomeMessage = (): OutputLine[] => [
-  { type: "info", content: "Welcome to Wild Central Terminal. Type commands to execute on the server." },
+const getWelcomeMessage = (instanceId?: string): OutputLine[] => [
+  { type: "info", content: `Wild Central Terminal${instanceId ? ` - ${instanceId}` : ''}` },
+  { type: "info", content: "Working directory is the instance data directory." },
+  { type: "info", content: "kubectl, talosctl, and wild are configured for this instance." },
+  { type: "info", content: 'Type "clear" to reset the terminal.' },
 ];
 
 const loadOutput = (instanceId: string): OutputLine[] => {
@@ -39,7 +42,7 @@ const loadOutput = (instanceId: string): OutputLine[] => {
   } catch {
     // Ignore localStorage errors
   }
-  return getWelcomeMessage();
+  return getWelcomeMessage(instanceId);
 };
 
 const loadHistory = (instanceId: string): string[] => {
@@ -152,7 +155,7 @@ export function Terminal() {
 
     // Handle client-side commands
     if (trimmedCommand === "clear" || trimmedCommand === "cls") {
-      setOutput([]);
+      setOutput(getWelcomeMessage(instanceId));
       setCommand("");
       return;
     }
