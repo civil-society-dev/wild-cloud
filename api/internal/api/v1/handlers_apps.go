@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v3"
@@ -50,16 +49,8 @@ func (api *API) AppsGetAvailable(w http.ResponseWriter, r *http.Request) {
 
 // AppsListDeployed lists deployed apps for an instance
 func (api *API) AppsListDeployed(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// List deployed apps
 	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
 	deployedApps, err := appsMgr.ListDeployed(instanceName)
 	if err != nil {
@@ -74,22 +65,9 @@ func (api *API) AppsListDeployed(w http.ResponseWriter, r *http.Request) {
 
 // AppsAdd adds an app to instance configuration
 func (api *API) AppsAdd(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Parse request
-	var req struct {
-		Name                string                 `json:"name"`
-		Config              map[string]interface{} `json:"config"`
-		RequiredAppMappings map[string]string      `json:"requiredAppMappings"`
-	}
-
+	var req AppAddRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -100,7 +78,6 @@ func (api *API) AppsAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add app
 	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
 	if err := appsMgr.Add(instanceName, req.Name, req.Config, req.RequiredAppMappings); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to add app: %v", err))
@@ -115,43 +92,17 @@ func (api *API) AppsAdd(w http.ResponseWriter, r *http.Request) {
 
 // startAppOperation starts an app operation (deploy or delete) in the background
 func (api *API) startAppOperation(w http.ResponseWriter, instanceName, appName, operationType, successMessage string, operation func(*apps.Manager, string, string) error) {
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Start operation
-	opsMgr := operations.NewManager(api.dataDir)
-	opID, err := opsMgr.Start(instanceName, operationType, appName)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to start operation: %v", err))
-		return
-	}
-
-	// Execute operation in background
-	go func() {
-		appsMgr := apps.NewManager(api.dataDir, api.appsDir)
-		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
-
-		if err := operation(appsMgr, instanceName, appName); err != nil {
-			_ = opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
-		} else {
-			_ = opsMgr.Update(instanceName, opID, "completed", successMessage, 100)
-		}
-	}()
-
-	respondJSON(w, http.StatusAccepted, map[string]string{
-		"operation_id": opID,
-		"message":      fmt.Sprintf("App %s initiated", operationType),
-	})
+	api.StartAsyncOperationWithMessage(w, instanceName, operationType, appName, successMessage,
+		func(opsMgr *operations.Manager, opID string) error {
+			appsMgr := apps.NewManager(api.dataDir, api.appsDir)
+			return operation(appsMgr, instanceName, appName)
+		})
 }
 
 // AppsDeploy deploys an app to the cluster
 func (api *API) AppsDeploy(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
 	api.startAppOperation(w, instanceName, appName, "deploy_app", "App deployed",
 		func(mgr *apps.Manager, instance, app string) error {
@@ -161,9 +112,8 @@ func (api *API) AppsDeploy(w http.ResponseWriter, r *http.Request) {
 
 // AppsDelete deletes an app
 func (api *API) AppsDelete(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
 	api.startAppOperation(w, instanceName, appName, "delete_app", "App deleted",
 		func(mgr *apps.Manager, instance, app string) error {
@@ -173,9 +123,8 @@ func (api *API) AppsDelete(w http.ResponseWriter, r *http.Request) {
 
 // AppsUpdate updates an app from its source
 func (api *API) AppsUpdate(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
 	api.startAppOperation(w, instanceName, appName, "update_app", "App updated",
 		func(mgr *apps.Manager, instance, app string) error {
@@ -185,17 +134,9 @@ func (api *API) AppsUpdate(w http.ResponseWriter, r *http.Request) {
 
 // AppsEject converts an app from package-managed to custom
 func (api *API) AppsEject(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Eject app
 	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
 	if err := appsMgr.Eject(instanceName, appName); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to eject app: %v", err))
@@ -210,17 +151,9 @@ func (api *API) AppsEject(w http.ResponseWriter, r *http.Request) {
 
 // AppsGetConfig returns current config values for an app instance
 func (api *API) AppsGetConfig(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Load instance config
 	configPath := tools.GetInstanceConfigPath(api.dataDir, instanceName)
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
@@ -252,27 +185,15 @@ func (api *API) AppsGetConfig(w http.ResponseWriter, r *http.Request) {
 
 // AppsUpdateConfig updates an app's configuration
 func (api *API) AppsUpdateConfig(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Parse request
-	var req struct {
-		Config map[string]interface{} `json:"config"`
-	}
-
+	var req AppConfigUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	// Update config
 	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
 	if err := appsMgr.UpdateConfig(instanceName, appName, req.Config); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update config: %v", err))
@@ -287,17 +208,9 @@ func (api *API) AppsUpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 // AppsGetStatus returns app status
 func (api *API) AppsGetStatus(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get status
 	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
 	status, err := appsMgr.GetStatus(instanceName, appName)
 	if err != nil {
@@ -310,17 +223,9 @@ func (api *API) AppsGetStatus(w http.ResponseWriter, r *http.Request) {
 
 // AppsGetEnhanced returns enhanced app details with runtime status
 func (api *API) AppsGetEnhanced(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get enhanced app details
 	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
 	enhanced, err := appsMgr.GetEnhanced(instanceName, appName)
 	if err != nil {
@@ -333,17 +238,9 @@ func (api *API) AppsGetEnhanced(w http.ResponseWriter, r *http.Request) {
 
 // AppsGetEnhancedStatus returns just runtime status for an app
 func (api *API) AppsGetEnhancedStatus(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get runtime status
 	appsMgr := apps.NewManager(api.dataDir, api.appsDir)
 	status, err := appsMgr.GetEnhancedStatus(instanceName, appName)
 	if err != nil {
@@ -356,17 +253,9 @@ func (api *API) AppsGetEnhancedStatus(w http.ResponseWriter, r *http.Request) {
 
 // AppsGetLogs returns logs for an app (from first pod)
 func (api *API) AppsGetLogs(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Parse query parameters
 	tailStr := r.URL.Query().Get("tail")
 	sinceSecondsStr := r.URL.Query().Get("sinceSeconds")
 	podName := r.URL.Query().Get("pod")
@@ -386,8 +275,7 @@ func (api *API) AppsGetLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get logs
-	kubeconfigPath := api.dataDir + "/instances/" + instanceName + "/kubeconfig"
+	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 	kubectl := tools.NewKubectl(kubeconfigPath)
 
 	// If no pod specified, get the first pod
@@ -419,17 +307,9 @@ func (api *API) AppsGetLogs(w http.ResponseWriter, r *http.Request) {
 
 // AppsGetEvents returns kubernetes events for an app
 func (api *API) AppsGetEvents(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Parse query parameters
 	limitStr := r.URL.Query().Get("limit")
 	limit := 20 // default
 	if limitStr != "" {
@@ -438,8 +318,7 @@ func (api *API) AppsGetEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get events
-	kubeconfigPath := api.dataDir + "/instances/" + instanceName + "/kubeconfig"
+	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 	kubectl := tools.NewKubectl(kubeconfigPath)
 
 	events, err := kubectl.GetRecentEvents(appName, limit)
@@ -455,20 +334,11 @@ func (api *API) AppsGetEvents(w http.ResponseWriter, r *http.Request) {
 
 // AppsGetReadme returns the README.md content for an app
 func (api *API) AppsGetReadme(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Validate app name to prevent path traversal
-	if appName == "" || appName == "." || appName == ".." ||
-		strings.Contains(appName, "/") || strings.Contains(appName, "\\") {
-		respondError(w, http.StatusBadRequest, "Invalid app name")
+	if err := ValidateAppName(appName); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

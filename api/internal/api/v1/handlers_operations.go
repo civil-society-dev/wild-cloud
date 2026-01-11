@@ -16,17 +16,9 @@ import (
 
 // OperationGet returns operation status
 func (api *API) OperationGet(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	opID := vars["id"]
+	instanceName := GetInstanceName(r)
+	opID := mux.Vars(r)["id"]
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get operation
 	opsMgr := operations.NewManager(api.dataDir)
 	op, err := opsMgr.GetByInstance(instanceName, opID)
 	if err != nil {
@@ -39,16 +31,8 @@ func (api *API) OperationGet(w http.ResponseWriter, r *http.Request) {
 
 // OperationList returns all operations for an instance
 func (api *API) OperationList(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// List operations
 	opsMgr := operations.NewManager(api.dataDir)
 	ops, err := opsMgr.List(instanceName)
 	if err != nil {
@@ -63,17 +47,9 @@ func (api *API) OperationList(w http.ResponseWriter, r *http.Request) {
 
 // OperationCancel cancels an operation
 func (api *API) OperationCancel(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	opID := vars["id"]
+	instanceName := GetInstanceName(r)
+	opID := mux.Vars(r)["id"]
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Cancel operation
 	opsMgr := operations.NewManager(api.dataDir)
 	if err := opsMgr.Cancel(instanceName, opID); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to cancel operation: %v", err))
@@ -88,15 +64,8 @@ func (api *API) OperationCancel(w http.ResponseWriter, r *http.Request) {
 
 // OperationStream streams operation output via Server-Sent Events (SSE)
 func (api *API) OperationStream(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	opID := vars["id"]
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
+	instanceName := GetInstanceName(r)
+	opID := mux.Vars(r)["id"]
 
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")

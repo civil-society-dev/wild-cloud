@@ -10,8 +10,7 @@ import (
 
 // ScheduleListHandler lists all backup schedules for an instance
 func (api *API) ScheduleListHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
 	mgr := backup.NewManager(api.dataDir)
 	schedules, err := mgr.LoadSchedules(instanceName)
@@ -27,8 +26,7 @@ func (api *API) ScheduleListHandler(w http.ResponseWriter, r *http.Request) {
 
 // ScheduleCreateHandler creates a new backup schedule
 func (api *API) ScheduleCreateHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
 	var req backup.BackupSchedule
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -59,9 +57,8 @@ func (api *API) ScheduleCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 // ScheduleGetHandler retrieves a specific backup schedule
 func (api *API) ScheduleGetHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	scheduleID := vars["schedule_id"]
+	instanceName := GetInstanceName(r)
+	scheduleID := mux.Vars(r)["schedule_id"]
 
 	mgr := backup.NewManager(api.dataDir)
 	schedule, err := mgr.GetSchedule(instanceName, scheduleID)
@@ -77,9 +74,8 @@ func (api *API) ScheduleGetHandler(w http.ResponseWriter, r *http.Request) {
 
 // ScheduleUpdateHandler updates an existing backup schedule
 func (api *API) ScheduleUpdateHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	scheduleID := vars["schedule_id"]
+	instanceName := GetInstanceName(r)
+	scheduleID := mux.Vars(r)["schedule_id"]
 
 	var req backup.BackupSchedule
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -110,9 +106,8 @@ func (api *API) ScheduleUpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 // ScheduleDeleteHandler deletes a backup schedule
 func (api *API) ScheduleDeleteHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	scheduleID := vars["schedule_id"]
+	instanceName := GetInstanceName(r)
+	scheduleID := mux.Vars(r)["schedule_id"]
 
 	mgr := backup.NewManager(api.dataDir)
 	if err := mgr.DeleteSchedule(instanceName, scheduleID); err != nil {
@@ -128,9 +123,8 @@ func (api *API) ScheduleDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 // ScheduleRunHandler manually triggers a scheduled backup
 func (api *API) ScheduleRunHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	scheduleID := vars["schedule_id"]
+	instanceName := GetInstanceName(r)
+	scheduleID := mux.Vars(r)["schedule_id"]
 
 	if api.backupScheduler == nil {
 		respondError(w, http.StatusInternalServerError, "Backup scheduler not available")
@@ -151,9 +145,8 @@ func (api *API) ScheduleRunHandler(w http.ResponseWriter, r *http.Request) {
 
 // ScheduleHistoryHandler returns backup history for a schedule
 func (api *API) ScheduleHistoryHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	scheduleID := vars["schedule_id"]
+	instanceName := GetInstanceName(r)
+	scheduleID := mux.Vars(r)["schedule_id"]
 
 	if api.backupScheduler == nil {
 		respondError(w, http.StatusInternalServerError, "Backup scheduler not available")

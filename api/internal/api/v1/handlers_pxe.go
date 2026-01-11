@@ -15,18 +15,10 @@ import (
 // PXEListAssets lists all PXE assets for an instance
 // DEPRECATED: This endpoint is deprecated. Use GET /api/v1/assets/{schematicId} instead.
 func (api *API) PXEListAssets(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Add deprecation warning header
 	w.Header().Set("X-Deprecated", "This endpoint is deprecated. Use GET /api/v1/assets/{schematicId} instead.")
 	log.Printf("Warning: Deprecated endpoint /api/v1/instances/%s/pxe/assets called", instanceName)
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
 
 	// Get schematic ID from instance config
 	configPath := api.instance.GetInstanceConfigPath(instanceName)
@@ -54,18 +46,10 @@ func (api *API) PXEListAssets(w http.ResponseWriter, r *http.Request) {
 // PXEDownloadAsset downloads a PXE asset
 // DEPRECATED: This endpoint is deprecated. Use POST /api/v1/assets/{schematicId}/download instead.
 func (api *API) PXEDownloadAsset(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Add deprecation warning header
 	w.Header().Set("X-Deprecated", "This endpoint is deprecated. Use POST /api/v1/assets/{schematicId}/download instead.")
 	log.Printf("Warning: Deprecated endpoint /api/v1/instances/%s/pxe/assets/download called", instanceName)
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
 
 	// Parse request
 	var req struct {
@@ -135,19 +119,11 @@ func (api *API) PXEDownloadAsset(w http.ResponseWriter, r *http.Request) {
 // PXEGetAsset returns information about a specific asset
 // DEPRECATED: This endpoint is deprecated. Use GET /api/v1/assets/{schematicId}/pxe/{assetType} instead.
 func (api *API) PXEGetAsset(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	assetType := vars["type"]
+	instanceName := GetInstanceName(r)
+	assetType := mux.Vars(r)["type"]
 
-	// Add deprecation warning header
 	w.Header().Set("X-Deprecated", "This endpoint is deprecated. Use GET /api/v1/assets/{schematicId}/pxe/{assetType} instead.")
 	log.Printf("Warning: Deprecated endpoint /api/v1/instances/%s/pxe/assets/%s called", instanceName, assetType)
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
 
 	// Get schematic ID from instance config
 	configPath := api.instance.GetInstanceConfigPath(instanceName)
@@ -182,19 +158,11 @@ func (api *API) PXEGetAsset(w http.ResponseWriter, r *http.Request) {
 // PXEDeleteAsset deletes a PXE asset
 // DEPRECATED: This endpoint is deprecated. Use DELETE /api/v1/assets/{schematicId} instead.
 func (api *API) PXEDeleteAsset(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	assetType := vars["type"]
+	instanceName := GetInstanceName(r)
+	assetType := mux.Vars(r)["type"]
 
-	// Add deprecation warning header
 	w.Header().Set("X-Deprecated", "This endpoint is deprecated. Use DELETE /api/v1/assets/{schematicId} instead.")
 	log.Printf("Warning: Deprecated endpoint DELETE /api/v1/instances/%s/pxe/assets/%s called", instanceName, assetType)
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
 
 	// Get schematic ID from instance config
 	configPath := api.instance.GetInstanceConfigPath(instanceName)

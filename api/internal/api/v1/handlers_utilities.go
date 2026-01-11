@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -12,16 +11,7 @@ import (
 
 // InstanceUtilitiesHealth returns cluster health status for a specific instance
 func (api *API) InstanceUtilitiesHealth(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get kubeconfig path for this instance
+	instanceName := GetInstanceName(r)
 	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 
 	status, err := utilities.GetClusterHealth(kubeconfigPath)
@@ -38,21 +28,11 @@ func (api *API) InstanceUtilitiesHealth(w http.ResponseWriter, r *http.Request) 
 
 // InstanceUtilitiesDashboardToken returns a Kubernetes dashboard token for a specific instance
 func (api *API) UtilitiesDashboardToken(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get kubeconfig path for the instance
+	instanceName := GetInstanceName(r)
 	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 
 	token, err := utilities.GetDashboardToken(kubeconfigPath)
 	if err != nil {
-		// Try fallback method
 		token, err = utilities.GetDashboardTokenFromSecret(kubeconfigPath)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "Failed to get dashboard token")
@@ -68,16 +48,7 @@ func (api *API) UtilitiesDashboardToken(w http.ResponseWriter, r *http.Request) 
 
 // UtilitiesNodeIPs returns IP addresses for all cluster nodes
 func (api *API) UtilitiesNodeIPs(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get kubeconfig path for this instance
+	instanceName := GetInstanceName(r)
 	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 
 	nodes, err := utilities.GetNodeIPs(kubeconfigPath)
@@ -96,16 +67,7 @@ func (api *API) UtilitiesNodeIPs(w http.ResponseWriter, r *http.Request) {
 
 // UtilitiesControlPlaneIP returns the control plane IP
 func (api *API) UtilitiesControlPlaneIP(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get kubeconfig path for this instance
+	instanceName := GetInstanceName(r)
 	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 
 	ip, err := utilities.GetControlPlaneIP(kubeconfigPath)
@@ -124,21 +86,10 @@ func (api *API) UtilitiesControlPlaneIP(w http.ResponseWriter, r *http.Request) 
 
 // UtilitiesSecretCopy copies a secret between namespaces
 func (api *API) UtilitiesSecretCopy(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	secretName := vars["secret"]
+	instanceName := GetInstanceName(r)
+	secretName := mux.Vars(r)["secret"]
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	var req struct {
-		SourceNamespace      string `json:"source_namespace"`
-		DestinationNamespace string `json:"destination_namespace"`
-	}
-
+	var req SecretCopyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -149,7 +100,6 @@ func (api *API) UtilitiesSecretCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get kubeconfig path for this instance
 	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 
 	if err := utilities.CopySecretBetweenNamespaces(kubeconfigPath, secretName, req.SourceNamespace, req.DestinationNamespace); err != nil {
@@ -165,16 +115,7 @@ func (api *API) UtilitiesSecretCopy(w http.ResponseWriter, r *http.Request) {
 
 // UtilitiesVersion returns cluster and Talos versions
 func (api *API) UtilitiesVersion(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get kubeconfig path for this instance
+	instanceName := GetInstanceName(r)
 	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 
 	k8sVersion, err := utilities.GetClusterVersion(kubeconfigPath)
@@ -183,7 +124,7 @@ func (api *API) UtilitiesVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	talosVersion, _ := utilities.GetTalosVersion() // Don't fail if Talos check fails
+	talosVersion, _ := utilities.GetTalosVersion()
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,

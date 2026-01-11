@@ -3,7 +3,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -20,7 +19,6 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/network"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/secrets"
-	"github.com/wild-cloud/wild-central/daemon/internal/storage"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
@@ -74,6 +72,9 @@ func (api *API) SetBackupScheduler(scheduler *backup.Scheduler) {
 }
 
 func (api *API) RegisterRoutes(r *mux.Router) {
+	// Apply instance validation middleware to all routes with {name} parameter
+	r.Use(api.ValidateInstanceMiddleware)
+
 	// Instance management
 	r.HandleFunc("/api/v1/instances", api.CreateInstance).Methods("POST")
 	r.HandleFunc("/api/v1/instances", api.ListInstances).Methods("GET")
@@ -365,82 +366,7 @@ func (api *API) GetConfig(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, configMap)
 }
 
-// updateYAMLFile updates a YAML file with the provided key-value pairs
-func (api *API) updateYAMLFile(w http.ResponseWriter, r *http.Request, instanceName, fileType string) {
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "Failed to read request body")
-		return
-	}
-
-	var updates map[string]interface{}
-	if err := yaml.Unmarshal(body, &updates); err != nil {
-		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid YAML: %v", err))
-		return
-	}
-
-	var filePath string
-	if fileType == "config" {
-		filePath = api.instance.GetInstanceConfigPath(instanceName)
-	} else {
-		filePath = api.instance.GetInstanceSecretsPath(instanceName)
-	}
-
-	// Read existing config/secrets file
-	existingContent, err := storage.ReadFile(filePath)
-	if err != nil && !os.IsNotExist(err) {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read existing %s: %v", fileType, err))
-		return
-	}
-
-	// Parse existing content or initialize empty map
-	var existingConfig map[string]interface{}
-	if len(existingContent) > 0 {
-		if err := yaml.Unmarshal(existingContent, &existingConfig); err != nil {
-			respondError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse existing %s: %v", fileType, err))
-			return
-		}
-	} else {
-		existingConfig = make(map[string]interface{})
-	}
-
-	// Merge updates into existing config (shallow merge for top-level keys)
-	// This preserves unmodified keys while updating specified ones
-	for key, value := range updates {
-		existingConfig[key] = value
-	}
-
-	// Marshal the merged config back to YAML with proper formatting
-	yamlContent, err := yaml.Marshal(existingConfig)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal YAML: %v", err))
-		return
-	}
-
-	// Write the complete merged YAML content to the file with proper locking
-	lockPath := filePath + ".lock"
-	if err := storage.WithLock(lockPath, func() error {
-		return storage.WriteFile(filePath, yamlContent, 0644)
-	}); err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update %s: %v", fileType, err))
-		return
-	}
-
-	// Capitalize first letter of fileType for message
-	fileTypeCap := fileType
-	if len(fileType) > 0 {
-		fileTypeCap = string(fileType[0]-32) + fileType[1:]
-	}
-
-	respondJSON(w, http.StatusOK, map[string]string{
-		"message": fmt.Sprintf("%s updated successfully", fileTypeCap),
-	})
-}
+// updateYAMLFile is now in helpers.go
 
 // UpdateConfig updates instance configuration
 func (api *API) UpdateConfig(w http.ResponseWriter, r *http.Request) {
@@ -602,16 +528,4 @@ func (api *API) NetworkResolveHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Helper functions
-
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(data)
-}
-
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{
-		"error": message,
-	})
-}
+// Helper functions are now in response.go and helpers.go

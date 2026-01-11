@@ -9,10 +9,11 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 )
 
+// Note: RestoreFromSnapshot uses custom async logic (needs snapshotID in response)
+
 // ListSnapshots lists all snapshots for an instance
 func (api *API) ListSnapshots(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
 	snapshots, err := backup.ListSnapshotsForInstance(api.dataDir, instanceName)
 	if err != nil {
@@ -30,9 +31,8 @@ func (api *API) ListSnapshots(w http.ResponseWriter, r *http.Request) {
 
 // ListAppSnapshots lists all snapshots for a specific app
 func (api *API) ListAppSnapshots(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
 	snapshots, err := backup.ListSnapshotsForApp(api.dataDir, instanceName, appName)
 	if err != nil {
@@ -50,10 +50,9 @@ func (api *API) ListAppSnapshots(w http.ResponseWriter, r *http.Request) {
 
 // RestoreFromSnapshot restores an app from a restic snapshot
 func (api *API) RestoreFromSnapshot(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
-	snapshotID := vars["snapshot"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
+	snapshotID := mux.Vars(r)["snapshot"]
 
 	// Parse request body for restore options
 	var opts backup.RestoreOptions
@@ -64,7 +63,7 @@ func (api *API) RestoreFromSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	mgr := backup.NewManager(api.dataDir)
 
-	// Create operation for tracking
+	// Custom async handling needed to include snapshot_id in response
 	opMgr := operations.NewManager(api.dataDir)
 	opID, err := opMgr.Start(instanceName, "restore-snapshot", appName)
 	if err != nil {
@@ -72,8 +71,13 @@ func (api *API) RestoreFromSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run restore in background
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				_ = opMgr.Update(instanceName, opID, "failed", "Internal error during restore", 100)
+			}
+		}()
+
 		_ = opMgr.UpdateProgress(instanceName, opID, 10, "Validating snapshot")
 
 		if err := mgr.RestoreFromSnapshot(instanceName, appName, snapshotID, opts); err != nil {

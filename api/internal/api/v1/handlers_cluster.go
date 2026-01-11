@@ -5,54 +5,39 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gorilla/mux"
-
 	"github.com/wild-cloud/wild-central/daemon/internal/cluster"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 )
 
 // ClusterGenerateConfig generates cluster configuration
 func (api *API) ClusterGenerateConfig(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Read cluster configuration from instance config
 	configPath := api.instance.GetInstanceConfigPath(instanceName)
 
-	// Get cluster.name
 	clusterName, err := api.config.GetConfigValue(configPath, "cluster.name")
 	if err != nil || clusterName == "" {
 		respondError(w, http.StatusBadRequest, "cluster.name not set in config")
 		return
 	}
 
-	// Get cluster.nodes.control.vip
 	vip, err := api.config.GetConfigValue(configPath, "cluster.nodes.control.vip")
 	if err != nil || vip == "" {
 		respondError(w, http.StatusBadRequest, "cluster.nodes.control.vip not set in config")
 		return
 	}
 
-	// Get cluster.nodes.talos.version (optional, defaults to v1.11.0)
 	version, err := api.config.GetConfigValue(configPath, "cluster.nodes.talos.version")
 	if err != nil || version == "" {
 		version = "v1.11.0"
 	}
 
-	// Create cluster config
 	clusterConfig := cluster.ClusterConfig{
 		ClusterName: clusterName,
 		VIP:         vip,
 		Version:     version,
 	}
 
-	// Generate configuration
 	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	if err := clusterMgr.GenerateConfig(instanceName, &clusterConfig); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to generate config: %v", err))
@@ -66,20 +51,9 @@ func (api *API) ClusterGenerateConfig(w http.ResponseWriter, r *http.Request) {
 
 // ClusterBootstrap bootstraps the cluster
 func (api *API) ClusterBootstrap(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Parse request
-	var req struct {
-		Node string `json:"node"`
-	}
-
+	var req ClusterBootstrapRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -90,7 +64,6 @@ func (api *API) ClusterBootstrap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Bootstrap with progress tracking
 	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	opID, err := clusterMgr.Bootstrap(instanceName, req.Node)
 	if err != nil {
@@ -106,26 +79,15 @@ func (api *API) ClusterBootstrap(w http.ResponseWriter, r *http.Request) {
 
 // ClusterConfigureEndpoints configures talosconfig endpoints to use VIP
 func (api *API) ClusterConfigureEndpoints(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Parse request
 	var req struct {
 		IncludeNodes bool `json:"include_nodes"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// Default to false if no body provided
 		req.IncludeNodes = false
 	}
 
-	// Configure endpoints
 	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	if err := clusterMgr.ConfigureEndpoints(instanceName, req.IncludeNodes); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to configure endpoints: %v", err))
@@ -139,16 +101,8 @@ func (api *API) ClusterConfigureEndpoints(w http.ResponseWriter, r *http.Request
 
 // ClusterGetStatus returns cluster status
 func (api *API) ClusterGetStatus(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get status
 	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	status, err := clusterMgr.GetStatus(instanceName)
 	if err != nil {
@@ -161,16 +115,8 @@ func (api *API) ClusterGetStatus(w http.ResponseWriter, r *http.Request) {
 
 // ClusterHealth returns cluster health checks
 func (api *API) ClusterHealth(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get health checks
 	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	checks, err := clusterMgr.Health(instanceName)
 	if err != nil {
@@ -178,7 +124,6 @@ func (api *API) ClusterHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine overall status
 	overallStatus := "healthy"
 	for _, check := range checks {
 		if check.Status == "failing" {
@@ -197,16 +142,8 @@ func (api *API) ClusterHealth(w http.ResponseWriter, r *http.Request) {
 
 // ClusterGetKubeconfig returns the kubeconfig
 func (api *API) ClusterGetKubeconfig(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get kubeconfig
 	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	kubeconfig, err := clusterMgr.GetKubeconfig(instanceName)
 	if err != nil {
@@ -221,16 +158,8 @@ func (api *API) ClusterGetKubeconfig(w http.ResponseWriter, r *http.Request) {
 
 // ClusterGenerateKubeconfig regenerates the kubeconfig from the cluster
 func (api *API) ClusterGenerateKubeconfig(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Regenerate kubeconfig from cluster
 	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	if err := clusterMgr.RegenerateKubeconfig(instanceName); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to generate kubeconfig: %v", err))
@@ -244,16 +173,8 @@ func (api *API) ClusterGenerateKubeconfig(w http.ResponseWriter, r *http.Request
 
 // ClusterGetTalosconfig returns the talosconfig
 func (api *API) ClusterGetTalosconfig(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Get talosconfig
 	clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
 	talosconfig, err := clusterMgr.GetTalosconfig(instanceName)
 	if err != nil {
@@ -268,20 +189,11 @@ func (api *API) ClusterGetTalosconfig(w http.ResponseWriter, r *http.Request) {
 
 // ClusterReset resets the cluster
 func (api *API) ClusterReset(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
+	instanceName := GetInstanceName(r)
 
-	// Validate instance exists
-	if err := api.instance.ValidateInstance(instanceName); err != nil {
-		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
-		return
-	}
-
-	// Parse request
 	var req struct {
 		Confirm bool `json:"confirm"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -292,28 +204,9 @@ func (api *API) ClusterReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Start reset operation
-	opsMgr := operations.NewManager(api.dataDir)
-	opID, err := opsMgr.Start(instanceName, "reset", instanceName)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to start operation: %v", err))
-		return
-	}
-
-	// Reset in background
-	go func() {
-		clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
-		_ = opsMgr.UpdateStatus(instanceName, opID, "running")
-
-		if err := clusterMgr.Reset(instanceName, req.Confirm); err != nil {
-			_ = opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
-		} else {
-			_ = opsMgr.Update(instanceName, opID, "completed", "Cluster reset completed", 100)
-		}
-	}()
-
-	respondJSON(w, http.StatusAccepted, map[string]string{
-		"operation_id": opID,
-		"message":      "Cluster reset initiated",
-	})
+	api.StartAsyncOperation(w, instanceName, "reset", instanceName,
+		func(opsMgr *operations.Manager, opID string) error {
+			clusterMgr := cluster.NewManager(api.dataDir, api.opsMgr)
+			return clusterMgr.Reset(instanceName, req.Confirm)
+		})
 }

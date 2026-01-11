@@ -11,46 +11,22 @@ import (
 
 // BackupAppStart starts a backup operation for an app
 func (api *API) BackupAppStart(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	mgr := backup.NewManager(api.dataDir)
-
-	// Create operation for tracking
-	opMgr := operations.NewManager(api.dataDir)
-	opID, err := opMgr.Start(instanceName, "backup", appName)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to start backup operation")
-		return
-	}
-
-	// Run backup in background
-	go func() {
-		_ = opMgr.UpdateProgress(instanceName, opID, 10, "Starting backup")
-
-		info, err := mgr.BackupApp(instanceName, appName)
-		if err != nil {
-			_ = opMgr.Update(instanceName, opID, "failed", err.Error(), 100)
-			return
-		}
-
-		_ = opMgr.Update(instanceName, opID, "completed", "Backup completed", 100)
-		_ = info // Metadata saved in backup.json
-	}()
-
-	respondJSON(w, http.StatusAccepted, map[string]interface{}{
-		"success":      true,
-		"operation_id": opID,
-		"message":      "Backup started",
-	})
+	api.StartAsyncOperation(w, instanceName, "backup", appName,
+		func(opsMgr *operations.Manager, opID string) error {
+			_ = opsMgr.UpdateProgress(instanceName, opID, 10, "Starting backup")
+			mgr := backup.NewManager(api.dataDir)
+			_, err := mgr.BackupApp(instanceName, appName)
+			return err
+		})
 }
 
 // BackupAppList lists all backups for an app
 func (api *API) BackupAppList(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
 	mgr := backup.NewManager(api.dataDir)
 	backups, err := mgr.ListBackups(instanceName, appName)
@@ -69,52 +45,27 @@ func (api *API) BackupAppList(w http.ResponseWriter, r *http.Request) {
 
 // BackupAppRestore restores an app from backup
 func (api *API) BackupAppRestore(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
 
-	// Parse request body for restore options
 	var opts backup.RestoreOptions
 	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
-		// Use defaults if no body provided
 		opts = backup.RestoreOptions{}
 	}
 
-	mgr := backup.NewManager(api.dataDir)
-
-	// Create operation for tracking
-	opMgr := operations.NewManager(api.dataDir)
-	opID, err := opMgr.Start(instanceName, "restore", appName)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to start restore operation")
-		return
-	}
-
-	// Run restore in background
-	go func() {
-		_ = opMgr.UpdateProgress(instanceName, opID, 10, "Starting restore")
-
-		if err := mgr.RestoreApp(instanceName, appName, opts); err != nil {
-			_ = opMgr.Update(instanceName, opID, "failed", err.Error(), 100)
-			return
-		}
-
-		_ = opMgr.Update(instanceName, opID, "completed", "Restore completed", 100)
-	}()
-
-	respondJSON(w, http.StatusAccepted, map[string]interface{}{
-		"success":      true,
-		"operation_id": opID,
-		"message":      "Restore started",
-	})
+	api.StartAsyncOperation(w, instanceName, "restore", appName,
+		func(opsMgr *operations.Manager, opID string) error {
+			_ = opsMgr.UpdateProgress(instanceName, opID, 10, "Starting restore")
+			mgr := backup.NewManager(api.dataDir)
+			return mgr.RestoreApp(instanceName, appName, opts)
+		})
 }
 
 // BackupAppDelete deletes a specific app backup
 func (api *API) BackupAppDelete(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	instanceName := vars["name"]
-	appName := vars["app"]
-	timestamp := vars["timestamp"]
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
+	timestamp := mux.Vars(r)["timestamp"]
 
 	mgr := backup.NewManager(api.dataDir)
 	if err := mgr.DeleteAppBackup(instanceName, appName, timestamp); err != nil {
