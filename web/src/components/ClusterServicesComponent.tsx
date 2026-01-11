@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Container, Shield, Network, Database, CheckCircle, AlertCircle, Terminal, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
+import { Container, Shield, Network, Database, CheckCircle, AlertCircle, Terminal, BookOpen, ExternalLink, Loader2, Activity, FileText, Settings, Trash2, Download } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useServices } from '../hooks/useServices';
 import type { Service } from '../services/api';
-import { ServiceDetailModal } from './services/ServiceDetailModal';
+import { ServiceStatusDialog } from './services/ServiceStatusDialog';
+import { ServiceLogsDialog } from './services/ServiceLogsDialog';
 import { ServiceConfigEditor } from './services/ServiceConfigEditor';
 import { Dialog, DialogContent } from './ui/dialog';
 import { usePageHelp } from '../hooks/usePageHelp';
@@ -25,7 +26,8 @@ export function ClusterServicesComponent() {
     isDeleting
   } = useServices(currentInstance);
 
-  const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [statusService, setStatusService] = useState<string | null>(null);
+  const [logsService, setLogsService] = useState<string | null>(null);
   const [configService, setConfigService] = useState<string | null>(null);
 
   usePageHelp({
@@ -214,73 +216,90 @@ export function ClusterServicesComponent() {
             <p className="text-muted-foreground">Loading services...</p>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {services.map((service) => (
-              <div key={service.name}>
-                <div className="flex items-center gap-4 p-4 rounded-lg border bg-card">
+              <Card key={service.name} className="p-4">
+                <div className="flex items-start gap-3">
                   <div className="p-2 bg-muted rounded-lg">
                     {getServiceIcon(service.name)}
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium">{service.name}</h3>
+                      <h3 className="font-medium truncate">{service.name}</h3>
                       {service.version && (
                         <Badge variant="outline" className="text-xs">
                           {service.version}
                         </Badge>
                       )}
                       {getStatusIcon(typeof service.status === 'string' ? service.status : service.status?.status)}
+                      {getStatusBadge(service)}
                     </div>
-                    <p className="text-sm text-muted-foreground">{service.description}</p>
+                    <p className="text-sm text-muted-foreground mb-2">{service.description}</p>
                     {typeof service.status === 'object' && service.status?.message && (
-                      <p className="text-xs text-muted-foreground mt-1">{service.status.message}</p>
+                      <p className="text-xs text-muted-foreground mb-2">{service.status.message}</p>
                     )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {getStatusBadge(service)}
-                    {((typeof service.status === 'string' && service.status === 'not-deployed') ||
-                      (!service.status || service.status === 'not-deployed') ||
-                      (typeof service.status === 'object' && service.status?.status === 'not-deployed')) && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleInstallService(service.name)}
-                        disabled={isInstalling}
-                      >
-                        {isInstalling ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Install'}
-                      </Button>
-                    )}
-                    {((typeof service.status === 'string' && ['deployed', 'degraded', 'progressing'].includes(service.status)) ||
-                      (typeof service.status === 'object' && ['deployed', 'degraded', 'progressing'].includes(service.status?.status || ''))) && (
-                      <>
+
+                    {/* Action buttons - horizontal layout with responsive icons */}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {((typeof service.status === 'string' && service.status === 'not-deployed') ||
+                        (!service.status || (typeof service.status === 'string' && service.status === 'not-deployed')) ||
+                        (typeof service.status === 'object' && service.status?.status === 'not-deployed')) && (
                         <Button
                           size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedService(service.name)}
+                          onClick={() => handleInstallService(service.name)}
+                          disabled={isInstalling}
                         >
-                          View
+                          {isInstalling ? <Loader2 className="h-4 w-4 animate-spin sm:mr-1" /> : <Download className="h-4 w-4 sm:mr-1" />}
+                          <span className="hidden sm:inline">Install</span>
                         </Button>
-                        {service.hasConfig && (
+                      )}
+                      {((typeof service.status === 'string' && ['deployed', 'degraded', 'progressing'].includes(service.status)) ||
+                        (typeof service.status === 'object' && ['deployed', 'degraded', 'progressing'].includes(service.status?.status || ''))) && (
+                        <>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setConfigService(service.name)}
+                            onClick={() => setStatusService(service.name)}
+                            title="Status"
                           >
-                            Configure
+                            <Activity className="h-4 w-4 sm:mr-1" />
+                            <span className="hidden sm:inline">Status</span>
                           </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteService(service.name)}
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
-                        </Button>
-                      </>
-                    )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setLogsService(service.name)}
+                            title="Logs"
+                          >
+                            <FileText className="h-4 w-4 sm:mr-1" />
+                            <span className="hidden sm:inline">Logs</span>
+                          </Button>
+                          {service.hasConfig && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setConfigService(service.name)}
+                              title="Configure"
+                            >
+                              <Settings className="h-4 w-4 sm:mr-1" />
+                              <span className="hidden sm:inline">Configure</span>
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteService(service.name)}
+                            disabled={isDeleting}
+                            title="Remove"
+                          >
+                            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
 
             {services.length === 0 && (
@@ -296,34 +315,21 @@ export function ClusterServicesComponent() {
         )}
       </Card>
 
-      <Card className="p-6">
-        <h3 className="text-lg font-medium mb-4">Cluster Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <div className="font-medium mb-2">Control Plane</div>
-            <div className="space-y-1 text-muted-foreground">
-              <div>• API Server: https://cluster.wildcloud.local:6443</div>
-              <div>• Nodes: 1 controller, 2 workers</div>
-              <div>• Version: Kubernetes v1.29.0</div>
-            </div>
-          </div>
-          <div>
-            <div className="font-medium mb-2">Network Configuration</div>
-            <div className="space-y-1 text-muted-foreground">
-              <div>• Pod CIDR: 10.244.0.0/16</div>
-              <div>• Service CIDR: 10.96.0.0/12</div>
-              <div>• CNI: Cilium v1.14.5</div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {selectedService && (
-        <ServiceDetailModal
+      {statusService && (
+        <ServiceStatusDialog
           instanceName={currentInstance}
-          serviceName={selectedService}
-          open={!!selectedService}
-          onClose={() => setSelectedService(null)}
+          serviceName={statusService}
+          open={!!statusService}
+          onClose={() => setStatusService(null)}
+        />
+      )}
+
+      {logsService && (
+        <ServiceLogsDialog
+          instanceName={currentInstance}
+          serviceName={logsService}
+          open={!!logsService}
+          onClose={() => setLogsService(null)}
         />
       )}
 
