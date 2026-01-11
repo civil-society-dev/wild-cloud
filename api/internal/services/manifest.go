@@ -15,6 +15,7 @@ import (
 type ServiceManifest struct {
 	Name             string                      `yaml:"name" json:"name"`
 	Description      string                      `yaml:"description" json:"description"`
+	Version          string                      `yaml:"version,omitempty" json:"version,omitempty"`
 	Namespace        string                      `yaml:"namespace" json:"namespace"`
 	DeploymentName   string                      `yaml:"deploymentName,omitempty" json:"deploymentName,omitempty"` // Optional: defaults to Name
 	Category         string                      `yaml:"category,omitempty" json:"category,omitempty"`

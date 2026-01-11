@@ -1,5 +1,6 @@
 name: longhorn
 description: Cloud-native distributed block storage for Kubernetes
+version: v1.8.1
 namespace: longhorn-system
 deploymentName: longhorn-ui
 category: infrastructure

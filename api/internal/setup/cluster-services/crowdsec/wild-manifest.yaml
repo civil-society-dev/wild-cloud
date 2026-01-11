@@ -1,5 +1,6 @@
 name: crowdsec
 description: CrowdSec security engine with Traefik bouncer for threat detection and rate limiting
+version: v1.6.3
 namespace: crowdsec
 category: infrastructure
 

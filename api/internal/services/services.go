@@ -51,6 +51,7 @@ func NewManager(dataDir string) *Manager {
 				manifests[serviceName] = &ServiceManifest{
 					Name:             manifest.Name,
 					Description:      manifest.Description,
+					Version:          manifest.Version,
 					Namespace:        manifest.Namespace,
 					DeploymentName:   manifest.DeploymentName,
 					Category:         manifest.Category,
@@ -86,7 +87,6 @@ var BaseServices = []string{
 	"cert-manager", // Certificate management
 	"longhorn",     // Storage
 }
-
 
 // checkServiceStatus checks the deployment status of a service
 // Returns: "not-deployed", "deployed", "degraded", or "progressing"
@@ -164,7 +164,7 @@ func (m *Manager) List(instanceName string) ([]Service, error) {
 		if manifest, ok := m.manifests[name]; ok {
 			namespace = manifest.Namespace
 			description = manifest.Description
-			version = manifest.Category // Using category as version for now
+			version = manifest.Version
 			dependencies = manifest.Dependencies
 			hasConfig = len(manifest.ServiceConfig) > 0
 		} else {

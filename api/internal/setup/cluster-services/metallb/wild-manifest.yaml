@@ -1,5 +1,6 @@
 name: metallb
 description: Bare metal load-balancer for Kubernetes
+version: v0.15.0
 namespace: metallb-system
 deploymentName: controller
 category: infrastructure

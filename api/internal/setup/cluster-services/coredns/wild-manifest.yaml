@@ -1,5 +1,6 @@
 name: coredns
 description: DNS server for internal cluster DNS resolution
+version: v1.12.0
 namespace: kube-system
 category: infrastructure
 

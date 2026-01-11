@@ -1,5 +1,6 @@
 name: traefik
 description: Cloud-native reverse proxy and ingress controller
+version: v3.4
 namespace: traefik
 category: infrastructure
 

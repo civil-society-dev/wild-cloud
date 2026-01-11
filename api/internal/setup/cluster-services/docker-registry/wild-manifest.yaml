@@ -1,5 +1,6 @@
 name: docker-registry
 description: Private Docker image registry for cluster
+version: "3.0.0"
 namespace: docker-registry
 category: infrastructure
 

@@ -1,5 +1,6 @@
 name: nfs
 description: NFS client provisioner for external NFS storage
+version: v4.0.18
 namespace: nfs
 category: infrastructure
 

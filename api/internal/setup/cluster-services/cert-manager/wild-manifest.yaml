@@ -1,5 +1,6 @@
 name: cert-manager
 description: X.509 certificate management for Kubernetes
+version: v1.17.2
 namespace: cert-manager
 category: infrastructure
 
