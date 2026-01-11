@@ -17,27 +17,75 @@ interface OutputLine {
   content: string;
 }
 
-const HISTORY_KEY = "wild-terminal-history";
 const MAX_HISTORY = 50;
+const MAX_OUTPUT_LINES = 1000;
+
+const getOutputKey = (instanceId: string) => `wild-terminal-output-${instanceId}`;
+const getHistoryKey = (instanceId: string) => `wild-terminal-history-${instanceId}`;
+
+const getWelcomeMessage = (): OutputLine[] => [
+  { type: "info", content: "Welcome to Wild Central Terminal. Type commands to execute on the server." },
+];
+
+const loadOutput = (instanceId: string): OutputLine[] => {
+  try {
+    const saved = localStorage.getItem(getOutputKey(instanceId));
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Ignore localStorage errors
+  }
+  return getWelcomeMessage();
+};
+
+const loadHistory = (instanceId: string): string[] => {
+  try {
+    const saved = localStorage.getItem(getHistoryKey(instanceId));
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveOutput = (instanceId: string, output: OutputLine[]) => {
+  try {
+    localStorage.setItem(getOutputKey(instanceId), JSON.stringify(output.slice(-MAX_OUTPUT_LINES)));
+  } catch {
+    // Ignore localStorage errors
+  }
+};
+
+const saveHistory = (instanceId: string, history: string[]) => {
+  try {
+    localStorage.setItem(getHistoryKey(instanceId), JSON.stringify(history.slice(-MAX_HISTORY)));
+  } catch {
+    // Ignore localStorage errors
+  }
+};
 
 export function Terminal() {
   const { instanceId } = useParams<{ instanceId: string }>();
   const [command, setCommand] = useState("");
-  const [output, setOutput] = useState<OutputLine[]>([
-    { type: "info", content: "Welcome to Wild Central Terminal. Type commands to execute on the server." },
-  ]);
-  const [history, setHistory] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem(HISTORY_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [output, setOutput] = useState<OutputLine[]>(() => loadOutput(instanceId || ''));
+  const [history, setHistory] = useState<string[]>(() => loadHistory(instanceId || ''));
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [copied, setCopied] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load state when instance changes
+  useEffect(() => {
+    if (instanceId) {
+      setOutput(loadOutput(instanceId));
+      setHistory(loadHistory(instanceId));
+      setHistoryIndex(-1);
+      setCommand("");
+    }
+  }, [instanceId]);
 
   // Auto-scroll to bottom when output changes
   useEffect(() => {
@@ -46,14 +94,19 @@ export function Terminal() {
     }
   }, [output]);
 
-  // Save history to localStorage
+  // Save output to localStorage when it changes
   useEffect(() => {
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-MAX_HISTORY)));
-    } catch {
-      // Ignore localStorage errors
+    if (instanceId) {
+      saveOutput(instanceId, output);
     }
-  }, [history]);
+  }, [instanceId, output]);
+
+  // Save history to localStorage when it changes
+  useEffect(() => {
+    if (instanceId) {
+      saveHistory(instanceId, history);
+    }
+  }, [instanceId, history]);
 
   const execMutation = useMutation({
     mutationFn: (cmd: string) => terminalApi.exec(instanceId || '', cmd),
@@ -96,6 +149,13 @@ export function Terminal() {
   const handleExecute = useCallback(() => {
     const trimmedCommand = command.trim();
     if (!trimmedCommand || execMutation.isPending) return;
+
+    // Handle client-side commands
+    if (trimmedCommand === "clear" || trimmedCommand === "cls") {
+      setOutput([]);
+      setCommand("");
+      return;
+    }
 
     // Add command to output
     setOutput((prev) => [

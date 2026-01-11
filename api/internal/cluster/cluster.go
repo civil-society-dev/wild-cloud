@@ -328,6 +328,13 @@ func (m *Manager) configureClusterAccess(instanceName, vip, opID string) error {
 		return fmt.Errorf("failed to set talosctl endpoint: %w\nOutput: %s", err, string(output))
 	}
 
+	// Set talosctl default node to VIP
+	cmdNode := exec.Command("talosctl", "config", "node", vip)
+	tools.WithTalosconfig(cmdNode, talosconfigPath)
+	if output, err := cmdNode.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set talosctl node: %w\nOutput: %s", err, string(output))
+	}
+
 	// Retrieve kubeconfig
 	cmdKubeconfig := exec.Command("talosctl", "kubeconfig", "--nodes", vip, kubeconfigPath)
 	tools.WithTalosconfig(cmdKubeconfig, talosconfigPath)

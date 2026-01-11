@@ -41,10 +41,6 @@ func (api *API) TerminalExec(w http.ResponseWriter, r *http.Request) {
 	instancePath := tools.GetInstancePath(api.dataDir, instanceName)
 	kubeconfigPath := tools.GetKubeconfigPath(api.dataDir, instanceName)
 	talosconfigPath := tools.GetTalosconfigPath(api.dataDir, instanceName)
-	configPath := tools.GetInstanceConfigPath(api.dataDir, instanceName)
-
-	// Get VIP for talosctl nodes
-	vip, _ := api.config.GetConfigValue(configPath, "cluster.nodes.control.vip")
 
 	cmd := exec.Command("/bin/sh", "-c", req.Command)
 
@@ -55,9 +51,6 @@ func (api *API) TerminalExec(w http.ResponseWriter, r *http.Request) {
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "KUBECONFIG="+kubeconfigPath)
 	cmd.Env = append(cmd.Env, "TALOSCONFIG="+talosconfigPath)
-	if vip != "" {
-		cmd.Env = append(cmd.Env, "TALOSCTL_NODES="+vip)
-	}
 	cmd.Env = append(cmd.Env, "WILD_INSTANCE="+instanceName)
 	cmd.Env = append(cmd.Env, "WILD_DATA_DIR="+api.dataDir)
 	cmd.Env = append(cmd.Env, "WILD_INSTANCE_DIR="+instancePath)
