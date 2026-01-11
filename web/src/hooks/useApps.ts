@@ -195,7 +195,7 @@ export function useAppRuntime(instanceName: string | null | undefined, appName: 
 export function useAppLogs(
   instanceName: string | null | undefined,
   appName: string | null | undefined,
-  params?: { tail?: number; sinceSeconds?: number; pod?: string }
+  params?: { tail?: number; sinceSeconds?: number; pod?: string; container?: string }
 ) {
   return useQuery({
     queryKey: ['instances', instanceName, 'apps', appName, 'logs', params],

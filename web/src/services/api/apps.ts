@@ -59,12 +59,13 @@ export const appsApi = {
   async getLogs(
     instanceName: string,
     appName: string,
-    params?: { tail?: number; sinceSeconds?: number; pod?: string }
+    params?: { tail?: number; sinceSeconds?: number; pod?: string; container?: string }
   ): Promise<LogEntry> {
     const queryParams = new URLSearchParams();
     if (params?.tail) queryParams.append('tail', params.tail.toString());
     if (params?.sinceSeconds) queryParams.append('sinceSeconds', params.sinceSeconds.toString());
     if (params?.pod) queryParams.append('pod', params.pod);
+    if (params?.container) queryParams.append('container', params.container);
 
     const query = queryParams.toString();
     return apiClient.get(`/api/v1/instances/${instanceName}/apps/${appName}/logs${query ? `?${query}` : ''}`);

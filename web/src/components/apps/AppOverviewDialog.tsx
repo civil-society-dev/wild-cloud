@@ -12,7 +12,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppEnhanced, useAppReadme } from '@/hooks/useApps';
 import {
-  RefreshCw,
   FileText,
   ExternalLink,
 } from 'lucide-react';
@@ -30,7 +29,7 @@ export function AppOverviewDialog({
   open,
   onClose,
 }: AppOverviewDialogProps) {
-  const { data: appDetails, isLoading, refetch } = useAppEnhanced(instanceName, appName);
+  const { data: appDetails, isLoading } = useAppEnhanced(instanceName, appName);
   const { data: readmeContent, isLoading: readmeLoading } = useAppReadme(instanceName, appName);
 
   const getStatusBadge = (status: string) => {
@@ -64,13 +63,6 @@ export function AppOverviewDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-
           {isLoading ? (
             <div className="space-y-4">
               <Skeleton className="h-32 w-full" />

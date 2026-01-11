@@ -71,14 +71,18 @@ func (m *Manager) GetDetailedStatus(instanceName, serviceName string) (*contract
 
 	if err == nil {
 		for _, podInfo := range podInfos {
+			// Get container names for this pod
+			containers, _ := kubectl.GetPodContainers(namespace, podInfo.Name)
+
 			pods = append(pods, contracts.PodStatus{
-				Name:     podInfo.Name,
-				Status:   podInfo.Status,
-				Ready:    podInfo.Ready,
-				Restarts: podInfo.Restarts,
-				Age:      podInfo.Age,
-				Node:     podInfo.Node,
-				IP:       podInfo.IP,
+				Name:       podInfo.Name,
+				Status:     podInfo.Status,
+				Ready:      podInfo.Ready,
+				Restarts:   podInfo.Restarts,
+				Age:        podInfo.Age,
+				Node:       podInfo.Node,
+				IP:         podInfo.IP,
+				Containers: containers,
 			})
 		}
 	}

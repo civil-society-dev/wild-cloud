@@ -12,7 +12,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppEnhanced } from '@/hooks/useApps';
 import { apiClient } from '@/services/api/client';
-import { RefreshCw } from 'lucide-react';
 
 interface AppConfigurationDialogProps {
   instanceName: string;
@@ -31,7 +30,7 @@ export function AppConfigurationDialog({
   const [secrets, setSecrets] = useState<Record<string, string>>({});
   const [loadingSecrets, setLoadingSecrets] = useState(false);
 
-  const { data: appDetails, isLoading, refetch } = useAppEnhanced(instanceName, appName);
+  const { data: appDetails, isLoading } = useAppEnhanced(instanceName, appName);
 
   useEffect(() => {
     if (showSecrets && Object.keys(secrets).length === 0) {
@@ -82,13 +81,6 @@ export function AppConfigurationDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-
           {isLoading ? (
             <div className="space-y-4">
               <Skeleton className="h-48 w-full" />

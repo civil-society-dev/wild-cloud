@@ -370,6 +370,7 @@ func (api *API) AppsGetLogs(w http.ResponseWriter, r *http.Request) {
 	tailStr := r.URL.Query().Get("tail")
 	sinceSecondsStr := r.URL.Query().Get("sinceSeconds")
 	podName := r.URL.Query().Get("pod")
+	containerName := r.URL.Query().Get("container")
 
 	tail := 100 // default
 	if tailStr != "" {
@@ -400,6 +401,7 @@ func (api *API) AppsGetLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logOpts := tools.LogOptions{
+		Container:    containerName,
 		Tail:         tail,
 		SinceSeconds: sinceSeconds,
 	}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,9 +8,17 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAppEnhanced, useAppLogs } from '@/hooks/useApps';
 import { RefreshCw } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AppLogsDialogProps {
   instanceName: string;
@@ -25,7 +33,12 @@ export function AppLogsDialog({
   open,
   onClose,
 }: AppLogsDialogProps) {
-  const [logParams, setLogParams] = useState({ tail: 100, sinceSeconds: 3600 });
+  const [logParams, setLogParams] = useState<{
+    tail: number;
+    sinceSeconds: number;
+    pod?: string;
+    container?: string;
+  }>({ tail: 100, sinceSeconds: 3600 });
 
   const { data: appDetails } = useAppEnhanced(instanceName, appName);
   const { data: logs, refetch: refetchLogs } = useAppLogs(
@@ -33,6 +46,39 @@ export function AppLogsDialog({
     appName,
     open ? logParams : undefined
   );
+
+  // Build a list of selectable "components" - each is a pod/container combination
+  // For apps like Mastodon where each pod has a different container, this gives us
+  // { label: "sidekiq", podName: "mastodon-sidekiq-xxx", containerName: "sidekiq" }
+  const components = useMemo(() => {
+    if (!appDetails?.runtime?.pods) return [];
+    const result: { label: string; podName: string; containerName: string }[] = [];
+    appDetails.runtime.pods.forEach((pod) => {
+      pod.containers?.forEach((c) => {
+        result.push({
+          label: c.name,
+          podName: pod.name,
+          containerName: c.name,
+        });
+      });
+    });
+    return result;
+  }, [appDetails?.runtime?.pods]);
+
+  // Track selected component index
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+
+  // Update logParams when selected component changes
+  useEffect(() => {
+    if (components.length > 0) {
+      const comp = components[selectedIndex] || components[0];
+      setLogParams((prev) => ({
+        ...prev,
+        pod: comp.podName,
+        container: comp.containerName,
+      }));
+    }
+  }, [components, selectedIndex]);
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'success' | 'destructive' | 'warning' | 'outline'> = {
@@ -65,23 +111,52 @@ export function AppLogsDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
-              <select
-                value={logParams.tail}
-                onChange={(e) => setLogParams({ ...logParams, tail: parseInt(e.target.value) })}
-                className="px-3 py-1 border rounded text-sm"
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="tail-select">Lines:</Label>
+              <Select
+                value={logParams.tail.toString()}
+                onValueChange={(v) => setLogParams({ ...logParams, tail: parseInt(v) })}
               >
-                <option value={50}>Last 50 lines</option>
-                <option value={100}>Last 100 lines</option>
-                <option value={200}>Last 200 lines</option>
-                <option value={500}>Last 500 lines</option>
-              </select>
+                <SelectTrigger id="tail-select" className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="200">200</SelectItem>
+                  <SelectItem value="500">500</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Button variant="outline" size="sm" onClick={() => refetchLogs()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+
+            {components.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Label htmlFor="component-select">Component:</Label>
+                <Select
+                  value={selectedIndex.toString()}
+                  onValueChange={(v) => setSelectedIndex(parseInt(v))}
+                >
+                  <SelectTrigger id="component-select" className="w-40">
+                    <SelectValue placeholder="Select component" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {components.map((comp, idx) => (
+                      <SelectItem key={`${comp.podName}-${comp.containerName}`} value={idx.toString()}>
+                        {comp.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="ml-auto">
+              <Button variant="outline" size="sm" onClick={() => refetchLogs()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
           </div>
 
           <Card>

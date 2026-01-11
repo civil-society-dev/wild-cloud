@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -38,10 +38,28 @@ export function ServiceLogsDialog({
   const [logs, setLogs] = useState<string[]>([]);
   const [follow, setFollow] = useState(false);
   const [tail, setTail] = useState(100);
+  const [container, setContainer] = useState<string | undefined>(undefined);
   const [autoScroll, setAutoScroll] = useState(true);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Extract unique container names from all pods
+  const containers = useMemo(() => {
+    if (!status?.pods) return [];
+    const containerSet = new Set<string>();
+    status.pods.forEach((pod) => {
+      pod.containers?.forEach((c: string) => containerSet.add(c));
+    });
+    return Array.from(containerSet);
+  }, [status?.pods]);
+
+  // Set default container when containers become available
+  useEffect(() => {
+    if (containers.length > 0 && !container) {
+      setContainer(containers[0]);
+    }
+  }, [containers, container]);
 
   // Scroll to bottom when logs change and autoScroll is enabled
   useEffect(() => {
@@ -54,7 +72,7 @@ export function ServiceLogsDialog({
   const fetchLogs = useCallback(async () => {
     if (!open) return;
     try {
-      const url = servicesApi.getLogsUrl(instanceName, serviceName, tail, false);
+      const url = servicesApi.getLogsUrl(instanceName, serviceName, tail, false, container);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to fetch logs: ${response.statusText}`);
@@ -70,14 +88,14 @@ export function ServiceLogsDialog({
       console.error('Error fetching logs:', error);
       setLogs([`Error: ${error instanceof Error ? error.message : 'Failed to fetch logs'}`]);
     }
-  }, [instanceName, serviceName, tail, open]);
+  }, [instanceName, serviceName, tail, open, container]);
 
   // Set up SSE streaming when follow is enabled
   useEffect(() => {
     if (!open) return;
 
     if (follow) {
-      const url = servicesApi.getLogsUrl(instanceName, serviceName, tail, true);
+      const url = servicesApi.getLogsUrl(instanceName, serviceName, tail, true, container);
       const eventSource = new EventSource(url);
       eventSourceRef.current = eventSource;
 
@@ -103,7 +121,7 @@ export function ServiceLogsDialog({
         eventSourceRef.current = null;
       }
     }
-  }, [follow, instanceName, serviceName, tail, open]);
+  }, [follow, instanceName, serviceName, tail, open, container]);
 
   // Fetch initial logs on mount and when parameters change
   useEffect(() => {
@@ -177,6 +195,24 @@ export function ServiceLogsDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {containers.length > 1 && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor="container-select">Container:</Label>
+              <Select value={container} onValueChange={setContainer}>
+                <SelectTrigger id="container-select" className="w-40">
+                  <SelectValue placeholder="Select container" />
+                </SelectTrigger>
+                <SelectContent>
+                  {containers.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <input

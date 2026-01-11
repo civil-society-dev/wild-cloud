@@ -26,13 +26,14 @@ type ConfigDefinition struct {
 
 // PodStatus represents the status of a single pod
 type PodStatus struct {
-	Name     string `json:"name"`         // Pod name
-	Status   string `json:"status"`       // Pod phase: Running, Pending, Failed, etc.
-	Ready    string `json:"ready"`        // Ready containers e.g. "1/1", "0/1"
-	Restarts int    `json:"restarts"`     // Container restart count
-	Age      string `json:"age"`          // Human-readable age e.g. "2h", "5m"
-	Node     string `json:"node"`         // Node name where pod is scheduled
-	IP       string `json:"ip,omitempty"` // Pod IP if available
+	Name       string   `json:"name"`                 // Pod name
+	Status     string   `json:"status"`               // Pod phase: Running, Pending, Failed, etc.
+	Ready      string   `json:"ready"`                // Ready containers e.g. "1/1", "0/1"
+	Restarts   int      `json:"restarts"`             // Container restart count
+	Age        string   `json:"age"`                  // Human-readable age e.g. "2h", "5m"
+	Node       string   `json:"node"`                 // Node name where pod is scheduled
+	IP         string   `json:"ip,omitempty"`         // Pod IP if available
+	Containers []string `json:"containers,omitempty"` // Container names in the pod
 }
 
 // DetailedServiceStatus provides comprehensive service status

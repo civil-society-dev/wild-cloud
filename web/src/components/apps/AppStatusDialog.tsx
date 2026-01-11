@@ -5,13 +5,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppEnhanced, useAppEvents } from '@/hooks/useApps';
 import {
-  RefreshCw,
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
@@ -29,7 +27,7 @@ export function AppStatusDialog({
   open,
   onClose,
 }: AppStatusDialogProps) {
-  const { data: appDetails, isLoading, refetch } = useAppEnhanced(instanceName, appName);
+  const { data: appDetails, isLoading } = useAppEnhanced(instanceName, appName);
   const { data: eventsData } = useAppEvents(instanceName, appName, 20);
 
   const getStatusBadge = (status: string) => {
@@ -72,13 +70,6 @@ export function AppStatusDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-
           {isLoading ? (
             <div className="space-y-4">
               <Skeleton className="h-32 w-full" />
