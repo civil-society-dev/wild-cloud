@@ -233,6 +233,9 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	// Network detection
 	r.HandleFunc("/api/v1/network/info", api.NetworkInfoHandler).Methods("GET")
 	r.HandleFunc("/api/v1/network/resolve", api.NetworkResolveHandler).Methods("GET")
+
+	// Terminal
+	r.HandleFunc("/api/v1/instances/{name}/terminal/exec", api.TerminalExec).Methods("POST")
 }
 
 // CreateInstance creates a new instance
