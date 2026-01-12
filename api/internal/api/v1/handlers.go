@@ -236,6 +236,7 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 
 	// Terminal
 	r.HandleFunc("/api/v1/instances/{name}/terminal/exec", api.TerminalExec).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/terminal/ws", api.TerminalWebSocket).Methods("GET")
 }
 
 // CreateInstance creates a new instance
