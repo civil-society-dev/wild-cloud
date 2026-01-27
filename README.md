@@ -1,14 +1,54 @@
 # Wild Cloud
 
-## Installing Wild Central
+Build your own private cloud for the price of a smartphone and an Internet connection.
 
-### APT Repository (Recommended)
+Wild Cloud is an open-source platform that lets you run your own data center on your local network. Host your applications, own your data, and stop renting from big tech.
+
+**[Get Started →](https://mywildcloud.org/get-started/)**
+
+## What You Get
+
+- **On your own domain** — Access your apps at `photos.yourcloud.com`, `notes.yourcloud.com`, etc.
+- **One-click app deployment** — Install self-hosted apps from the Wild Directory with minimal configuration
+- **Web-based management** — Configure and monitor everything through your browser
+- **Infrastructure-as-code** — All configuration stored in version-controlled YAML files for the technically inclined
+
+## How It Works
+
+Wild Cloud runs on a small management device called **Wild Central** (typically a Raspberry Pi) connected to your local network. Wild Central orchestrates a Kubernetes cluster running on additional compute nodes, handles DNS and networking, and provides the web interface for managing everything.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Your Network                           │
+│                                                             │
+│   ┌──────────────┐     ┌─────────────────────────────────┐  │
+│   │ Wild Central │────▶│    Kubernetes Cluster           │  │
+│   │  (Raspberry  │     │  ┌─────────┐ ┌─────────┐        │  │
+│   │     Pi)      │     │  │ Control │ │ Worker  │ ...    │  │
+│   └──────────────┘     │  │  Nodes  │ │  Nodes  │        │  │
+│         │              │  └─────────┘ └─────────┘        │  │
+│         ▼              └─────────────────────────────────┘  │
+│   Web UI / API                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Requirements
+
+- A **domain name** with DNS managed by Cloudflare
+- A **Wild Central device** — Raspberry Pi or similar (~$100)
+- **Compute nodes** — At least 3 control + 3 worker machines for a production cluster
+- Basic **networking gear** — Router, switch, and ideally a UPS
+
+See the [full hardware guide](https://mywildcloud.org/get-started/) for detailed recommendations.
+
+## Installation
+
+### On Debian/Ubuntu (Recommended)
 
 ```bash
-# Download and install GPG key
+# Add the Wild Cloud repository
 curl -fsSL https://mywildcloud.org/apt/wild-cloud-central.gpg | sudo tee /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg > /dev/null
 
-# Add repository (modern .sources format)
 sudo tee /etc/apt/sources.list.d/wild-cloud-central.sources << 'EOF'
 Types: deb
 URIs: https://mywildcloud.org/apt
@@ -17,87 +57,41 @@ Components: main
 Signed-By: /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg
 EOF
 
-# Update and install
+# Install
 sudo apt update
 sudo apt install wild-cloud-central
+
+# Start the service
+sudo systemctl enable --now wild-cloud-central
 ```
 
-### Manual Installation
+Then open `http://<your-server-ip>` in your browser to begin setup.
 
-Download the latest `.deb` package from the [releases page](https://github.com/wildcloud/wild-central/releases) and install:
+## Project Structure
 
-```bash
-sudo dpkg -i wild-cloud-central_*.deb
-sudo apt-get install -f  # Fix any dependency issues
-```
+This monorepo contains:
 
-## Quick Start
-
-1. **Configure the service** (optional):
-
-   ```bash
-   sudo cp /etc/wild-cloud-central/config.yaml.example /etc/wild-cloud-central/config.yaml
-   sudo nano /etc/wild-cloud-central/config.yaml
-   ```
-
-2. **Start the service**:
-
-   ```bash
-   sudo systemctl enable wild-cloud-central
-   sudo systemctl start wild-cloud-central
-   ```
-
-3. **Access the web interface**:
-   Open http://your-server-ip in your browser
-
-## Features
-
-- **Web Management Interface** - Browser-based configuration and monitoring
-- **REST API** - JSON API for programmatic management
-- **DNS/DHCP Services** - Integrated dnsmasq configuration management
-- **PXE Boot Support** - Automatic Talos Linux asset downloading and serving
-
-## Basic Configuration
-
-The service uses `/etc/wild-cloud-central/config.yaml` for configuration:
-
-```yaml
-cloud:
-  domain: "wildcloud.local"
-  dns:
-    ip: "192.168.8.50" # Your server's IP
-  dhcpRange: "192.168.8.100,192.168.8.200"
-
-cluster:
-  endpointIp: "192.168.8.60" # Talos cluster endpoint
-  nodes:
-    talos:
-      version: "v1.8.0" # Talos version to use
-```
-
-## Service Management
-
-```bash
-# Check status
-sudo systemctl status wild-cloud-central
-
-# View logs
-sudo journalctl -u wild-cloud-central -f
-
-# Restart service
-sudo systemctl restart wild-cloud-central
-
-# Stop service
-sudo systemctl stop wild-cloud-central
-```
-
-## Support
-
-- **Documentation**: See `docs/` directory for detailed guides
-- **Issues**: Report problems on the project issue tracker
-- **API Reference**: Available at `/api/v1/` endpoints when service is running
+| Component | Description |
+|-----------|-------------|
+| [api/](api/) | Wild Central API — the backend service that manages your cloud |
+| [cli/](cli/) | Command-line interface for terminal-based management |
+| [web/](web/) | Web application for browser-based management |
+| [dist/](dist/) | Packaging and distribution tooling |
+| [docs/](docs/) | Guides for maintenance, troubleshooting, and upgrades |
 
 ## Documentation
 
-- [Developer Guide](docs/DEVELOPER.md) - Development setup, testing, and API reference
-- [Maintainer Guide](docs/MAINTAINER.md) - Package management and repository deployment
+- **[Getting Started](https://mywildcloud.org/get-started/)** — Hardware setup and initial configuration
+- **[Developer Guide](docs/DEVELOPER.md)** — Contributing to Wild Cloud
+- **[Maintainer Guide](docs/MAINTAINER.md)** — Building and releasing packages
+
+## Community
+
+Wild Cloud is a project of the [Civil Society Technology Foundation](https://civilsociety.dev), built to empower communities with self-hosted infrastructure.
+
+- **Website**: [mywildcloud.org](https://mywildcloud.org)
+- **Issues**: Report bugs and request features on GitHub
+
+## License
+
+GNU AGPLv3 — see [LICENSE](LICENSE) for details.
