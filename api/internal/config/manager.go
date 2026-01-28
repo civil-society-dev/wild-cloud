@@ -33,48 +33,19 @@ func (m *Manager) EnsureInstanceConfig(instancePath string) error {
 		return nil
 	}
 
-	// Create minimal config structure
-	initialConfig := `# Wild Cloud Instance Configuration
-baseDomain: ""
-domain: ""
-internalDomain: ""
-dhcpRange: ""
-backup:
-  root: ""
-nfs:
-  host: ""
-  mediaPath: ""
-cluster:
-  name: ""
-  loadBalancerIp: ""
-  ipAddressPool: ""
-  hostnamePrefix: ""
-  certManager:
-    cloudflare:
-      domain: ""
-      zoneID: ""
-  externalDns:
-    ownerId: ""
-  nodes:
-    talos:
-      version: ""
-      schematicId: ""
-    control:
-      vip: ""
-    active: {}
-`
+	// Create minimal config structure using InstanceConfig model
+	initialConfig := &InstanceConfig{}
+	// Initialize nested maps
+	initialConfig.Cluster.Nodes.Active = make(map[string]NodeConfig)
+	initialConfig.Apps = make(map[string]interface{})
 
 	// Ensure instance directory exists
 	if err := storage.EnsureDir(instancePath, 0755); err != nil {
 		return err
 	}
 
-	// Write config with proper permissions
-	if err := storage.WriteFile(configPath, []byte(initialConfig), 0644); err != nil {
-		return err
-	}
-
-	return nil
+	// Save config using the model's save function
+	return SaveCloudConfig(initialConfig, configPath)
 }
 
 // GetConfigValue retrieves a value from a config file

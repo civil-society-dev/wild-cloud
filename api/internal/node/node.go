@@ -85,6 +85,10 @@ func (m *Manager) List(instanceName string) ([]Node, error) {
 	// Get all node hostnames from cluster.nodes.active
 	output, err := yq.Exec("eval", ".cluster.nodes.active | keys", configPath)
 	if err != nil {
+		// If the path doesn't exist or is null, return empty list
+		if strings.Contains(err.Error(), "cannot get keys") || strings.Contains(err.Error(), "!!null") {
+			return []Node{}, nil
+		}
 		return nil, fmt.Errorf("failed to read nodes: %w", err)
 	}
 

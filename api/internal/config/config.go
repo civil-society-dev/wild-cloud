@@ -101,46 +101,57 @@ type NodeConfig struct {
 }
 
 type InstanceConfig struct {
+	Operator struct {
+		Email string `yaml:"email" json:"email"`
+	} `yaml:"operator" json:"operator"`
 	Cloud struct {
-		Router struct {
-			IP string `yaml:"ip" json:"ip"`
-		} `yaml:"router" json:"router"`
-		DNS struct {
-			IP               string `yaml:"ip" json:"ip"`
-			ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
-		} `yaml:"dns" json:"dns"`
-		DHCPRange string `yaml:"dhcpRange" json:"dhcpRange"`
-		Dnsmasq   struct {
-			Interface string `yaml:"interface" json:"interface"`
-		} `yaml:"dnsmasq" json:"dnsmasq"`
 		BaseDomain     string `yaml:"baseDomain" json:"baseDomain"`
 		Domain         string `yaml:"domain" json:"domain"`
 		InternalDomain string `yaml:"internalDomain" json:"internalDomain"`
-		NFS            struct {
-			MediaPath       string `yaml:"mediaPath" json:"mediaPath"`
+		DHCPRange      string `yaml:"dhcpRange" json:"dhcpRange"`
+		DNS            struct {
+			IP               string `yaml:"ip" json:"ip"`
+			ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
+		} `yaml:"dns" json:"dns"`
+		Router struct {
+			IP         string `yaml:"ip" json:"ip"`
+			DynamicDns string `yaml:"dynamicDns,omitempty" json:"dynamicDns,omitempty"`
+		} `yaml:"router" json:"router"`
+		Dnsmasq struct {
+			Interface string `yaml:"interface" json:"interface"`
+		} `yaml:"dnsmasq" json:"dnsmasq"`
+		NFS struct {
 			Host            string `yaml:"host" json:"host"`
+			MediaPath       string `yaml:"mediaPath" json:"mediaPath"`
 			StorageCapacity string `yaml:"storageCapacity" json:"storageCapacity"`
 		} `yaml:"nfs" json:"nfs"`
 		DockerRegistryHost string `yaml:"dockerRegistryHost" json:"dockerRegistryHost"`
-		Backup             struct {
-			Root string `yaml:"root" json:"root"`
-		} `yaml:"backup" json:"backup"`
+		SMTP               struct {
+			Host     string `yaml:"host" json:"host"`
+			Port     string `yaml:"port" json:"port"`
+			User     string `yaml:"user" json:"user"`
+			From     string `yaml:"from" json:"from"`
+			TLS      string `yaml:"tls" json:"tls"`
+			StartTLS string `yaml:"startTls" json:"startTls"`
+		} `yaml:"smtp" json:"smtp"`
 	} `yaml:"cloud" json:"cloud"`
 	Cluster struct {
 		Name           string `yaml:"name" json:"name"`
 		LoadBalancerIp string `yaml:"loadBalancerIp" json:"loadBalancerIp"`
 		IpAddressPool  string `yaml:"ipAddressPool" json:"ipAddressPool"`
+		HostnamePrefix string `yaml:"hostnamePrefix" json:"hostnamePrefix"`
 		CertManager    struct {
 			Cloudflare struct {
 				Domain string `yaml:"domain" json:"domain"`
-				ZoneId string `yaml:"zoneId" json:"zoneId"`
 			} `yaml:"cloudflare" json:"cloudflare"`
 		} `yaml:"certManager" json:"certManager"`
 		ExternalDns struct {
 			OwnerId string `yaml:"ownerId" json:"ownerId"`
 		} `yaml:"externalDns" json:"externalDns"`
-		HostnamePrefix string `yaml:"hostnamePrefix" json:"hostnamePrefix"`
-		Nodes          struct {
+		DockerRegistry struct {
+			Storage string `yaml:"storage" json:"storage"`
+		} `yaml:"dockerRegistry" json:"dockerRegistry"`
+		Nodes struct {
 			Talos struct {
 				Version     string `yaml:"version" json:"version"`
 				SchematicId string `yaml:"schematicId" json:"schematicId"`
@@ -149,8 +160,9 @@ type InstanceConfig struct {
 				Vip string `yaml:"vip" json:"vip"`
 			} `yaml:"control" json:"control"`
 			Active map[string]NodeConfig `yaml:"active" json:"active"`
-		}
+		} `yaml:"nodes" json:"nodes"`
 	} `yaml:"cluster" json:"cluster"`
+	Apps map[string]interface{} `yaml:"apps" json:"apps"`
 }
 
 func LoadCloudConfig(configPath string) (*InstanceConfig, error) {

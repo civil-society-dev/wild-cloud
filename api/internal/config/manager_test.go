@@ -38,15 +38,32 @@ func TestEnsureInstanceConfig(t *testing.T) {
 			name: "returns nil when config exists",
 			setupFunc: func(t *testing.T, instancePath string) {
 				configPath := filepath.Join(instancePath, "config.yaml")
-				content := `baseDomain: "test.local"
-domain: "test"
-internalDomain: "internal.test"
-dhcpRange: ""
-backup:
-  root: ""
-nfs:
-  host: ""
-  mediaPath: ""
+				content := `operator:
+  email: ""
+cloud:
+  baseDomain: "test.local"
+  domain: "test"
+  internalDomain: "internal.test"
+  dhcpRange: ""
+  dns:
+    ip: ""
+    externalResolver: ""
+  router:
+    ip: ""
+  dnsmasq:
+    interface: ""
+  nfs:
+    host: ""
+    mediaPath: ""
+    storageCapacity: ""
+  dockerRegistryHost: ""
+  smtp:
+    host: ""
+    port: ""
+    user: ""
+    from: ""
+    tls: ""
+    startTls: ""
 cluster:
   name: ""
   loadBalancerIp: ""
@@ -55,16 +72,18 @@ cluster:
   certManager:
     cloudflare:
       domain: ""
-      zoneID: ""
   externalDns:
     ownerId: ""
+  dockerRegistry:
+    storage: ""
   nodes:
     talos:
       version: ""
       schematicId: ""
     control:
       vip: ""
-    activeNodes: []
+    active: {}
+apps: {}
 `
 				if err := storage.WriteFile(configPath, []byte(content), 0644); err != nil {
 					t.Fatalf("setup failed: %v", err)
@@ -121,13 +140,13 @@ cluster:
 				t.Errorf("config validation failed: %v", err)
 			}
 
-			// Verify config has expected structure
+			// Verify config has expected structure (canonical nested format)
 			content, err := storage.ReadFile(configPath)
 			if err != nil {
 				t.Fatalf("failed to read config: %v", err)
 			}
 			contentStr := string(content)
-			requiredFields := []string{"baseDomain:", "domain:", "cluster:", "backup:", "nfs:"}
+			requiredFields := []string{"operator:", "cloud:", "cluster:", "apps:"}
 			for _, field := range requiredFields {
 				if !strings.Contains(contentStr, field) {
 					t.Errorf("config missing required field: %s", field)
@@ -876,18 +895,24 @@ func TestEnsureInstanceConfig_RequiredFields(t *testing.T) {
 
 	contentStr := string(content)
 	requiredFields := []string{
+		"operator:",
+		"cloud:",
 		"baseDomain:",
 		"domain:",
 		"internalDomain:",
 		"dhcpRange:",
-		"backup:",
+		"dns:",
+		"router:",
+		"dnsmasq:",
 		"nfs:",
+		"smtp:",
 		"cluster:",
 		"loadBalancerIp:",
 		"ipAddressPool:",
 		"hostnamePrefix:",
 		"certManager:",
 		"externalDns:",
+		"dockerRegistry:",
 		"nodes:",
 		"talos:",
 		"version:",
@@ -895,6 +920,7 @@ func TestEnsureInstanceConfig_RequiredFields(t *testing.T) {
 		"control:",
 		"vip:",
 		"active:",
+		"apps:",
 	}
 
 	for _, field := range requiredFields {

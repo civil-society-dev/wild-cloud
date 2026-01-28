@@ -554,36 +554,12 @@ func TestSaveCloudConfig(t *testing.T) {
 	}{
 		{
 			name: "saves instance configuration",
-			config: &InstanceConfig{
-				Cloud: struct {
-					Router struct {
-						IP string `yaml:"ip" json:"ip"`
-					} `yaml:"router" json:"router"`
-					DNS struct {
-						IP               string `yaml:"ip" json:"ip"`
-						ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
-					} `yaml:"dns" json:"dns"`
-					DHCPRange string `yaml:"dhcpRange" json:"dhcpRange"`
-					Dnsmasq   struct {
-						Interface string `yaml:"interface" json:"interface"`
-					} `yaml:"dnsmasq" json:"dnsmasq"`
-					BaseDomain     string `yaml:"baseDomain" json:"baseDomain"`
-					Domain         string `yaml:"domain" json:"domain"`
-					InternalDomain string `yaml:"internalDomain" json:"internalDomain"`
-					NFS            struct {
-						MediaPath       string `yaml:"mediaPath" json:"mediaPath"`
-						Host            string `yaml:"host" json:"host"`
-						StorageCapacity string `yaml:"storageCapacity" json:"storageCapacity"`
-					} `yaml:"nfs" json:"nfs"`
-					DockerRegistryHost string `yaml:"dockerRegistryHost" json:"dockerRegistryHost"`
-					Backup             struct {
-						Root string `yaml:"root" json:"root"`
-					} `yaml:"backup" json:"backup"`
-				}{
-					BaseDomain: "example.com",
-					Domain:     "home",
-				},
-			},
+			config: func() *InstanceConfig {
+				cfg := &InstanceConfig{}
+				cfg.Cloud.BaseDomain = "example.com"
+				cfg.Cloud.Domain = "home"
+				return cfg
+			}(),
 			verify: func(t *testing.T, configPath string) {
 				content, err := os.ReadFile(configPath)
 				if err != nil {

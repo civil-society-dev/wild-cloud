@@ -81,6 +81,9 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}", api.GetInstance).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}", api.DeleteInstance).Methods("DELETE")
 
+	// Setup status
+	r.HandleFunc("/api/v1/instances/{name}/setup/status", api.GetSetupStatus).Methods("GET")
+
 	// Config management
 	r.HandleFunc("/api/v1/instances/{name}/config", api.GetConfig).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/config", api.UpdateConfig).Methods("PUT")
