@@ -16,7 +16,7 @@ export const operationsApi = {
 
   // SSE stream for operation updates
   createStream(instanceName: string, operationId: string): EventSource {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
     return new EventSource(`${baseUrl}/api/v1/instances/${instanceName}/operations/${operationId}/stream`);
   },
 };

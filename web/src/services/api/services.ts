@@ -48,7 +48,7 @@ export const servicesApi = {
 
   // Service logs
   getLogsUrl(instanceName: string, serviceName: string, tail?: number, follow?: boolean, container?: string): string {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
     const params = new URLSearchParams();
     if (tail) params.append('tail', tail.toString());
     if (follow) params.append('follow', 'true');

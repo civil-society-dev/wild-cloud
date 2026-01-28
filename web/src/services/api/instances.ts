@@ -40,7 +40,7 @@ export const instancesApi = {
   // Raw YAML config management (for advanced editor)
   async getConfigYaml(instanceName: string): Promise<string> {
     // Request YAML format via Accept header
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
     const url = `${baseUrl}/api/v1/instances/${instanceName}/config`;
     const response = await fetch(url, {
       headers: { 'Accept': 'application/yaml' }

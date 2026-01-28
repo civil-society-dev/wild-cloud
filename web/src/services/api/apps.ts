@@ -90,7 +90,7 @@ export const appsApi = {
 
   // README content
   async getReadme(instanceName: string, appName: string): Promise<string> {
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055'}/api/v1/instances/${instanceName}/apps/${appName}/readme`);
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055'}/api/v1/instances/${instanceName}/apps/${appName}/readme`);
     if (!response.ok) {
       if (response.status === 404) {
         return ''; // Return empty string if README not found

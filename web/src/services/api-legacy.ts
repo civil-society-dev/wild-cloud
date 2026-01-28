@@ -1,6 +1,6 @@
 import type { Status, ConfigResponse, Config, HealthResponse, StatusResponse, NetworkInfo, DnsmasqStatus, DnsmasqConfigResponse } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
 
 class ApiService {
   private baseUrl: string;

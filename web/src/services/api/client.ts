@@ -10,7 +10,7 @@ export class ApiError extends Error {
 }
 
 export class ApiClient {
-  constructor(private baseUrl: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055') {}
+  constructor(private baseUrl: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055') {}
 
   private async request<T>(
     endpoint: string,

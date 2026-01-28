@@ -8,7 +8,7 @@ interface XTerminalProps {
   instanceId: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5055';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
 
 // Storage keys for terminal history per instance
 const getHistoryKey = (instanceId: string) => `wild-terminal-history-${instanceId}`;
