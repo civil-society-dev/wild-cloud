@@ -8,18 +8,72 @@ case "$1" in
 
         # Create wildcloud user if it doesn't exist
         if ! id wildcloud >/dev/null 2>&1; then
-            useradd --system --home-dir /var/lib/wild-cloud-central --create-home --shell /bin/false wildcloud
+            useradd --system --home-dir /var/lib/wild-central --create-home --shell /bin/false wildcloud
+        fi
+
+        # Detect architecture
+        ARCH=$(dpkg --print-architecture)
+        if [ "$ARCH" = "amd64" ]; then
+            TALOS_ARCH="amd64"
+            KUBECTL_ARCH="amd64"
+        elif [ "$ARCH" = "arm64" ]; then
+            TALOS_ARCH="arm64"
+            KUBECTL_ARCH="arm64"
+        else
+            echo "Warning: Unsupported architecture $ARCH, skipping tool installations"
+            TALOS_ARCH=""
+            KUBECTL_ARCH=""
+        fi
+
+        # Install yq if not present
+        if ! command -v yq >/dev/null 2>&1 || ! yq --version | grep -q "mikefarah"; then
+            echo "Installing yq (mikefarah/yq)..."
+            YQ_VERSION="v4.50.1"
+            if [ -n "$ARCH" ]; then
+                wget -q "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" -O /usr/local/bin/yq
+                chmod +x /usr/local/bin/yq
+                echo "Installed yq $(yq --version)"
+            fi
+        else
+            echo "yq already installed: $(yq --version)"
+        fi
+
+        # Install talosctl if not present
+        if ! command -v talosctl >/dev/null 2>&1; then
+            echo "Installing talosctl..."
+            TALOS_VERSION="v1.11.5"
+            if [ -n "$TALOS_ARCH" ]; then
+                wget -q "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-${TALOS_ARCH}" -O /usr/local/bin/talosctl
+                chmod +x /usr/local/bin/talosctl
+                echo "Installed talosctl $(talosctl version --client --short)"
+            fi
+        else
+            echo "talosctl already installed: $(talosctl version --client --short 2>/dev/null || talosctl version --short)"
+        fi
+
+        # Install kubectl if not present
+        if ! command -v kubectl >/dev/null 2>&1; then
+            echo "Installing kubectl..."
+            KUBECTL_VERSION="v1.34.1"
+            if [ -n "$KUBECTL_ARCH" ]; then
+                wget -q "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${KUBECTL_ARCH}/kubectl" -O /usr/local/bin/kubectl
+                chmod +x /usr/local/bin/kubectl
+                echo "Installed kubectl $(kubectl version --client --short 2>/dev/null || kubectl version --client)"
+            fi
+        else
+            echo "kubectl already installed: $(kubectl version --client --short 2>/dev/null || kubectl version --client)"
         fi
 
         # Create required directories
-        mkdir -p /var/lib/wild-cloud-central
-        mkdir -p /var/log/wild-cloud-central
+        mkdir -p /var/lib/wild-central
+        mkdir -p /var/lib/wild-central/instances
+        mkdir -p /var/log/wild-central
         mkdir -p /var/www/html/talos
         mkdir -p /var/ftpd
 
         # Set ownership of wildcloud-managed files and directories
-        chown wildcloud:wildcloud /var/lib/wild-cloud-central
-        chown wildcloud:wildcloud /var/log/wild-cloud-central
+        chown -R wildcloud:wildcloud /var/lib/wild-central
+        chown wildcloud:wildcloud /var/log/wild-central
         
         # Force ownership of talos directory (critical for PXE assets)
         echo "Setting ownership of /var/www/html/talos/ to wildcloud"
@@ -90,6 +144,22 @@ polkit.addRule(function(action, subject) {
 POLKIT_EOF
         chmod 644 /etc/polkit-1/rules.d/50-wild-cloud-central.rules
         echo "Installed polkit rules for service management"
+
+        # Enable nginx site (disable default site, enable wild-central)
+        if [ -f /etc/nginx/sites-enabled/default ]; then
+            rm -f /etc/nginx/sites-enabled/default
+            echo "Disabled default nginx site"
+        fi
+        if [ ! -L /etc/nginx/sites-enabled/wild-central ]; then
+            ln -sf /etc/nginx/sites-available/wild-central /etc/nginx/sites-enabled/wild-central
+            echo "Enabled wild-central nginx site"
+        fi
+
+        # Reload nginx to pick up the new site
+        if systemctl is-active --quiet nginx; then
+            nginx -t && systemctl reload nginx
+            echo "Reloaded nginx configuration"
+        fi
 
         # Enable and start the service (skip in container environments)
         if [ -d /run/systemd/system ]; then

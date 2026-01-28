@@ -34,8 +34,8 @@ server {
         add_header Cache-Control "public, max-age=86400";
     }
 
-    # Static files
+    # Static files - SPA routing support
     location / {
-        try_files $uri $uri/ =404;
+        try_files $uri $uri/ /index.html;
     }
 }

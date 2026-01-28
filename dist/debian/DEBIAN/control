@@ -3,7 +3,7 @@ Version: VERSION_PLACEHOLDER
 Section: net
 Priority: optional
 Architecture: ARCH_PLACEHOLDER
-Depends: dnsmasq, nginx
+Pre-Depends: dnsmasq, nginx
 Maintainer: Wild Cloud Team <paul@payne.io>
 Description: Wild Cloud Central Management Service
  A web-based management service for wild-cloud infrastructure

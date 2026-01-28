@@ -47,9 +47,17 @@ echo "📦 Copying web app source from monorepo..."
 cp -r "$WEBAPP_SOURCE" "$SRC_DIR/web"
 cd "$SRC_DIR/web"
 
+# Remove any local env overrides that shouldn't be in the build
+rm -f .env.local .env.*.local
+
 # Build the web app
 echo "🔧 Building web application..."
 pnpm install --frozen-lockfile
+
+# For production builds, use empty base URL so the app uses relative paths
+# This allows nginx to proxy /api/* to the backend on whatever hostname is used
+echo "VITE_API_BASE_URL=" > .env.production.local
+
 # Build without type checking for packaging (production build doesn't need types)
 pnpm run build --mode production || {
     echo "⚠️  Build with type checking failed, trying without type check..."

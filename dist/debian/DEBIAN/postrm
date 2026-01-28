@@ -44,13 +44,19 @@ case "$1" in
         fi
 
         # Remove log directory
-        if [ -d /var/log/wild-cloud-central ]; then
-            rm -rf /var/log/wild-cloud-central
+        if [ -d /var/log/wild-central ]; then
+            rm -rf /var/log/wild-central
         fi
 
         # Remove lib directory
-        if [ -d /var/lib/wild-cloud-central ]; then
-            rm -rf /var/lib/wild-cloud-central
+        if [ -d /var/lib/wild-central ]; then
+            rm -rf /var/lib/wild-central
+        fi
+
+        # Remove nginx site
+        if [ -L /etc/nginx/sites-enabled/wild-central ]; then
+            rm -f /etc/nginx/sites-enabled/wild-central
+            echo "Disabled wild-central nginx site"
         fi
 
         # Remove wildcloud user
