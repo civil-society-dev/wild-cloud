@@ -6,6 +6,7 @@ import { Activity, Server, AlertCircle, RefreshCw, FileText, TrendingUp } from '
 import { useInstance, useInstanceOperations, useInstanceClusterHealth, useClusterStatus } from '../../services/api';
 import { OperationCard } from '../../components/operations/OperationCard';
 import { HealthIndicator } from '../../components/operations/HealthIndicator';
+import { SetupWizard } from '../../components/setup/SetupWizard';
 
 export function DashboardPage() {
   const { instanceId } = useParams<{ instanceId: string }>();
@@ -47,6 +48,9 @@ export function DashboardPage() {
           Refresh
         </Button>
       </div>
+
+      {/* Setup Wizard - shown if setup is not complete */}
+      <SetupWizard />
 
       {/* Status Cards Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

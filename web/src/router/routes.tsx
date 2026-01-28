@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router';
 import type { RouteObject } from 'react-router';
 import { InstanceLayout } from './InstanceLayout';
+import { PhaseGuard } from './PhaseGuard';
 import { LandingPage } from './pages/LandingPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -97,15 +98,27 @@ export const routes: RouteObject[] = [
       },
       {
         path: 'control',
-        element: <ControlNodesPage />,
+        element: (
+          <PhaseGuard requiredPhase="control-nodes">
+            <ControlNodesPage />
+          </PhaseGuard>
+        ),
       },
       {
         path: 'worker',
-        element: <WorkerNodesPage />,
+        element: (
+          <PhaseGuard requiredPhase="control-nodes">
+            <WorkerNodesPage />
+          </PhaseGuard>
+        ),
       },
       {
         path: 'cluster',
-        element: <ClusterPage />,
+        element: (
+          <PhaseGuard requiredPhase="cluster-services">
+            <ClusterPage />
+          </PhaseGuard>
+        ),
       },
       {
         path: 'apps',
@@ -116,11 +129,19 @@ export const routes: RouteObject[] = [
           },
           {
             path: 'available',
-            element: <AppsPage />,
+            element: (
+              <PhaseGuard requiredPhase="apps">
+                <AppsPage />
+              </PhaseGuard>
+            ),
           },
           {
             path: 'installed',
-            element: <AppsPage />,
+            element: (
+              <PhaseGuard requiredPhase="apps">
+                <AppsPage />
+              </PhaseGuard>
+            ),
           },
         ],
       },

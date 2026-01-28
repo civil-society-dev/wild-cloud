@@ -3,27 +3,21 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Cloud, HelpCircle, Edit2, Check, X, Loader2, AlertCircle } from "lucide-react";
 import { Input, Label } from "./ui";
-import { useInstanceConfig, useInstanceContext } from "../hooks";
+import { useInstanceConfig } from "../hooks";
+import { useParams } from "react-router";
 
 interface CloudConfig {
   domain: string;
   internalDomain: string;
   dhcpRange: string;
-  dns: {
-    ip: string;
-  };
-  router: {
-    ip: string;
-  };
-  dnsmasq: {
-    interface: string;
-  };
 }
 
 interface ClusterConfig {
-  endpointIp: string;
   hostnamePrefix?: string;
   nodes: {
+    control: {
+      vip: string;
+    };
     talos: {
       version: string;
     };
@@ -31,10 +25,12 @@ interface ClusterConfig {
 }
 
 export function CloudComponent() {
-  const { currentInstance } = useInstanceContext();
-  const { config: fullConfig, isLoading, error, updateConfig, isUpdating } = useInstanceConfig(currentInstance);
+  const { instanceId } = useParams<{ instanceId: string }>();
+  const { config: fullConfig, isLoading, error, updateConfig, isUpdating } = useInstanceConfig(instanceId);
 
-  // Extract cloud and cluster config from full config
+  console.log('CloudComponent:', { instanceId, fullConfig, isLoading, error });
+
+  // Extract cloud and cluster config from full config (canonical nested structure)
   const config = fullConfig?.cloud as CloudConfig | undefined;
   const clusterConfig = fullConfig?.cluster as ClusterConfig | undefined;
 
@@ -44,15 +40,15 @@ export function CloudComponent() {
   const [formValues, setFormValues] = useState<CloudConfig | null>(null);
   const [clusterFormValues, setClusterFormValues] = useState<ClusterConfig | null>(null);
 
-  // Sync form values when config loads
+  // Sync form values when config loads or instance changes
   useEffect(() => {
-    if (config && !formValues) {
+    if (config) {
       setFormValues(config as CloudConfig);
     }
-    if (clusterConfig && !clusterFormValues) {
+    if (clusterConfig) {
       setClusterFormValues(clusterConfig as ClusterConfig);
     }
-  }, [config, clusterConfig, formValues, clusterFormValues]);
+  }, [config, clusterConfig, instanceId]);
 
   const handleDomainsEdit = () => {
     if (config) {
@@ -72,16 +68,13 @@ export function CloudComponent() {
     if (!formValues || !fullConfig) return;
 
     try {
-      // Update only the cloud section, preserving other config sections
+      // Update cloud section with new domain values
       await updateConfig({
         ...fullConfig,
         cloud: {
+          ...fullConfig.cloud,
           domain: formValues.domain,
           internalDomain: formValues.internalDomain,
-          dhcpRange: formValues.dhcpRange,
-          dns: formValues.dns,
-          router: formValues.router,
-          dnsmasq: formValues.dnsmasq,
         },
       });
       setEditingDomains(false);
@@ -94,16 +87,12 @@ export function CloudComponent() {
     if (!formValues || !fullConfig) return;
 
     try {
-      // Update only the cloud section, preserving other config sections
+      // Update cloud section with new network values
       await updateConfig({
         ...fullConfig,
         cloud: {
-          domain: formValues.domain,
-          internalDomain: formValues.internalDomain,
+          ...fullConfig.cloud,
           dhcpRange: formValues.dhcpRange,
-          dns: formValues.dns,
-          router: formValues.router,
-          dnsmasq: formValues.dnsmasq,
         },
       });
       setEditingNetwork(false);
@@ -179,23 +168,37 @@ export function CloudComponent() {
     setClusterFormValues(prev => {
       if (!prev) return prev;
 
-      // Handle nested paths like "nodes.talos.version"
+      // Handle nested paths like "nodes.talos.version" or "nodes.control.vip"
       const keys = path.split('.');
       if (keys.length === 1) {
         return { ...prev, [keys[0]]: value };
       }
 
-      if (keys.length === 3 && keys[0] === 'nodes' && keys[1] === 'talos') {
-        return {
-          ...prev,
-          nodes: {
-            ...prev.nodes,
-            talos: {
-              ...prev.nodes.talos,
-              [keys[2]]: value,
+      if (keys.length === 3 && keys[0] === 'nodes') {
+        if (keys[1] === 'talos') {
+          return {
+            ...prev,
+            nodes: {
+              ...prev.nodes,
+              talos: {
+                ...prev.nodes.talos,
+                [keys[2]]: value,
+              },
             },
-          },
-        };
+          };
+        }
+        if (keys[1] === 'control') {
+          return {
+            ...prev,
+            nodes: {
+              ...prev.nodes,
+              control: {
+                ...prev.nodes.control,
+                [keys[2]]: value,
+              },
+            },
+          };
+        }
       }
 
       return prev;
@@ -203,7 +206,7 @@ export function CloudComponent() {
   };
 
   // Show message if no instance is selected
-  if (!currentInstance) {
+  if (!instanceId) {
     return (
       <Card className="p-8 text-center">
         <Cloud className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -383,36 +386,6 @@ export function CloudComponent() {
                     Format: start_ip,end_ip
                   </p>
                 </div>
-                <div>
-                  <Label htmlFor="dns-ip-edit">DNS Server IP</Label>
-                  <Input
-                    id="dns-ip-edit"
-                    value={formValues.dns.ip}
-                    onChange={(e) => updateFormValue('dns.ip', e.target.value)}
-                    placeholder="192.168.1.1"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="router-ip-edit">Router IP</Label>
-                  <Input
-                    id="router-ip-edit"
-                    value={formValues.router.ip}
-                    onChange={(e) => updateFormValue('router.ip', e.target.value)}
-                    placeholder="192.168.1.1"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="dnsmasq-interface-edit">Dnsmasq Interface</Label>
-                  <Input
-                    id="dnsmasq-interface-edit"
-                    value={formValues.dnsmasq.interface}
-                    onChange={(e) => updateFormValue('dnsmasq.interface', e.target.value)}
-                    placeholder="eth0"
-                    className="mt-1"
-                  />
-                </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleNetworkSave} disabled={isUpdating}>
                     {isUpdating ? (
@@ -439,24 +412,6 @@ export function CloudComponent() {
                   <Label>DHCP Range</Label>
                   <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
                     {formValues.dhcpRange}
-                  </div>
-                </div>
-                <div>
-                  <Label>DNS Server IP</Label>
-                  <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
-                    {formValues.dns.ip}
-                  </div>
-                </div>
-                <div>
-                  <Label>Router IP</Label>
-                  <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
-                    {formValues.router.ip}
-                  </div>
-                </div>
-                <div>
-                  <Label>Dnsmasq Interface</Label>
-                  <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
-                    {formValues.dnsmasq.interface}
                   </div>
                 </div>
               </div>
@@ -497,8 +452,8 @@ export function CloudComponent() {
                     <Label htmlFor="endpoint-ip-edit">Cluster Endpoint IP</Label>
                     <Input
                       id="endpoint-ip-edit"
-                      value={clusterFormValues.endpointIp}
-                      onChange={(e) => updateClusterFormValue('endpointIp', e.target.value)}
+                      value={clusterFormValues.nodes.control.vip}
+                      onChange={(e) => updateClusterFormValue('nodes.control.vip', e.target.value)}
                       placeholder="192.168.1.60"
                       className="mt-1"
                     />
@@ -557,7 +512,7 @@ export function CloudComponent() {
                   <div>
                     <Label>Cluster Endpoint IP</Label>
                     <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
-                      {clusterFormValues.endpointIp}
+                      {clusterFormValues.nodes.control.vip}
                     </div>
                   </div>
                   <div>

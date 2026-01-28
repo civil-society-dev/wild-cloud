@@ -402,7 +402,9 @@ export function ClusterNodesComponent({
             <Network className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold">Cluster Nodes</h2>
+            <h2 className="text-2xl font-semibold">
+              {filterRole === 'controlplane' ? 'Control Nodes' : filterRole === 'worker' ? 'Worker Nodes' : 'Cluster Nodes'}
+            </h2>
             <p className="text-muted-foreground">
               Connect machines to your wild-cloud
             </p>

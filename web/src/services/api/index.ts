@@ -12,6 +12,7 @@ export { utilitiesApi } from './utilities';
 export { pxeApi } from './pxe';
 export { assetsApi } from './assets';
 export { terminalApi } from './terminal';
+export * from './setup';
 
 // React Query hooks
 export { useInstance, useInstanceOperations, useInstanceClusterHealth } from './hooks/useInstance';
@@ -20,3 +21,4 @@ export { useClusterHealth, useClusterStatus, useClusterNodes } from './hooks/use
 export { useDashboardToken, useClusterVersions, useNodeIPs, useControlPlaneIP, useCopySecret } from './hooks/useUtilities';
 export { usePxeAssets, useDownloadPxeAsset, useDeletePxeAsset } from './hooks/usePxeAssets';
 export { useAssetList, useAsset, useAssetStatus, useDownloadAsset } from './hooks/useAssets';
+export { useSetupStatus } from './hooks/useSetup';

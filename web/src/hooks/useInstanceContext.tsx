@@ -1,4 +1,5 @@
-import { useState, createContext, useContext, ReactNode } from 'react';
+import { useState, createContext, useContext, ReactNode, useEffect } from 'react';
+import { useParams } from 'react-router';
 
 interface InstanceContextValue {
   currentInstance: string | null;
@@ -8,9 +9,18 @@ interface InstanceContextValue {
 const InstanceContext = createContext<InstanceContextValue | undefined>(undefined);
 
 export function InstanceProvider({ children }: { children: ReactNode }) {
+  const { instanceId } = useParams<{ instanceId: string }>();
   const [currentInstance, setCurrentInstanceState] = useState<string | null>(
     () => localStorage.getItem('currentInstance')
   );
+
+  // Sync context with URL params - URL is source of truth
+  useEffect(() => {
+    if (instanceId && instanceId !== currentInstance) {
+      setCurrentInstanceState(instanceId);
+      localStorage.setItem('currentInstance', instanceId);
+    }
+  }, [instanceId, currentInstance]);
 
   const setCurrentInstance = (name: string | null) => {
     setCurrentInstanceState(name);

@@ -1,5 +1,5 @@
 import { NavLink, useParams } from 'react-router';
-import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Usb, Download, CheckCircle, Archive, Cpu, HardDrive, TerminalSquare, Cog, LayoutDashboard } from 'lucide-react';
+import { Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Usb, Download, CheckCircle, Archive, Cpu, HardDrive, TerminalSquare, Cog, LayoutDashboard, Lock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   Sidebar,
@@ -17,10 +17,15 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { useTheme } from '../contexts/ThemeContext';
 import { InstanceSwitcher } from './InstanceSwitcher';
+import { useSetupStatus } from '../services/api';
 
 export function AppSidebar() {
   const { theme, setTheme } = useTheme();
   const { instanceId } = useParams<{ instanceId: string }>();
+  const { data: setupStatus } = useSetupStatus(instanceId || '', {
+    enabled: !!instanceId,
+    refetchInterval: 10000, // Poll every 10s in sidebar
+  });
 
   const cycleTheme = () => {
     if (theme === 'light') {
@@ -54,6 +59,26 @@ export function AppSidebar() {
     }
   };
 
+  const getPhaseStatus = (phase: string) => {
+    if (!setupStatus) return { available: true, complete: false };
+    const check = setupStatus.phaseChecks[phase];
+    return {
+      available: check?.available ?? true,
+      complete: check?.complete ?? false,
+    };
+  };
+
+  const renderPhaseIndicator = (phase: string) => {
+    const { available, complete } = getPhaseStatus(phase);
+    if (complete) {
+      return <CheckCircle className="h-3 w-3 text-green-500 ml-auto" />;
+    }
+    if (!available) {
+      return <Lock className="h-3 w-3 text-muted-foreground ml-auto" />;
+    }
+    return null;
+  };
+
   // If no instanceId, we're not in an instance context
   if (!instanceId) {
     return null;
@@ -70,52 +95,10 @@ export function AppSidebar() {
             <h2 className="text-lg font-bold text-foreground">Wild Cloud</h2>
           </div>
         </div>
-        <div className="px-2 group-data-[collapsible=icon]:px-2">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <InstanceSwitcher />
-            </div>
-            <NavLink to={`/instances/${instanceId}/cloud`}>
-              {({ isActive }) => (
-                <SidebarMenuButton
-                  isActive={isActive}
-                  tooltip="Configure instance settings"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                >
-                  <Settings className="h-4 w-4" />
-                </SidebarMenuButton>
-              )}
-            </NavLink>
-          </div>
-        </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <NavLink to={`/instances/${instanceId}/dashboard`}>
-              {({ isActive }) => (
-                <SidebarMenuButton
-                  isActive={isActive}
-                  tooltip="Instance dashboard and overview"
-                >
-                  <div className={cn(
-                    "p-1 rounded-md",
-                    isActive && "bg-primary/10"
-                  )}>
-                    <CloudLightning className={cn(
-                      "h-4 w-4",
-                      isActive && "text-primary",
-                      !isActive && "text-muted-foreground"
-                    )} />
-                  </div>
-                  <span className="truncate">Dashboard</span>
-                </SidebarMenuButton>
-              )}
-            </NavLink>
-          </SidebarMenuItem>
-
           <Collapsible defaultOpen className="group/collapsible">
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
@@ -149,6 +132,17 @@ export function AppSidebar() {
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
 
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <NavLink to={`/instances/${instanceId}/iso`}>
+                        <div className="p-1 rounded-md">
+                          <Usb className="h-4 w-4" />
+                        </div>
+                        <span className="truncate">ISO / USB</span>
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+
                   {/* <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
                       <NavLink to={`/instances/${instanceId}/dhcp`}>
@@ -175,6 +169,52 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </Collapsible>
 
+          {/* Instance Selector and Configuration */}
+          <SidebarMenuItem>
+            <div className="px-2 py-2">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <InstanceSwitcher />
+                </div>
+                <NavLink to={`/instances/${instanceId}/cloud`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      tooltip="Configure instance settings"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </div>
+            </div>
+          </SidebarMenuItem>
+
+          <SidebarMenuItem>
+            <NavLink to={`/instances/${instanceId}/dashboard`}>
+              {({ isActive }) => (
+                <SidebarMenuButton
+                  isActive={isActive}
+                  tooltip="Instance dashboard and overview"
+                >
+                  <div className={cn(
+                    "p-1 rounded-md",
+                    isActive && "bg-primary/10"
+                  )}>
+                    <CloudLightning className={cn(
+                      "h-4 w-4",
+                      isActive && "text-primary",
+                      !isActive && "text-muted-foreground"
+                    )} />
+                  </div>
+                  <span className="truncate">Dashboard</span>
+                </SidebarMenuButton>
+              )}
+            </NavLink>
+          </SidebarMenuItem>
+
           <Collapsible defaultOpen className="group/collapsible">
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
@@ -193,6 +233,7 @@ export function AppSidebar() {
                           <Cpu className="h-4 w-4" />
                         </div>
                         <span className="truncate">Control Nodes</span>
+                        {renderPhaseIndicator('control-nodes')}
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
@@ -204,6 +245,7 @@ export function AppSidebar() {
                           <HardDrive className="h-4 w-4" />
                         </div>
                         <span className="truncate">Worker Nodes</span>
+                        {renderPhaseIndicator('control-nodes')}
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
@@ -215,17 +257,7 @@ export function AppSidebar() {
                           <Container className="h-4 w-4" />
                         </div>
                         <span className="truncate">Cluster Services</span>
-                      </NavLink>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <NavLink to={`/instances/${instanceId}/iso`}>
-                        <div className="p-1 rounded-md">
-                          <Usb className="h-4 w-4" />
-                        </div>
-                        <span className="truncate">ISO / USB</span>
+                        {renderPhaseIndicator('cluster-services')}
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
@@ -252,6 +284,7 @@ export function AppSidebar() {
                           <Download className="h-4 w-4" />
                         </div>
                         <span className="truncate">Available</span>
+                        {renderPhaseIndicator('apps')}
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
@@ -263,6 +296,7 @@ export function AppSidebar() {
                           <CheckCircle className="h-4 w-4" />
                         </div>
                         <span className="truncate">Installed</span>
+                        {renderPhaseIndicator('apps')}
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>

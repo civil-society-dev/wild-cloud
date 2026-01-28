@@ -1,32 +1,39 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clusterApi } from '../services/api';
+import { useSetupStatus } from '../services/api';
 import type { ClusterConfig } from '../services/api';
 
 export function useCluster(instanceName: string | null | undefined) {
   const queryClient = useQueryClient();
+  const { data: setupStatus } = useSetupStatus(instanceName || '', { enabled: !!instanceName });
+
+  // Only fetch cluster data if bootstrap phase is complete
+  const isBootstrapped = setupStatus?.phaseChecks?.bootstrap?.complete ?? false;
 
   const statusQuery = useQuery({
     queryKey: ['instances', instanceName, 'cluster', 'status'],
     queryFn: () => clusterApi.getStatus(instanceName!),
-    enabled: !!instanceName,
+    enabled: !!instanceName && isBootstrapped,
   });
 
   const healthQuery = useQuery({
     queryKey: ['instances', instanceName, 'cluster', 'health'],
     queryFn: () => clusterApi.getHealth(instanceName!),
-    enabled: !!instanceName,
+    enabled: !!instanceName && isBootstrapped,
   });
 
   const kubeconfigQuery = useQuery({
     queryKey: ['instances', instanceName, 'cluster', 'kubeconfig'],
     queryFn: () => clusterApi.getKubeconfig(instanceName!),
-    enabled: !!instanceName,
+    enabled: !!instanceName && isBootstrapped,
+    retry: false,
   });
 
   const talosconfigQuery = useQuery({
     queryKey: ['instances', instanceName, 'cluster', 'talosconfig'],
     queryFn: () => clusterApi.getTalosconfig(instanceName!),
-    enabled: !!instanceName,
+    enabled: !!instanceName && isBootstrapped,
+    retry: false,
   });
 
   const generateConfigMutation = useMutation({
