@@ -44,7 +44,7 @@ func (m *Manager) Initialize() error {
 		}
 		log.Printf("Running in development mode, using data directory: %s", dataDir)
 	} else {
-		dataDir = "/var/lib/wild-cloud-central"
+		dataDir = "/var/lib/wild-central"
 		log.Printf("Running in production mode, using data directory: %s", dataDir)
 	}
 

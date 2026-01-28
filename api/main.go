@@ -86,25 +86,43 @@ func main() {
 	}).Methods("GET")
 
 	// Configure CORS
-	// Default to development origins
-	allowedOrigins := []string{
-		"http://localhost:5173", // Vite dev server
-		"http://localhost:5174", // Alternative port
-		"http://localhost:3000", // Common React dev port
-		"http://127.0.0.1:5173",
-		"http://127.0.0.1:5174",
-		"http://127.0.0.1:3000",
-		"http://wild-central:5173",
-		"http://wild-central.lan:5173",
-	}
+	var allowedOrigins []string
 
-	// Override with production origins if set
 	if corsOrigins := os.Getenv("WILD_CORS_ORIGINS"); corsOrigins != "" {
-		// Split comma-separated origins
+		// Use explicitly configured origins
 		allowedOrigins = splitAndTrim(corsOrigins, ",")
-		log.Printf("CORS configured for production origins: %v", allowedOrigins)
+		log.Printf("CORS configured with explicit origins: %v", allowedOrigins)
 	} else {
-		log.Printf("CORS configured for development origins")
+		// Auto-detect origins based on hostname
+		allowedOrigins = []string{
+			"http://localhost",
+			"http://localhost:80",
+			"http://127.0.0.1",
+			"http://127.0.0.1:80",
+		}
+
+		// Add machine hostname (for production access via nginx)
+		if hostname, err := os.Hostname(); err == nil && hostname != "" {
+			allowedOrigins = append(allowedOrigins,
+				fmt.Sprintf("http://%s", hostname),
+				fmt.Sprintf("http://%s:80", hostname),
+				fmt.Sprintf("http://%s.local", hostname),
+				fmt.Sprintf("http://%s.lan", hostname),
+			)
+			log.Printf("Added hostname-based CORS origins for: %s", hostname)
+		}
+
+		// Add development server ports
+		allowedOrigins = append(allowedOrigins,
+			"http://localhost:5173",
+			"http://localhost:5174",
+			"http://localhost:3000",
+			"http://127.0.0.1:5173",
+			"http://127.0.0.1:5174",
+			"http://127.0.0.1:3000",
+		)
+
+		log.Printf("CORS configured with auto-detected origins: %v", allowedOrigins)
 	}
 
 	corsHandler := cors.New(cors.Options{
@@ -141,7 +159,6 @@ func main() {
 	log.Printf("Starting wild-central daemon on %s", addr)
 	log.Printf("Data directory: %s", dataDir)
 	log.Printf("Apps directory: %s", appsDir)
-	log.Printf("CORS enabled for development origins")
 
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)

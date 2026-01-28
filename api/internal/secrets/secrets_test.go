@@ -195,7 +195,7 @@ certManager:
 				t.Fatalf("failed to read secrets: %v", err)
 			}
 			contentStr := string(content)
-			requiredFields := []string{"cluster:", "certManager:"}
+			requiredFields := []string{"cluster:", "cloudflare:"}
 			for _, field := range requiredFields {
 				if !strings.Contains(contentStr, field) {
 					t.Errorf("secrets missing required field: %s", field)
@@ -905,9 +905,8 @@ func TestEnsureSecretsFile_RequiredFields(t *testing.T) {
 		"cluster:",
 		"talosSecrets:",
 		"kubeconfig:",
-		"certManager:",
 		"cloudflare:",
-		"apiToken:",
+		"token:",
 	}
 
 	for _, field := range requiredFields {

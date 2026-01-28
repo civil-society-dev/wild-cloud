@@ -148,7 +148,7 @@ type InstanceConfig struct {
 			Control struct {
 				Vip string `yaml:"vip" json:"vip"`
 			} `yaml:"control" json:"control"`
-			ActiveNodes []map[string]NodeConfig `yaml:"activeNodes" json:"activeNodes"`
+			Active map[string]NodeConfig `yaml:"active" json:"active"`
 		}
 	} `yaml:"cluster" json:"cluster"`
 }

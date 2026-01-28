@@ -102,6 +102,7 @@ func TestDnsmasqGenerate_WithOverwrite(t *testing.T) {
 	instanceConfig := config.InstanceConfig{}
 	instanceConfig.Cloud.Domain = "test.local"
 	instanceConfig.Cloud.InternalDomain = "internal.test.local"
+	instanceConfig.Cluster.LoadBalancerIp = "192.168.1.80"
 	instanceConfigPath := api.instance.GetInstanceConfigPath(instanceName)
 	instanceConfigData, _ := yaml.Marshal(instanceConfig)
 	storage.WriteFile(instanceConfigPath, instanceConfigData, 0644)
@@ -136,8 +137,9 @@ func TestDnsmasqGenerate_WithOverwrite(t *testing.T) {
 	if !strings.Contains(configStr, "internal.test.local") {
 		t.Fatal("Expected config to contain internal.test.local domain")
 	}
-	if !strings.Contains(configStr, "192.168.1.100") {
-		t.Fatal("Expected config to contain DNS IP")
+	// Check for load balancer IP in resolution section (DNS IP is auto-detected from network)
+	if !strings.Contains(configStr, "192.168.1.80") {
+		t.Fatal("Expected config to contain load balancer IP")
 	}
 }
 

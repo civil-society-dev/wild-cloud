@@ -191,17 +191,17 @@ func TestSaveGlobalConfig(t *testing.T) {
 			name: "saves complete configuration",
 			config: &GlobalConfig{
 				Wildcloud: struct {
-					Repository      string   `yaml:"repository" json:"repository"`
-					CurrentPhase    string   `yaml:"currentPhase" json:"currentPhase"`
-					CompletedPhases []string `yaml:"completedPhases" json:"completedPhases"`
+					Repository      string   `yaml:"repository,omitempty" json:"repository,omitempty"`
+					CurrentPhase    string   `yaml:"currentPhase,omitempty" json:"currentPhase,omitempty"`
+					CompletedPhases []string `yaml:"completedPhases,omitempty" json:"completedPhases,omitempty"`
 				}{
 					Repository:      "https://github.com/example/repo",
 					CurrentPhase:    "setup",
 					CompletedPhases: []string{"phase1", "phase2"},
 				},
 				Server: struct {
-					Port int    `yaml:"port" json:"port"`
-					Host string `yaml:"host" json:"host"`
+					Port int    `yaml:"port,omitempty" json:"port,omitempty"`
+					Host string `yaml:"host,omitempty" json:"host,omitempty"`
 				}{
 					Port: 8080,
 					Host: "localhost",
@@ -317,20 +317,20 @@ func TestGlobalConfig_IsEmpty(t *testing.T) {
 			config: &GlobalConfig{
 				Cloud: struct {
 					DNS struct {
-						IP               string `yaml:"ip" json:"ip"`
-						ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
-					} `yaml:"dns" json:"dns"`
+						IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
+						ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
+					} `yaml:"dns,omitempty" json:"dns,omitempty"`
 					Router struct {
-						IP         string `yaml:"ip" json:"ip"`
-						DynamicDns string `yaml:"dynamicDns" json:"dynamicDns"`
-					} `yaml:"router" json:"router"`
+						IP         string `yaml:"ip,omitempty" json:"ip,omitempty"`
+						DynamicDns string `yaml:"dynamicDns,omitempty" json:"dynamicDns,omitempty"`
+					} `yaml:"router,omitempty" json:"router,omitempty"`
 					Dnsmasq struct {
-						Interface string `yaml:"interface" json:"interface"`
-					} `yaml:"dnsmasq" json:"dnsmasq"`
+						Interface string `yaml:"interface,omitempty" json:"interface,omitempty"`
+					} `yaml:"dnsmasq,omitempty" json:"dnsmasq,omitempty"`
 				}{
 					DNS: struct {
-						IP               string `yaml:"ip" json:"ip"`
-						ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
+						IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
+						ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
 					}{
 						IP: "192.168.1.1",
 					},
@@ -342,20 +342,20 @@ func TestGlobalConfig_IsEmpty(t *testing.T) {
 			name: "config with only Talos version is empty",
 			config: &GlobalConfig{
 				Cluster: struct {
-					EndpointIP string `yaml:"endpointIp" json:"endpointIp"`
+					EndpointIP string `yaml:"endpointIp,omitempty" json:"endpointIp,omitempty"`
 					Nodes      struct {
 						Talos struct {
-							Version string `yaml:"version" json:"version"`
-						} `yaml:"talos" json:"talos"`
-					} `yaml:"nodes" json:"nodes"`
+							Version string `yaml:"version,omitempty" json:"version,omitempty"`
+						} `yaml:"talos,omitempty" json:"talos,omitempty"`
+					} `yaml:"nodes,omitempty" json:"nodes,omitempty"`
 				}{
 					Nodes: struct {
 						Talos struct {
-							Version string `yaml:"version" json:"version"`
-						} `yaml:"talos" json:"talos"`
+							Version string `yaml:"version,omitempty" json:"version,omitempty"`
+						} `yaml:"talos,omitempty" json:"talos,omitempty"`
 					}{
 						Talos: struct {
-							Version string `yaml:"version" json:"version"`
+							Version string `yaml:"version,omitempty" json:"version,omitempty"`
 						}{
 							Version: "v1.8.0",
 						},
@@ -369,39 +369,39 @@ func TestGlobalConfig_IsEmpty(t *testing.T) {
 			config: &GlobalConfig{
 				Cloud: struct {
 					DNS struct {
-						IP               string `yaml:"ip" json:"ip"`
-						ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
-					} `yaml:"dns" json:"dns"`
+						IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
+						ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
+					} `yaml:"dns,omitempty" json:"dns,omitempty"`
 					Router struct {
-						IP         string `yaml:"ip" json:"ip"`
-						DynamicDns string `yaml:"dynamicDns" json:"dynamicDns"`
-					} `yaml:"router" json:"router"`
+						IP         string `yaml:"ip,omitempty" json:"ip,omitempty"`
+						DynamicDns string `yaml:"dynamicDns,omitempty" json:"dynamicDns,omitempty"`
+					} `yaml:"router,omitempty" json:"router,omitempty"`
 					Dnsmasq struct {
-						Interface string `yaml:"interface" json:"interface"`
-					} `yaml:"dnsmasq" json:"dnsmasq"`
+						Interface string `yaml:"interface,omitempty" json:"interface,omitempty"`
+					} `yaml:"dnsmasq,omitempty" json:"dnsmasq,omitempty"`
 				}{
 					DNS: struct {
-						IP               string `yaml:"ip" json:"ip"`
-						ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
+						IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
+						ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
 					}{
 						IP: "192.168.1.1",
 					},
 				},
 				Cluster: struct {
-					EndpointIP string `yaml:"endpointIp" json:"endpointIp"`
+					EndpointIP string `yaml:"endpointIp,omitempty" json:"endpointIp,omitempty"`
 					Nodes      struct {
 						Talos struct {
-							Version string `yaml:"version" json:"version"`
-						} `yaml:"talos" json:"talos"`
-					} `yaml:"nodes" json:"nodes"`
+							Version string `yaml:"version,omitempty" json:"version,omitempty"`
+						} `yaml:"talos,omitempty" json:"talos,omitempty"`
+					} `yaml:"nodes,omitempty" json:"nodes,omitempty"`
 				}{
 					Nodes: struct {
 						Talos struct {
-							Version string `yaml:"version" json:"version"`
-						} `yaml:"talos" json:"talos"`
+							Version string `yaml:"version,omitempty" json:"version,omitempty"`
+						} `yaml:"talos,omitempty" json:"talos,omitempty"`
 					}{
 						Talos: struct {
-							Version string `yaml:"version" json:"version"`
+							Version string `yaml:"version,omitempty" json:"version,omitempty"`
 						}{
 							Version: "v1.8.0",
 						},
@@ -637,23 +637,23 @@ func TestGlobalConfig_RoundTrip(t *testing.T) {
 	// Create config with all fields
 	original := &GlobalConfig{
 		Wildcloud: struct {
-			Repository      string   `yaml:"repository" json:"repository"`
-			CurrentPhase    string   `yaml:"currentPhase" json:"currentPhase"`
-			CompletedPhases []string `yaml:"completedPhases" json:"completedPhases"`
+			Repository      string   `yaml:"repository,omitempty" json:"repository,omitempty"`
+			CurrentPhase    string   `yaml:"currentPhase,omitempty" json:"currentPhase,omitempty"`
+			CompletedPhases []string `yaml:"completedPhases,omitempty" json:"completedPhases,omitempty"`
 		}{
 			Repository:      "https://github.com/example/repo",
 			CurrentPhase:    "setup",
 			CompletedPhases: []string{"phase1", "phase2"},
 		},
 		Server: struct {
-			Port int    `yaml:"port" json:"port"`
-			Host string `yaml:"host" json:"host"`
+			Port int    `yaml:"port,omitempty" json:"port,omitempty"`
+			Host string `yaml:"host,omitempty" json:"host,omitempty"`
 		}{
 			Port: 8080,
 			Host: "localhost",
 		},
 		Operator: struct {
-			Email string `yaml:"email" json:"email"`
+			Email string `yaml:"email,omitempty" json:"email,omitempty"`
 		}{
 			Email: "admin@example.com",
 		},

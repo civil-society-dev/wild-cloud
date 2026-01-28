@@ -894,7 +894,7 @@ func TestEnsureInstanceConfig_RequiredFields(t *testing.T) {
 		"schematicId:",
 		"control:",
 		"vip:",
-		"activeNodes:",
+		"active:",
 	}
 
 	for _, field := range requiredFields {

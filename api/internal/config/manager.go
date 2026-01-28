@@ -61,7 +61,7 @@ cluster:
       schematicId: ""
     control:
       vip: ""
-    activeNodes: []
+    active: {}
 `
 
 	// Ensure instance directory exists

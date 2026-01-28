@@ -90,7 +90,8 @@ func (m *Manager) List(instanceName string) ([]Node, error) {
 
 	// Parse hostnames (yq returns YAML array)
 	hostnamesYAML := string(output)
-	if hostnamesYAML == "" || hostnamesYAML == "null\n" {
+	hostnamesYAML = strings.TrimSpace(hostnamesYAML)
+	if hostnamesYAML == "" || hostnamesYAML == "null" || hostnamesYAML == "[]" {
 		return []Node{}, nil
 	}
 
