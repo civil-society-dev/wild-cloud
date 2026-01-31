@@ -11,7 +11,24 @@ DEB_DIR := debian-package
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 
-.PHONY: help build clean package repo deploy-repo build-arm64 build-amd64 package-arm64 package-amd64 package-all version
+# Source paths
+API_SOURCE := ../api
+WEB_SOURCE := ../web
+
+# Output files
+ARM64_BINARY := $(BUILD_DIR)/wild-cloud-central-arm64
+AMD64_BINARY := $(BUILD_DIR)/wild-cloud-central-amd64
+WEB_DIST_MARKER := $(BUILD_DIR)/.web-built
+ARM64_DEB := $(DIST_DIR)/packages/wild-cloud-central_$(VERSION)_arm64.deb
+AMD64_DEB := $(DIST_DIR)/packages/wild-cloud-central_$(VERSION)_amd64.deb
+
+# Gitea release configuration
+GITEA_URL := https://git.civilsociety.dev
+GITEA_OWNER := wild-cloud
+GITEA_REPO := wild-cloud
+RELEASE_TAG := v$(VERSION)
+
+.PHONY: help clean version build build-all package package-all repo deploy-repo release
 
 help:
 	@echo "📦 Wild Cloud Central Package Builder"
@@ -23,19 +40,18 @@ help:
 	@echo ""
 	@echo "📦 Build targets:"
 	@echo "  build           - Build for current architecture (amd64)"
-	@echo "  build-arm64     - Build arm64 binary and web app"
-	@echo "  build-amd64     - Build amd64 binary and web app"
 	@echo "  build-all       - Build all architectures"
 	@echo ""
 	@echo "📋 Package targets:"
 	@echo "  package         - Create .deb package (amd64)"
-	@echo "  package-arm64   - Create arm64 .deb package"
-	@echo "  package-amd64   - Create amd64 .deb package"
 	@echo "  package-all     - Create all .deb packages"
 	@echo ""
 	@echo "🚀 Repository targets:"
 	@echo "  repo            - Build APT repository from packages"
 	@echo "  deploy-repo     - Deploy repository to server"
+	@echo ""
+	@echo "🎯 Release targets:"
+	@echo "  release         - Create/update Gitea release with packages"
 	@echo ""
 	@echo "🛠️  Utilities:"
 	@echo "  clean           - Remove all build artifacts"
@@ -43,85 +59,75 @@ help:
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  VERSION         - Package version (default: 0.1.1)"
-
-# Function to create debian package for specific architecture
-define package_deb
-	@echo "📦 Creating .deb package for $(1)..."
-	@mkdir -p $(DIST_DIR)/bin $(DIST_DIR)/packages
-
-	@# Copy debian package structure
-	@cp -r debian/ $(BUILD_DIR)/$(DEB_DIR)-$(1)/
-
-	@# Copy binary to correct location
-	@mkdir -p $(BUILD_DIR)/$(DEB_DIR)-$(1)/usr/bin
-	@cp $(BUILD_DIR)/$(2) $(BUILD_DIR)/$(DEB_DIR)-$(1)/usr/bin/wild-cloud-central
-
-	@# Copy static web files from built web app
-	@mkdir -p $(BUILD_DIR)/$(DEB_DIR)-$(1)/var/www/html/wild-central
-	@if [ -d "$(BUILD_DIR)/src/web/dist" ]; then \
-		cp -r $(BUILD_DIR)/src/web/dist/* $(BUILD_DIR)/$(DEB_DIR)-$(1)/var/www/html/wild-central/; \
-		echo "✅ Copied web app files"; \
-	else \
-		echo "⚠️  Warning: Web app dist not found at $(BUILD_DIR)/src/web/dist"; \
-	fi
-
-	@# Set script permissions
-	@chmod 755 $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@chmod 755 $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/prerm
-	@chmod 755 $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postrm
-
-	@# Substitute placeholders in control file
-	@sed -i 's/VERSION_PLACEHOLDER/$(VERSION)/g' $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@sed -i 's/ARCH_PLACEHOLDER/$(1)/g' $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-
-	@# Build package and copy to dist directories
-	dpkg-deb --build $(BUILD_DIR)/$(DEB_DIR)-$(1) $(BUILD_DIR)/wild-cloud-central_$(VERSION)_$(1).deb
-	@cp $(BUILD_DIR)/$(2) $(DIST_DIR)/bin/wild-cloud-central-$(1)
-	@cp $(BUILD_DIR)/wild-cloud-central_$(VERSION)_$(1).deb $(DIST_DIR)/packages/
-	@echo "✅ Package created: $(DIST_DIR)/packages/wild-cloud-central_$(VERSION)_$(1).deb"
-	@echo "✅ Binary copied: $(DIST_DIR)/bin/wild-cloud-central-$(1)"
-endef
-
-build: build-amd64
-
-build-arm64:
-	@echo "Building for arm64..."
-	@ARCH=arm64 VERSION=$(VERSION) ./scripts/build-package.sh
-	@mv $(BUILD_DIR)/bin/wild-cloud-central $(BUILD_DIR)/wild-cloud-central-arm64
-	@echo "✅ Build complete: $(BUILD_DIR)/wild-cloud-central-arm64"
-
-build-amd64:
-	@echo "Building for amd64..."
-	@ARCH=amd64 VERSION=$(VERSION) ./scripts/build-package.sh
-	@mv $(BUILD_DIR)/bin/wild-cloud-central $(BUILD_DIR)/wild-cloud-central-amd64
-	@echo "✅ Build complete: $(BUILD_DIR)/wild-cloud-central-amd64"
-
-build-all: build-arm64 build-amd64
+	@echo "  GITEA_TOKEN     - Gitea API token (required for release)"
+	@echo "                   Run: source .envrc"
 
 clean:
 	@echo "🧹 Cleaning build artifacts..."
 	@rm -rf $(BUILD_DIR) $(DIST_DIR) $(DEB_DIR)-* $(DEB_DIR)
 	@echo "✅ Clean complete"
 
-# Version information
 version:
 	@echo "Version: $(VERSION)"
 	@echo "Git Commit: $(GIT_COMMIT)"
 	@echo "Build Time: $(BUILD_TIME)"
 
-# Package targets - create .deb packages
-package-arm64: build-arm64
-	$(call package_deb,arm64,wild-cloud-central-arm64)
+# Web app build - track with marker file
+$(WEB_DIST_MARKER): $(shell find $(WEB_SOURCE)/src -type f 2>/dev/null | head -100) $(WEB_SOURCE)/package.json
+	@echo "🔧 Building web application..."
+	@ARCH=amd64 VERSION=$(VERSION) ./scripts/build-package.sh
+	@touch $(WEB_DIST_MARKER)
+	@echo "✅ Web app built"
 
-package-amd64: build-amd64
-	$(call package_deb,amd64,wild-cloud-central-amd64)
+# ARM64 binary
+$(ARM64_BINARY): $(shell find $(API_SOURCE) -name '*.go' 2>/dev/null | head -100)
+	@echo "🔧 Building arm64 binary..."
+	@mkdir -p $(BUILD_DIR)/bin
+	@cd $(API_SOURCE) && GOOS=linux GOARCH=arm64 go build -ldflags="-X main.Version=$(VERSION)" -o ../dist/$(ARM64_BINARY) .
+	@echo "✅ Build complete: $(ARM64_BINARY)"
 
-package-all: package-arm64 package-amd64
+# AMD64 binary
+$(AMD64_BINARY): $(shell find $(API_SOURCE) -name '*.go' 2>/dev/null | head -100)
+	@echo "🔧 Building amd64 binary..."
+	@mkdir -p $(BUILD_DIR)/bin
+	@cd $(API_SOURCE) && GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=$(VERSION)" -o ../dist/$(AMD64_BINARY) .
+	@echo "✅ Build complete: $(AMD64_BINARY)"
 
-package: package-amd64
+# ARM64 package
+$(ARM64_DEB): $(ARM64_BINARY) $(WEB_DIST_MARKER)
+	@echo "📦 Creating arm64 .deb package..."
+	@./scripts/package-deb.sh arm64 $(ARM64_BINARY) $(VERSION)
+	@echo "✅ Package created: $(ARM64_DEB)"
 
-repo: package-all
-	./scripts/build-apt-repository.sh
+# AMD64 package
+$(AMD64_DEB): $(AMD64_BINARY) $(WEB_DIST_MARKER)
+	@echo "📦 Creating amd64 .deb package..."
+	@./scripts/package-deb.sh amd64 $(AMD64_BINARY) $(VERSION)
+	@echo "✅ Package created: $(AMD64_DEB)"
+
+# Convenience targets
+build: $(AMD64_BINARY) $(WEB_DIST_MARKER)
+
+build-all: $(ARM64_BINARY) $(AMD64_BINARY) $(WEB_DIST_MARKER)
+
+package: $(AMD64_DEB)
+
+package-all: $(ARM64_DEB) $(AMD64_DEB)
+
+repo: $(ARM64_DEB) $(AMD64_DEB)
+	@echo "🏗️  Building APT repository..."
+	@./scripts/build-apt-repository.sh
 
 deploy-repo: repo
-	./scripts/deploy-apt-repository.sh
+	@echo "🚀 Deploying APT repository..."
+	@./scripts/deploy-apt-repository.sh
+
+release: $(ARM64_DEB) $(AMD64_DEB)
+	@echo "🎯 Creating release $(RELEASE_TAG)..."
+	@if [ -z "$(GITEA_TOKEN)" ]; then \
+		echo "❌ Error: GITEA_TOKEN environment variable not set"; \
+		echo "   Get a token from $(GITEA_URL)/user/settings/applications"; \
+		echo "   Or run: source .envrc"; \
+		exit 1; \
+	fi
+	@./scripts/create-gitea-release.sh "$(GITEA_URL)" "$(GITEA_OWNER)" "$(GITEA_REPO)" "$(RELEASE_TAG)" "$(VERSION)" "$(GITEA_TOKEN)"

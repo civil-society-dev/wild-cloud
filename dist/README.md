@@ -1,32 +1,8 @@
 # Packaging Wild Central
 
-## Desired Experience
+## Installation
 
-This is the desired experience for installing Wild Cloud Central on a fresh Debian/Ubuntu system:
-
-### APT Repository (Recommended)
-
-```bash
-# Download and install GPG key
-curl -fsSL https://mywildcloud.org/apt/wild-cloud-central.gpg | sudo tee /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg > /dev/null
-
-# Add repository (modern .sources format)
-sudo tee /etc/apt/sources.list.d/wild-cloud-central.sources << 'EOF'
-Types: deb
-URIs: https://mywildcloud.org/apt
-Suites: stable
-Components: main
-Signed-By: /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg
-EOF
-
-# Update and install
-sudo apt update
-sudo apt install wild-cloud-central
-```
-
-### Manual Installation
-
-Download the latest `.deb` package from the [releases page](https://github.com/wildcloud/wild-central/releases) and install:
+Download the latest `.deb` package from the [releases page](https://git.civilsociety.dev/wild-cloud/wild-cloud/releases) and install:
 
 ```bash
 sudo dpkg -i wild-cloud-central_*.deb
@@ -77,3 +53,27 @@ dist/repositories/ - APT repository for deployment
 
 Example workflows:
 make clean && make repo      - Full release build
+
+## Future packaging
+
+We'll be putting the packages in a proper repository in the future for installing Wild Cloud Central on a fresh Debian/Ubuntu system:
+
+### APT Repository (TBD)
+
+```bash
+# Download and install GPG key
+curl -fsSL https://mywildcloud.org/apt/wild-cloud-central.gpg | sudo tee /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg > /dev/null
+
+# Add repository (modern .sources format)
+sudo tee /etc/apt/sources.list.d/wild-cloud-central.sources << 'EOF'
+Types: deb
+URIs: https://mywildcloud.org/apt
+Suites: stable
+Components: main
+Signed-By: /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg
+EOF
+
+# Update and install
+sudo apt update
+sudo apt install wild-cloud-central
+```
