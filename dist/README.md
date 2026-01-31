@@ -28,6 +28,61 @@ sudo apt-get install -f  # Fix any dependency issues
 3. **Access the web interface**:
    Open http://your-server-ip in your browser
 
+## Version Management
+
+Wild Cloud uses a single VERSION file at the monorepo root (`wild-cloud/VERSION`) that tracks the unified version for all components (API, CLI, Web, and the package itself).
+
+### Current Version
+```bash
+cat ../VERSION  # Shows current version
+```
+
+### Development Workflow (Testing Phase)
+
+During development, iterate on the same version:
+
+```bash
+# Make changes to code
+make package-all
+
+# Update existing release (no version bump)
+make release  # Updates assets in current release
+```
+
+### Creating a New Release
+
+When ready for a new release:
+
+```bash
+# 1. Bump version
+echo "0.1.2" > ../VERSION
+
+# 2. Build packages
+make package-all
+
+# 3. Create new release
+make release  # Creates v0.1.2 tag and release
+
+# 4. Commit and tag
+cd ..
+git add VERSION
+git commit -m "Bump version to 0.1.2"
+git tag -a v0.1.2 -m "Wild Cloud Central v0.1.2"
+git push origin main v0.1.2
+```
+
+### Release Behavior
+
+The `make release` command automatically:
+- **If release exists**: Updates package assets only (deletes old .deb files, uploads new ones)
+- **If release doesn't exist**: Creates new release with packages
+
+This allows iterating during testing without creating multiple releases.
+
+### Future: Independent Component Versioning
+
+For future enhancement when components need independent versions, see `future/independent-versioning.md`.
+
 ## Developer tooling
 
 Makefile commands for packaging:

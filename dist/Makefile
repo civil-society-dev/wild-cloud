@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 
 # Build configuration
-VERSION ?= 0.1.1
+VERSION := $(shell cat ../VERSION 2>/dev/null || echo "0.0.0-dev")
 BUILD_DIR := build
 DIST_DIR := dist
 DEB_DIR := debian-package
@@ -57,8 +57,11 @@ help:
 	@echo "  clean           - Remove all build artifacts"
 	@echo "  version         - Show build information"
 	@echo ""
+	@echo "Version Management:"
+	@echo "  Current version: $(VERSION) (from ../VERSION)"
+	@echo "  To bump version: echo '0.1.2' > ../VERSION"
+	@echo ""
 	@echo "Environment variables:"
-	@echo "  VERSION         - Package version (default: 0.1.1)"
 	@echo "  GITEA_TOKEN     - Gitea API token (required for release)"
 	@echo "                   Run: source .envrc"
 

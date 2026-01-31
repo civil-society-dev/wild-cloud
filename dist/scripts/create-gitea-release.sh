@@ -25,15 +25,34 @@ RELEASE_ID=$(curl -s -H "Authorization: token ${TOKEN}" \
 
 if [ -n "$RELEASE_ID" ]; then
     echo "✅ Release ${TAG} exists (ID: ${RELEASE_ID})"
-    echo "🗑️  Deleting existing release to update..."
-    curl -s -X DELETE -H "Authorization: token ${TOKEN}" \
-        "${API_URL}/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}"
-    echo "✅ Deleted existing release"
+    echo "📦 Updating existing release assets..."
+
+    # Get existing assets
+    EXISTING_ASSETS=$(curl -s -H "Authorization: token ${TOKEN}" \
+        "${API_URL}/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}/assets" \
+        | jq -r '.[].id')
+
+    # Delete old .deb assets
+    for ASSET_ID in $EXISTING_ASSETS; do
+        ASSET_NAME=$(curl -s -H "Authorization: token ${TOKEN}" \
+            "${API_URL}/repos/${OWNER}/${REPO}/releases/assets/${ASSET_ID}" \
+            | jq -r '.name')
+
+        if [[ "$ASSET_NAME" == *.deb ]]; then
+            echo "   Deleting old asset: ${ASSET_NAME}"
+            curl -s -X DELETE -H "Authorization: token ${TOKEN}" \
+                "${API_URL}/repos/${OWNER}/${REPO}/releases/assets/${ASSET_ID}"
+        fi
+    done
+
+    echo "✅ Cleaned up old package assets"
+    SKIP_RELEASE_CREATION=true
 fi
 
-# Create new release
-echo "📝 Creating new release ${TAG}..."
-RELEASE_DATA=$(cat <<EOF
+# Create new release if it doesn't exist
+if [ "$SKIP_RELEASE_CREATION" != "true" ]; then
+    echo "📝 Creating new release ${TAG}..."
+    RELEASE_DATA=$(cat <<EOF
 {
   "tag_name": "${TAG}",
   "name": "Wild Cloud Central ${VERSION}",
@@ -44,20 +63,21 @@ RELEASE_DATA=$(cat <<EOF
 EOF
 )
 
-RELEASE_RESPONSE=$(curl -s -X POST -H "Authorization: token ${TOKEN}" \
-    -H "Content-Type: application/json" \
-    -d "${RELEASE_DATA}" \
-    "${API_URL}/repos/${OWNER}/${REPO}/releases")
+    RELEASE_RESPONSE=$(curl -s -X POST -H "Authorization: token ${TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "${RELEASE_DATA}" \
+        "${API_URL}/repos/${OWNER}/${REPO}/releases")
 
-RELEASE_ID=$(echo "${RELEASE_RESPONSE}" | jq -r '.id')
+    RELEASE_ID=$(echo "${RELEASE_RESPONSE}" | jq -r '.id')
 
-if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
-    echo "❌ Failed to create release"
-    echo "${RELEASE_RESPONSE}" | jq .
-    exit 1
+    if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+        echo "❌ Failed to create release"
+        echo "${RELEASE_RESPONSE}" | jq .
+        exit 1
+    fi
+
+    echo "✅ Created release ${TAG} (ID: ${RELEASE_ID})"
 fi
-
-echo "✅ Created release ${TAG} (ID: ${RELEASE_ID})"
 
 # Upload packages
 echo ""
