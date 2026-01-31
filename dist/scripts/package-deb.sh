@@ -43,7 +43,7 @@ sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" "${BUILD_DIR}/${DEB_DIR}-${ARCH}/DEB
 sed -i "s/ARCH_PLACEHOLDER/${ARCH}/g" "${BUILD_DIR}/${DEB_DIR}-${ARCH}/DEBIAN/control"
 
 # Build package and copy to dist directories
-dpkg-deb --build "${BUILD_DIR}/${DEB_DIR}-${ARCH}" "${BUILD_DIR}/wild-cloud-central_${VERSION}_${ARCH}.deb"
+dpkg-deb --root-owner-group --build "${BUILD_DIR}/${DEB_DIR}-${ARCH}" "${BUILD_DIR}/wild-cloud-central_${VERSION}_${ARCH}.deb"
 cp "${BINARY_PATH}" "${DIST_DIR}/bin/wild-cloud-central-${ARCH}"
 # Copy CLI with wild-cli name for standalone downloads (installs as 'wild' in package)
 cp "${CLI_PATH}" "${DIST_DIR}/bin/wild-cli-${ARCH}"
