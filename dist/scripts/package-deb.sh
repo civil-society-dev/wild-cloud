@@ -3,7 +3,8 @@ set -euo pipefail
 
 ARCH="$1"
 BINARY_PATH="$2"
-VERSION="$3"
+CLI_PATH="$3"
+VERSION="$4"
 
 BUILD_DIR="build"
 DIST_DIR="dist"
@@ -18,9 +19,10 @@ mkdir -p "${DIST_DIR}/bin" "${DIST_DIR}/packages"
 # Copy debian package structure
 cp -r debian/ "${BUILD_DIR}/${DEB_DIR}-${ARCH}/"
 
-# Copy binary to correct location
+# Copy binaries to correct location
 mkdir -p "${BUILD_DIR}/${DEB_DIR}-${ARCH}/usr/bin"
 cp "${BINARY_PATH}" "${BUILD_DIR}/${DEB_DIR}-${ARCH}/usr/bin/wild-cloud-central"
+cp "${CLI_PATH}" "${BUILD_DIR}/${DEB_DIR}-${ARCH}/usr/bin/wild"
 
 # Copy static web files from built web app
 mkdir -p "${BUILD_DIR}/${DEB_DIR}-${ARCH}/var/www/html/wild-central"
@@ -43,7 +45,10 @@ sed -i "s/ARCH_PLACEHOLDER/${ARCH}/g" "${BUILD_DIR}/${DEB_DIR}-${ARCH}/DEBIAN/co
 # Build package and copy to dist directories
 dpkg-deb --build "${BUILD_DIR}/${DEB_DIR}-${ARCH}" "${BUILD_DIR}/wild-cloud-central_${VERSION}_${ARCH}.deb"
 cp "${BINARY_PATH}" "${DIST_DIR}/bin/wild-cloud-central-${ARCH}"
+# Copy CLI with wild-cli name for standalone downloads (installs as 'wild' in package)
+cp "${CLI_PATH}" "${DIST_DIR}/bin/wild-cli-${ARCH}"
 cp "${BUILD_DIR}/wild-cloud-central_${VERSION}_${ARCH}.deb" "${DIST_DIR}/packages/"
 
 echo "✅ Package created: ${DIST_DIR}/packages/wild-cloud-central_${VERSION}_${ARCH}.deb"
-echo "✅ Binary copied: ${DIST_DIR}/bin/wild-cloud-central-${ARCH}"
+echo "✅ API daemon binary copied: ${DIST_DIR}/bin/wild-cloud-central-${ARCH}"
+echo "✅ CLI binary copied: ${DIST_DIR}/bin/wild-cli-${ARCH}"

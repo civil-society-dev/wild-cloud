@@ -40,7 +40,7 @@ if [ -n "$RELEASE_ID" ]; then
             "${API_URL}/repos/${OWNER}/${REPO}/releases/assets/${ASSET_ID}" \
             | jq -r '.name')
 
-        if [[ "$ASSET_NAME" == *.deb ]] || [[ "$ASSET_NAME" == wild-cloud-central-* ]] || [[ "$ASSET_NAME" == "SHA256SUMS" ]]; then
+        if [[ "$ASSET_NAME" == *.deb ]] || [[ "$ASSET_NAME" == wild-cloud-central-* ]] || [[ "$ASSET_NAME" == wild-cli-* ]] || [[ "$ASSET_NAME" == "SHA256SUMS" ]]; then
             echo "   Deleting old asset: ${ASSET_NAME}"
             curl -s -X DELETE -H "Authorization: token ${TOKEN}" \
                 "${API_URL}/repos/${OWNER}/${REPO}/releases/assets/${ASSET_ID}"
@@ -58,7 +58,7 @@ if [ "$SKIP_RELEASE_CREATION" != "true" ]; then
 {
   "tag_name": "${TAG}",
   "name": "Wild Cloud Central ${VERSION}",
-  "body": "## Wild Cloud Central ${VERSION}\n\n### Installation Options\n\n#### Full Installation (.deb package)\n\nDownload the appropriate .deb package for your architecture:\n\n- **arm64**: \`wild-cloud-central_${VERSION}_arm64.deb\` - For Raspberry Pi 4/5, ARM-based servers\n- **amd64**: \`wild-cloud-central_${VERSION}_amd64.deb\` - For x86_64 systems\n\n\`\`\`bash\n# Install package\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/wild-cloud-central_${VERSION}_amd64.deb\nsudo dpkg -i wild-cloud-central_${VERSION}_amd64.deb\nsudo apt-get install -f\n\n# Start service\nsudo systemctl enable wild-cloud-central\nsudo systemctl start wild-cloud-central\n\`\`\`\n\n#### Standalone Daemon Binary\n\nFor Docker, Kubernetes, or custom deployments:\n\n- **arm64**: \`wild-cloud-central-arm64\`\n- **amd64**: \`wild-cloud-central-amd64\`\n\n\`\`\`bash\n# Download and run\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/wild-cloud-central-amd64\nchmod +x wild-cloud-central-amd64\n./wild-cloud-central-amd64\n\`\`\`\n\n### Package Contents\n\n- Wild Cloud Central API daemon\n- Web-based management interface\n- CLI tools\n- systemd service configuration\n- nginx configuration\n- dnsmasq integration\n\n### Verification\n\nVerify downloads with SHA256 checksums:\n\n\`\`\`bash\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/SHA256SUMS\nsha256sum -c SHA256SUMS\n\`\`\`",
+  "body": "## Wild Cloud Central ${VERSION}\n\n### Installation Options\n\n#### Full Installation (.deb package)\n\nDownload the appropriate .deb package for your architecture. Includes API daemon, web interface, and \`wild\` CLI:\n\n- **arm64**: \`wild-cloud-central_${VERSION}_arm64.deb\` - For Raspberry Pi 4/5, ARM-based servers\n- **amd64**: \`wild-cloud-central_${VERSION}_amd64.deb\` - For x86_64 systems\n\n\`\`\`bash\n# Install package\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/wild-cloud-central_${VERSION}_amd64.deb\nsudo dpkg -i wild-cloud-central_${VERSION}_amd64.deb\nsudo apt-get install -f\n\n# Start service\nsudo systemctl enable wild-cloud-central\nsudo systemctl start wild-cloud-central\n\n# Use CLI\nwild --help\n\`\`\`\n\n#### Standalone Daemon Binary\n\nFor Docker, Kubernetes, or custom deployments:\n\n- **arm64**: \`wild-cloud-central-arm64\`\n- **amd64**: \`wild-cloud-central-amd64\`\n\n\`\`\`bash\n# Download and run\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/wild-cloud-central-amd64\nchmod +x wild-cloud-central-amd64\n./wild-cloud-central-amd64\n\`\`\`\n\n#### Standalone CLI Binary\n\nFor CI/CD systems or remote management:\n\n- **arm64**: \`wild-cli-arm64\`\n- **amd64**: \`wild-cli-amd64\`\n\n\`\`\`bash\n# Download and use\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/wild-cli-amd64\nchmod +x wild-cli-amd64\n./wild-cli-amd64 --help\n\`\`\`\n\n### Package Contents\n\n- Wild Cloud Central API daemon\n- Web-based management interface\n- \`wild\` CLI tool\n- systemd service configuration\n- nginx configuration\n- dnsmasq integration\n\n### Verification\n\nVerify downloads with SHA256 checksums:\n\n\`\`\`bash\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/SHA256SUMS\nsha256sum -c SHA256SUMS\n\`\`\`",
   "draft": false,
   "prerelease": false
 }
@@ -81,11 +81,14 @@ EOF
     echo "✅ Created release ${TAG} (ID: ${RELEASE_ID})"
 fi
 
+# CLI binaries are now copied by package-deb.sh
+# No need to copy them here
+
 # Generate checksums
 echo ""
 echo "🔐 Generating checksums..."
 cd dist
-sha256sum packages/*.deb bin/wild-cloud-central-* > SHA256SUMS
+sha256sum packages/*.deb bin/wild-cloud-central-* bin/wild-cli-* > SHA256SUMS
 echo "✅ Created SHA256SUMS"
 cd ..
 
@@ -126,8 +129,15 @@ for DEB in ${PACKAGES_DIR}/wild-cloud-central_${VERSION}_*.deb; do
     upload_file "$DEB"
 done
 
-# Upload standalone binaries
+# Upload standalone API daemon binaries
 for BINARY in ${BINARIES_DIR}/wild-cloud-central-*; do
+    if [ -f "$BINARY" ]; then
+        upload_file "$BINARY"
+    fi
+done
+
+# Upload CLI binaries (wild-cli-arm64, wild-cli-amd64)
+for BINARY in ${BINARIES_DIR}/wild-cli-arm64 ${BINARIES_DIR}/wild-cli-amd64; do
     if [ -f "$BINARY" ]; then
         upload_file "$BINARY"
     fi

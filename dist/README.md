@@ -83,11 +83,13 @@ This allows iterating during testing without creating multiple releases.
 
 Each release includes:
 - **Debian Packages** (`.deb`)
-  - `wild-cloud-central_VERSION_amd64.deb` - Full installation for x86_64
-  - `wild-cloud-central_VERSION_arm64.deb` - Full installation for ARM64
+  - `wild-cloud-central_VERSION_amd64.deb` - Full installation for x86_64 (includes `wild` CLI)
+  - `wild-cloud-central_VERSION_arm64.deb` - Full installation for ARM64 (includes `wild` CLI)
 - **Standalone Binaries**
   - `wild-cloud-central-amd64` - API daemon only (for Docker/K8s)
   - `wild-cloud-central-arm64` - API daemon only (for Docker/K8s)
+  - `wild-cli-amd64` - CLI tool only (for CI/CD or remote management)
+  - `wild-cli-arm64` - CLI tool only (for CI/CD or remote management)
 - **Checksums**
   - `SHA256SUMS` - Verify all artifacts
 

@@ -14,10 +14,13 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 # Source paths
 API_SOURCE := ../api
 WEB_SOURCE := ../web
+CLI_SOURCE := ../cli
 
 # Output files
 ARM64_BINARY := $(BUILD_DIR)/wild-cloud-central-arm64
 AMD64_BINARY := $(BUILD_DIR)/wild-cloud-central-amd64
+ARM64_CLI := $(BUILD_DIR)/wild-cli-arm64
+AMD64_CLI := $(BUILD_DIR)/wild-cli-amd64
 WEB_DIST_MARKER := $(BUILD_DIR)/.web-built
 ARM64_DEB := $(DIST_DIR)/packages/wild-cloud-central_$(VERSION)_arm64.deb
 AMD64_DEB := $(DIST_DIR)/packages/wild-cloud-central_$(VERSION)_amd64.deb
@@ -96,26 +99,40 @@ $(AMD64_BINARY): $(shell find $(API_SOURCE) -name '*.go' 2>/dev/null | head -100
 	@cd $(API_SOURCE) && GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=$(VERSION)" -o ../dist/$(AMD64_BINARY) .
 	@echo "✅ Build complete: $(AMD64_BINARY)"
 
+# ARM64 CLI
+$(ARM64_CLI): $(shell find $(CLI_SOURCE) -name '*.go' 2>/dev/null | head -100)
+	@echo "🔧 Building arm64 CLI..."
+	@mkdir -p $(DIST_DIR)/bin
+	@cd $(CLI_SOURCE) && GOOS=linux GOARCH=arm64 go build -ldflags="-X main.Version=$(VERSION)" -o ../dist/$(ARM64_CLI) .
+	@echo "✅ Build complete: $(ARM64_CLI)"
+
+# AMD64 CLI
+$(AMD64_CLI): $(shell find $(CLI_SOURCE) -name '*.go' 2>/dev/null | head -100)
+	@echo "🔧 Building amd64 CLI..."
+	@mkdir -p $(DIST_DIR)/bin
+	@cd $(CLI_SOURCE) && GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=$(VERSION)" -o ../dist/$(AMD64_CLI) .
+	@echo "✅ Build complete: $(AMD64_CLI)"
+
 # ARM64 package
-$(ARM64_DEB): $(ARM64_BINARY) $(WEB_DIST_MARKER)
+$(ARM64_DEB): $(ARM64_BINARY) $(ARM64_CLI) $(WEB_DIST_MARKER)
 	@echo "📦 Creating arm64 .deb package..."
 	@# Remove old versions of this architecture to prevent stale packages
 	@rm -f $(DIST_DIR)/packages/wild-cloud-central_*_arm64.deb
-	@./scripts/package-deb.sh arm64 $(ARM64_BINARY) $(VERSION)
+	@./scripts/package-deb.sh arm64 $(ARM64_BINARY) $(ARM64_CLI) $(VERSION)
 	@echo "✅ Package created: $(ARM64_DEB)"
 
 # AMD64 package
-$(AMD64_DEB): $(AMD64_BINARY) $(WEB_DIST_MARKER)
+$(AMD64_DEB): $(AMD64_BINARY) $(AMD64_CLI) $(WEB_DIST_MARKER)
 	@echo "📦 Creating amd64 .deb package..."
 	@# Remove old versions of this architecture to prevent stale packages
 	@rm -f $(DIST_DIR)/packages/wild-cloud-central_*_amd64.deb
-	@./scripts/package-deb.sh amd64 $(AMD64_BINARY) $(VERSION)
+	@./scripts/package-deb.sh amd64 $(AMD64_BINARY) $(AMD64_CLI) $(VERSION)
 	@echo "✅ Package created: $(AMD64_DEB)"
 
 # Convenience targets
-build: $(AMD64_BINARY) $(WEB_DIST_MARKER)
+build: $(AMD64_BINARY) $(AMD64_CLI) $(WEB_DIST_MARKER)
 
-build-all: $(ARM64_BINARY) $(AMD64_BINARY) $(WEB_DIST_MARKER)
+build-all: $(ARM64_BINARY) $(AMD64_BINARY) $(ARM64_CLI) $(AMD64_CLI) $(WEB_DIST_MARKER)
 
 package: $(AMD64_DEB)
 
@@ -129,7 +146,7 @@ deploy-repo: repo
 	@echo "🚀 Deploying APT repository..."
 	@./scripts/deploy-apt-repository.sh
 
-release: $(ARM64_DEB) $(AMD64_DEB)
+release: $(ARM64_DEB) $(AMD64_DEB) $(ARM64_CLI) $(AMD64_CLI)
 	@echo "🎯 Creating release $(RELEASE_TAG)..."
 	@if [ -z "$(GITEA_TOKEN)" ]; then \
 		echo "❌ Error: GITEA_TOKEN environment variable not set"; \
