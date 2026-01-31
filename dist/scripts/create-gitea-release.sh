@@ -9,7 +9,9 @@ VERSION="$5"
 TOKEN="$6"
 
 API_URL="${GITEA_URL}/api/v1"
-DIST_DIR="dist/packages"
+PACKAGES_DIR="dist/packages"
+BINARIES_DIR="dist/bin"
+SKIP_RELEASE_CREATION=false
 
 echo "📦 Release configuration:"
 echo "   Repository: ${OWNER}/${REPO}"
@@ -38,7 +40,7 @@ if [ -n "$RELEASE_ID" ]; then
             "${API_URL}/repos/${OWNER}/${REPO}/releases/assets/${ASSET_ID}" \
             | jq -r '.name')
 
-        if [[ "$ASSET_NAME" == *.deb ]]; then
+        if [[ "$ASSET_NAME" == *.deb ]] || [[ "$ASSET_NAME" == wild-cloud-central-* ]] || [[ "$ASSET_NAME" == "SHA256SUMS" ]]; then
             echo "   Deleting old asset: ${ASSET_NAME}"
             curl -s -X DELETE -H "Authorization: token ${TOKEN}" \
                 "${API_URL}/repos/${OWNER}/${REPO}/releases/assets/${ASSET_ID}"
@@ -56,7 +58,7 @@ if [ "$SKIP_RELEASE_CREATION" != "true" ]; then
 {
   "tag_name": "${TAG}",
   "name": "Wild Cloud Central ${VERSION}",
-  "body": "## Wild Cloud Central ${VERSION}\n\n### Installation\n\nDownload the appropriate .deb package for your architecture:\n\n- **arm64**: For Raspberry Pi 4/5, ARM-based servers\n- **amd64**: For x86_64 systems\n\n\`\`\`bash\n# Install package\nsudo dpkg -i wild-cloud-central_${VERSION}_<arch>.deb\nsudo apt-get install -f\n\n# Start service\nsudo systemctl enable wild-cloud-central\nsudo systemctl start wild-cloud-central\n\`\`\`\n\n### What's Included\n\n- Wild Cloud Central API daemon\n- Web-based management interface\n- CLI tools\n- systemd service configuration",
+  "body": "## Wild Cloud Central ${VERSION}\n\n### Installation Options\n\n#### Full Installation (.deb package)\n\nDownload the appropriate .deb package for your architecture:\n\n- **arm64**: \`wild-cloud-central_${VERSION}_arm64.deb\` - For Raspberry Pi 4/5, ARM-based servers\n- **amd64**: \`wild-cloud-central_${VERSION}_amd64.deb\` - For x86_64 systems\n\n\`\`\`bash\n# Install package\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/wild-cloud-central_${VERSION}_amd64.deb\nsudo dpkg -i wild-cloud-central_${VERSION}_amd64.deb\nsudo apt-get install -f\n\n# Start service\nsudo systemctl enable wild-cloud-central\nsudo systemctl start wild-cloud-central\n\`\`\`\n\n#### Standalone Daemon Binary\n\nFor Docker, Kubernetes, or custom deployments:\n\n- **arm64**: \`wild-cloud-central-arm64\`\n- **amd64**: \`wild-cloud-central-amd64\`\n\n\`\`\`bash\n# Download and run\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/wild-cloud-central-amd64\nchmod +x wild-cloud-central-amd64\n./wild-cloud-central-amd64\n\`\`\`\n\n### Package Contents\n\n- Wild Cloud Central API daemon\n- Web-based management interface\n- CLI tools\n- systemd service configuration\n- nginx configuration\n- dnsmasq integration\n\n### Verification\n\nVerify downloads with SHA256 checksums:\n\n\`\`\`bash\nwget https://git.civilsociety.dev/wild-cloud/wild-cloud/releases/download/v${VERSION}/SHA256SUMS\nsha256sum -c SHA256SUMS\n\`\`\`",
   "draft": false,
   "prerelease": false
 }
@@ -79,22 +81,28 @@ EOF
     echo "✅ Created release ${TAG} (ID: ${RELEASE_ID})"
 fi
 
-# Upload packages
+# Generate checksums
 echo ""
-echo "📤 Uploading packages..."
+echo "🔐 Generating checksums..."
+cd dist
+sha256sum packages/*.deb bin/wild-cloud-central-* > SHA256SUMS
+echo "✅ Created SHA256SUMS"
+cd ..
 
-for DEB in ${DIST_DIR}/*.deb; do
-    if [ ! -f "$DEB" ]; then
-        echo "⚠️  No .deb files found in ${DIST_DIR}"
-        exit 1
-    fi
+# Upload artifacts
+echo ""
+echo "📤 Uploading release artifacts..."
 
-    FILENAME=$(basename "$DEB")
+# Function to upload a file
+upload_file() {
+    local FILE="$1"
+    local FILENAME=$(basename "$FILE")
+
     echo "   Uploading ${FILENAME}..."
 
     UPLOAD_RESPONSE=$(curl -s -X POST \
         -H "Authorization: token ${TOKEN}" \
-        -F "attachment=@${DEB}" \
+        -F "attachment=@${FILE}" \
         "${API_URL}/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}/assets?name=${FILENAME}")
 
     ASSET_ID=$(echo "${UPLOAD_RESPONSE}" | jq -r '.id')
@@ -102,10 +110,31 @@ for DEB in ${DIST_DIR}/*.deb; do
     if [ -z "$ASSET_ID" ] || [ "$ASSET_ID" = "null" ]; then
         echo "   ❌ Failed to upload ${FILENAME}"
         echo "${UPLOAD_RESPONSE}" | jq .
+        return 1
     else
-        echo "   ✅ Uploaded ${FILENAME} (Asset ID: ${ASSET_ID})"
+        echo "   ✅ Uploaded ${FILENAME}"
+        return 0
+    fi
+}
+
+# Upload .deb packages (only current version)
+for DEB in ${PACKAGES_DIR}/wild-cloud-central_${VERSION}_*.deb; do
+    if [ ! -f "$DEB" ]; then
+        echo "⚠️  No .deb files found for version ${VERSION} in ${PACKAGES_DIR}"
+        exit 1
+    fi
+    upload_file "$DEB"
+done
+
+# Upload standalone binaries
+for BINARY in ${BINARIES_DIR}/wild-cloud-central-*; do
+    if [ -f "$BINARY" ]; then
+        upload_file "$BINARY"
     fi
 done
+
+# Upload checksums
+upload_file "dist/SHA256SUMS"
 
 echo ""
 echo "✨ Release complete!"

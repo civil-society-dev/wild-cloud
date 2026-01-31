@@ -99,12 +99,16 @@ $(AMD64_BINARY): $(shell find $(API_SOURCE) -name '*.go' 2>/dev/null | head -100
 # ARM64 package
 $(ARM64_DEB): $(ARM64_BINARY) $(WEB_DIST_MARKER)
 	@echo "📦 Creating arm64 .deb package..."
+	@# Remove old versions of this architecture to prevent stale packages
+	@rm -f $(DIST_DIR)/packages/wild-cloud-central_*_arm64.deb
 	@./scripts/package-deb.sh arm64 $(ARM64_BINARY) $(VERSION)
 	@echo "✅ Package created: $(ARM64_DEB)"
 
 # AMD64 package
 $(AMD64_DEB): $(AMD64_BINARY) $(WEB_DIST_MARKER)
 	@echo "📦 Creating amd64 .deb package..."
+	@# Remove old versions of this architecture to prevent stale packages
+	@rm -f $(DIST_DIR)/packages/wild-cloud-central_*_amd64.deb
 	@./scripts/package-deb.sh amd64 $(AMD64_BINARY) $(VERSION)
 	@echo "✅ Package created: $(AMD64_DEB)"
 

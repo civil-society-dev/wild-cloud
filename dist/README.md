@@ -74,10 +74,22 @@ git push origin main v0.1.2
 ### Release Behavior
 
 The `make release` command automatically:
-- **If release exists**: Updates package assets only (deletes old .deb files, uploads new ones)
-- **If release doesn't exist**: Creates new release with packages
+- **If release exists**: Updates release assets (deletes old files, uploads new ones)
+- **If release doesn't exist**: Creates new release with all assets
 
 This allows iterating during testing without creating multiple releases.
+
+### Release Artifacts
+
+Each release includes:
+- **Debian Packages** (`.deb`)
+  - `wild-cloud-central_VERSION_amd64.deb` - Full installation for x86_64
+  - `wild-cloud-central_VERSION_arm64.deb` - Full installation for ARM64
+- **Standalone Binaries**
+  - `wild-cloud-central-amd64` - API daemon only (for Docker/K8s)
+  - `wild-cloud-central-arm64` - API daemon only (for Docker/K8s)
+- **Checksums**
+  - `SHA256SUMS` - Verify all artifacts
 
 ### Future: Independent Component Versioning
 
