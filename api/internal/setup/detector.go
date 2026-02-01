@@ -93,9 +93,6 @@ func DetectSetupStatus(instanceName, dataDir string) (*SetupStatus, error) {
 	if instanceConfig.Cluster.Name == "" {
 		instanceConfigMissing = append(instanceConfigMissing, "Cluster name")
 	}
-	if instanceConfig.Cluster.Nodes.Talos.Version == "" {
-		instanceConfigMissing = append(instanceConfigMissing, "Talos version")
-	}
 	if instanceConfig.Cluster.Nodes.Control.Vip == "" {
 		instanceConfigMissing = append(instanceConfigMissing, "Control plane VIP")
 	}

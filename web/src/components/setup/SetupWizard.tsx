@@ -16,7 +16,7 @@ const PHASE_INFO = {
   },
   'instance-config': {
     title: 'Configure Instance',
-    description: 'Set up instance domains, cluster name, and Talos configuration',
+    description: 'Set up instance domains',
     icon: Globe,
     route: 'cloud',
     color: 'cyan',
