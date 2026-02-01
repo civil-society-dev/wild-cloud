@@ -37,13 +37,13 @@ if [ -n "$RELEASE_ID" ]; then
     # Delete old .deb assets
     for ASSET_ID in $EXISTING_ASSETS; do
         ASSET_NAME=$(curl -s -H "Authorization: token ${TOKEN}" \
-            "${API_URL}/repos/${OWNER}/${REPO}/releases/assets/${ASSET_ID}" \
+            "${API_URL}/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}/assets/${ASSET_ID}" \
             | jq -r '.name')
 
-        if [[ "$ASSET_NAME" == *.deb ]] || [[ "$ASSET_NAME" == wild-cloud-central-* ]] || [[ "$ASSET_NAME" == wild-cli-* ]] || [[ "$ASSET_NAME" == "SHA256SUMS" ]]; then
+            if [[ "$ASSET_NAME" == *.deb ]] || [[ "$ASSET_NAME" == wild-cloud-central-* ]] || [[ "$ASSET_NAME" == wild-cli-* ]] || [[ "$ASSET_NAME" == "SHA256SUMS" ]]; then
             echo "   Deleting old asset: ${ASSET_NAME}"
             curl -s -X DELETE -H "Authorization: token ${TOKEN}" \
-                "${API_URL}/repos/${OWNER}/${REPO}/releases/assets/${ASSET_ID}"
+                "${API_URL}/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}/assets/${ASSET_ID}"
         fi
     done
 
