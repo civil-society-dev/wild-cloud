@@ -57,7 +57,11 @@ func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.Ins
 		// Point cloud domains to the cluster load balancer IP
 		loadBalancerIP := cloud.Cluster.LoadBalancerIp
 		if loadBalancerIP == "" {
-			log.Printf("Warning: No load balancer IP configured for instance %s, skipping DNS config", cloud.Cluster.Name)
+			log.Printf("Warning: No load balancer IP configured for instance %s, adding commented DNS config", cloud.Cluster.Name)
+			// Add commented out entries for instances without load balancer
+			resolution_section += fmt.Sprintf("# No load balancer IP configured for instance %s\n", cloud.Cluster.Name)
+			resolution_section += fmt.Sprintf("# local=/%s/\n# address=/%s/<load-balancer-ip>\n", cloud.Cloud.InternalDomain, cloud.Cloud.InternalDomain)
+			resolution_section += fmt.Sprintf("# address=/%s/<load-balancer-ip>\n", cloud.Cloud.Domain)
 			continue
 		}
 		// Internal domain (.internal.cloud.example.tld) - local only, no external DNS
@@ -171,12 +175,13 @@ func (g *ConfigGenerator) GetStatus() (*ServiceStatus, error) {
 		}
 	}
 
-	// Count instances in config
+	// Count instances in config (both active and commented)
 	if data, err := os.ReadFile(g.configPath); err == nil {
-		// Count "local=/" occurrences (each instance has multiple)
-		count := strings.Count(string(data), "local=/")
-		// Each instance creates 2 "local=/" entries (domain and internal domain)
-		status.InstancesConfigured = count / 2
+		// Count both "local=/" and "# local=/" occurrences
+		activeCount := strings.Count(string(data), "\nlocal=/")
+		commentedCount := strings.Count(string(data), "\n# local=/")
+		// Each instance creates 1 "local=/" entry (internal domain)
+		status.InstancesConfigured = activeCount + commentedCount
 	}
 
 	return status, nil

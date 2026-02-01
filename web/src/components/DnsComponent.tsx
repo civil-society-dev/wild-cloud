@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
+import { Input } from './ui/input';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,9 @@ import {
   ChevronDown,
   ChevronUp,
   Edit,
-  TestTube2
+  TestTube2,
+  ExternalLink,
+  Cloud
 } from 'lucide-react';
 import { useDnsmasq } from '../hooks/useDnsmasq';
 import { useConfig } from '../hooks';
@@ -33,8 +36,11 @@ import { apiService } from '../services/api-legacy';
 import { usePageHelp } from '../hooks/usePageHelp';
 
 export function DnsComponent() {
-  const { config: globalConfig } = useConfig();
+  const { config: globalConfig, updateConfig, isUpdating } = useConfig();
   const dnsIp = globalConfig?.cloud?.dnsmasq?.ip;
+  const routerIp = globalConfig?.cloud?.router?.ip;
+  const dynamicDns = globalConfig?.cloud?.router?.dynamicDns || '';
+  const baseDomain = globalConfig?.cloud?.baseDomain;
 
   usePageHelp({
     title: 'How DNS Works in Wild Cloud',
@@ -83,6 +89,9 @@ export function DnsComponent() {
     internal?: { success: boolean; message: string };
     external?: { success: boolean; message: string };
   }>>({});
+  const [isEditingDdns, setIsEditingDdns] = useState(false);
+  const [editedDdns, setEditedDdns] = useState(dynamicDns);
+  const [ddnsSaveSuccess, setDdnsSaveSuccess] = useState(false);
 
   const isRunning = status?.status === 'active';
 
@@ -91,23 +100,30 @@ export function DnsComponent() {
     fetchConfig();
   }, [fetchConfig]);
 
-  // Parse configured instance domains from config
+  // Update editedDdns when dynamicDns changes
+  useEffect(() => {
+    setEditedDdns(dynamicDns);
+  }, [dynamicDns]);
+
+  // Parse configured instance domains from config (including commented ones)
   const configuredDomains = (() => {
     if (!config?.content) return [];
     const lines = config.content.split('\n');
-    const domains: string[] = [];
+    const domains: Array<{ domain: string; isCommented: boolean }> = [];
     const seenDomains = new Set<string>();
 
     for (const line of lines) {
       // Match both "local=/domain/" and "address=/domain/ip" patterns
-      const localMatch = line.match(/^local=\/(.+?)\/$/);
-      const addressMatch = line.match(/^address=\/(.+?)\//);
+      // Also match commented versions
+      const localMatch = line.match(/^(?:# )?local=\/(.+?)\/$/);
+      const addressMatch = line.match(/^(?:# )?address=\/(.+?)\//);
+      const isCommented = line.trim().startsWith('#');
 
       const domain = localMatch?.[1] || addressMatch?.[1];
 
       // Skip internal domains and duplicates
       if (domain && !domain.startsWith('internal.') && !seenDomains.has(domain)) {
-        domains.push(domain);
+        domains.push({ domain, isCommented });
         seenDomains.add(domain);
       }
     }
@@ -269,6 +285,36 @@ export function DnsComponent() {
     }
   };
 
+  const handleSaveDdns = async () => {
+    if (!globalConfig) return;
+
+    try {
+      // Create updated config with the new dynamicDns value
+      const updatedConfig = {
+        ...globalConfig,
+        cloud: {
+          ...globalConfig.cloud,
+          router: {
+            ...globalConfig.cloud?.router,
+            dynamicDns: editedDdns
+          }
+        }
+      };
+
+      await updateConfig(updatedConfig);
+      setIsEditingDdns(false);
+      setDdnsSaveSuccess(true);
+      setTimeout(() => setDdnsSaveSuccess(false), 3000);
+    } catch (error) {
+      console.error('Failed to save dynamic DNS:', error);
+    }
+  };
+
+  const handleCancelDdnsEdit = () => {
+    setEditedDdns(dynamicDns);
+    setIsEditingDdns(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Main Status Card */}
@@ -344,12 +390,15 @@ export function DnsComponent() {
                   </div>
                 ) : configuredDomains.length > 0 ? (
                   <div className="space-y-2">
-                    {configuredDomains.map((domain) => (
+                    {configuredDomains.map(({ domain, isCommented }) => (
                       <div key={domain} className="space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-1">
-                            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                            <code className="text-sm font-mono">{domain}</code>
+                            <div className={`h-1.5 w-1.5 rounded-full ${isCommented ? 'bg-muted-foreground' : 'bg-primary'}`} />
+                            <code className={`text-sm font-mono ${isCommented ? 'text-muted-foreground' : ''}`}>{domain}</code>
+                            {isCommented && (
+                              <Badge variant="outline" className="text-xs">No Load Balancer</Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <Button
@@ -404,7 +453,7 @@ export function DnsComponent() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No instances configured</p>
+                  <p className="text-sm text-muted-foreground">No instances configured. Create a Wild Cloud instance to see it listed here.</p>
                 )}
               </div>
               {status.last_restart && status.last_restart !== '0001-01-01T00:00:00Z' && (
@@ -463,7 +512,7 @@ export function DnsComponent() {
 
           {/* Error Messages */}
           {generateError && (
-            <Alert variant="destructive">
+            <Alert variant="error">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 Failed to generate config: {generateError.message}
@@ -472,13 +521,176 @@ export function DnsComponent() {
           )}
 
           {restartError && (
-            <Alert variant="destructive">
+            <Alert variant="error">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 Failed to restart service: {restartError.message}
               </AlertDescription>
             </Alert>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Dynamic DNS Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-4">
+            <div className="p-2 bg-green-500/10 rounded-lg">
+              <Cloud className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <CardTitle>Dynamic DNS (DDNS)</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Configure external access to your Wild Cloud from anywhere
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* DDNS Value Configuration */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Dynamic DNS Hostname</p>
+                <p className="text-xs text-muted-foreground">Your router's dynamic DNS address</p>
+              </div>
+              {!isEditingDdns && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingDdns(true)}
+                  className="gap-2"
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit
+                </Button>
+              )}
+            </div>
+
+            {isEditingDdns ? (
+              <div className="space-y-3">
+                <Input
+                  value={editedDdns}
+                  onChange={(e) => setEditedDdns(e.target.value)}
+                  placeholder="example.dyndns.org"
+                  className="font-mono"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleSaveDdns}
+                    disabled={isUpdating}
+                    size="sm"
+                  >
+                    {isUpdating ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    Save
+                  </Button>
+                  <Button
+                    onClick={handleCancelDdnsEdit}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-muted rounded-md border">
+                {dynamicDns ? (
+                  <code className="text-sm font-mono">{dynamicDns}</code>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Not configured</p>
+                )}
+              </div>
+            )}
+
+            {ddnsSaveSuccess && (
+              <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800 dark:text-green-200">
+                  Dynamic DNS hostname saved successfully
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          {/* Setup Instructions */}
+          <div className="space-y-4 pt-4 border-t">
+            <p className="text-sm font-medium">Setup Steps</p>
+
+            {/* Step 1: Router DDNS */}
+            <div className="space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                  1
+                </div>
+                <div className="flex-1 space-y-2">
+                  <p className="text-sm font-medium">Configure Router DDNS</p>
+                  <p className="text-xs text-muted-foreground">
+                    Enable Dynamic DNS in your router's settings and note the hostname
+                  </p>
+                  {routerIp && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(`http://${routerIp}`, '_blank')}
+                      className="gap-2"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Open Router ({routerIp})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Update Config */}
+            <div className="space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                  2
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Save DDNS Hostname</p>
+                  <p className="text-xs text-muted-foreground">
+                    Enter your router's dynamic DNS hostname in the field above
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3: Cloudflare CNAME */}
+            <div className="space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                  3
+                </div>
+                <div className="flex-1 space-y-2">
+                  <p className="text-sm font-medium">Update Cloudflare DNS</p>
+                  <p className="text-xs text-muted-foreground">
+                    Create a CNAME record for your Wild Cloud domain pointing to your DDNS hostname
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`https://dash.cloudflare.com/`, '_blank')}
+                    className="gap-2"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Cloudflare Dashboard
+                  </Button>
+                  {dynamicDns && baseDomain && (
+                    <div className="p-3 bg-muted rounded-md border">
+                      <p className="text-xs font-mono">
+                        CNAME: *.{baseDomain} → {dynamicDns}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
