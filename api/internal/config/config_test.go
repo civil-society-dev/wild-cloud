@@ -22,7 +22,6 @@ func TestLoadGlobalConfig(t *testing.T) {
 cloud:
   dns:
     ip: "192.168.1.1"
-    externalResolver: "8.8.8.8"
   router:
     ip: "192.168.1.254"
     dynamicDns: "example.dyndns.org"
@@ -33,7 +32,7 @@ cloud:
 				if config.Operator.Email != "admin@example.com" {
 					t.Error("operator email not loaded correctly")
 				}
-				if config.Cloud.DNS.IP != "192.168.1.1" {
+				if config.Cloud.Dnsmasq.IP != "192.168.1.1" {
 					t.Error("DNS IP not loaded correctly")
 				}
 				if config.Cloud.Router.IP != "192.168.1.254" {
@@ -52,7 +51,7 @@ cloud:
     ip: "192.168.1.1"
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {
-				if config.Cloud.DNS.IP != "192.168.1.1" {
+				if config.Cloud.Dnsmasq.IP != "192.168.1.1" {
 					t.Error("DNS IP not loaded correctly")
 				}
 			},
@@ -63,7 +62,7 @@ cloud:
 			configYAML: `{}
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {
-				if config.Cloud.DNS.IP != "" {
+				if config.Cloud.Dnsmasq.IP != "" {
 					t.Error("expected empty DNS IP")
 				}
 			},
@@ -159,7 +158,7 @@ func TestSaveGlobalConfig(t *testing.T) {
 			config: func() *GlobalConfig {
 				cfg := &GlobalConfig{}
 				cfg.Operator.Email = "admin@example.com"
-				cfg.Cloud.DNS.IP = "192.168.1.1"
+				cfg.Cloud.Dnsmasq.IP = "192.168.1.1"
 				cfg.Cloud.Router.IP = "192.168.1.254"
 				cfg.Cloud.Dnsmasq.Interface = "eth0"
 				return cfg
@@ -273,7 +272,7 @@ func TestGlobalConfig_IsEmpty(t *testing.T) {
 			name: "config with only DNS IP is not empty",
 			config: func() *GlobalConfig {
 				cfg := &GlobalConfig{}
-				cfg.Cloud.DNS.IP = "192.168.1.1"
+				cfg.Cloud.Dnsmasq.IP = "192.168.1.1"
 				return cfg
 			}(),
 			want: false,
@@ -300,7 +299,7 @@ func TestGlobalConfig_IsEmpty(t *testing.T) {
 			name: "config with all fields is not empty",
 			config: func() *GlobalConfig {
 				cfg := &GlobalConfig{}
-				cfg.Cloud.DNS.IP = "192.168.1.1"
+				cfg.Cloud.Dnsmasq.IP = "192.168.1.1"
 				cfg.Cloud.Router.IP = "192.168.1.254"
 				cfg.Operator.Email = "admin@example.com"
 				return cfg
@@ -508,8 +507,7 @@ func TestGlobalConfig_RoundTrip(t *testing.T) {
 	// Create config with all fields
 	original := &GlobalConfig{}
 	original.Operator.Email = "admin@example.com"
-	original.Cloud.DNS.IP = "192.168.1.1"
-	original.Cloud.DNS.ExternalResolver = "8.8.8.8"
+	original.Cloud.Dnsmasq.IP = "192.168.1.1"
 	original.Cloud.Router.IP = "192.168.1.254"
 	original.Cloud.Router.DynamicDns = "example.dyndns.org"
 	original.Cloud.Dnsmasq.Interface = "eth0"
@@ -529,8 +527,8 @@ func TestGlobalConfig_RoundTrip(t *testing.T) {
 	if loaded.Operator.Email != original.Operator.Email {
 		t.Errorf("email mismatch: got %q, want %q", loaded.Operator.Email, original.Operator.Email)
 	}
-	if loaded.Cloud.DNS.IP != original.Cloud.DNS.IP {
-		t.Errorf("DNS IP mismatch: got %q, want %q", loaded.Cloud.DNS.IP, original.Cloud.DNS.IP)
+	if loaded.Cloud.Dnsmasq.IP != original.Cloud.Dnsmasq.IP {
+		t.Errorf("DNS IP mismatch: got %q, want %q", loaded.Cloud.Dnsmasq.IP, original.Cloud.Dnsmasq.IP)
 	}
 	if loaded.Cloud.Router.IP != original.Cloud.Router.IP {
 		t.Errorf("router IP mismatch: got %q, want %q", loaded.Cloud.Router.IP, original.Cloud.Router.IP)

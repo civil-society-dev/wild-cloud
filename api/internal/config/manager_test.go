@@ -47,7 +47,6 @@ cloud:
   dhcpRange: ""
   dns:
     ip: ""
-    externalResolver: ""
   router:
     ip: ""
   dnsmasq:

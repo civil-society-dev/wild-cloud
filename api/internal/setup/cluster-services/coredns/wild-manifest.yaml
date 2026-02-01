@@ -10,7 +10,7 @@ configReferences:
 
 serviceConfig:
   externalResolver:
-    path: cloud.dns.externalResolver
+    path: cluster.internalDns.externalResolver
     prompt: "Enter external DNS resolver"
     default: "8.8.8.8"
     type: string

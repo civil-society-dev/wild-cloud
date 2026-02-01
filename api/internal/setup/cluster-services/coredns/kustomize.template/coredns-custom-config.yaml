@@ -23,6 +23,6 @@ data:
     }
   # Custom override to set external resolvers.
   external.override: |
-    forward . {{ .cloud.dns.externalResolver }} {
+    forward . {{ .cluster.internalDns.externalResolver }} {
       max_concurrent 1000
     }

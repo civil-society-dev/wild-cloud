@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input, Label } from './ui';
-import { Server, HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X } from 'lucide-react';
+import { Server, HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X, Network, Globe } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useCentralStatus } from '../hooks/useCentralStatus';
 import { useInstanceConfig, useInstanceContext, useConfig } from '../hooks';
@@ -17,6 +17,10 @@ interface GlobalConfigForm {
       ip?: string;
       dynamicDns?: string;
     };
+    dnsmasq?: {
+      ip?: string;
+      interface?: string;
+    };
   };
 }
 
@@ -28,6 +32,7 @@ export function CentralComponent() {
 
   const [editingOperator, setEditingOperator] = useState(false);
   const [editingRouter, setEditingRouter] = useState(false);
+  const [editingDnsmasq, setEditingDnsmasq] = useState(false);
   const [formValues, setFormValues] = useState<GlobalConfigForm>({});
 
   const serverConfig = fullConfig?.server as { host?: string; port?: number } | undefined;
@@ -39,6 +44,7 @@ export function CentralComponent() {
         operator: globalConfig.operator,
         cloud: {
           router: globalConfig.cloud?.router,
+          dnsmasq: globalConfig.cloud?.dnsmasq,
         },
       });
     }
@@ -107,6 +113,39 @@ export function CentralComponent() {
     setEditingRouter(false);
   };
 
+  const handleDnsmasqEdit = () => {
+    setEditingDnsmasq(true);
+  };
+
+  const handleDnsmasqSave = async () => {
+    if (!globalConfig || !formValues.cloud?.dnsmasq) return;
+    try {
+      await updateGlobalConfig({
+        ...globalConfig,
+        cloud: {
+          ...globalConfig.cloud,
+          dnsmasq: formValues.cloud.dnsmasq,
+        },
+      });
+      setEditingDnsmasq(false);
+    } catch (err) {
+      console.error('Failed to save dnsmasq:', err);
+    }
+  };
+
+  const handleDnsmasqCancel = () => {
+    if (globalConfig) {
+      setFormValues(prev => ({
+        ...prev,
+        cloud: {
+          ...prev.cloud,
+          dnsmasq: globalConfig.cloud?.dnsmasq,
+        },
+      }));
+    }
+    setEditingDnsmasq(false);
+  };
+
   const updateFormValue = (path: string, value: string) => {
     setFormValues(prev => {
       const keys = path.split('.');
@@ -126,6 +165,18 @@ export function CentralComponent() {
             ...prev.cloud,
             router: {
               ...prev.cloud?.router,
+              [keys[2]]: value,
+            },
+          },
+        };
+      }
+      if (keys.length === 3 && keys[0] === 'cloud' && keys[1] === 'dnsmasq') {
+        return {
+          ...prev,
+          cloud: {
+            ...prev.cloud,
+            dnsmasq: {
+              ...prev.cloud?.dnsmasq,
               [keys[2]]: value,
             },
           },
@@ -305,8 +356,7 @@ export function CentralComponent() {
                   </div>
                 </Card>
 
-                {(globalConfig?.operator?.email || editingOperator) && (
-                  <Card className="p-4 border-l-4 border-l-amber-500">
+                <Card className="p-4 border-l-4 border-l-amber-500">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Mail className="h-5 w-5 text-amber-500" />
@@ -362,14 +412,14 @@ export function CentralComponent() {
                       </div>
                     ) : (
                       <div className="font-medium font-mono text-sm ml-7">
-                        {globalConfig?.operator?.email}
+                        {globalConfig?.operator?.email || (
+                          <span className="text-muted-foreground italic">Not configured</span>
+                        )}
                       </div>
                     )}
                   </Card>
-                )}
 
-                {(globalConfig?.cloud?.router || editingRouter) && (
-                  <Card className="p-4 border-l-4 border-l-teal-500">
+                <Card className="p-4 border-l-4 border-l-teal-500">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Router className="h-5 w-5 text-teal-500" />
@@ -446,10 +496,100 @@ export function CentralComponent() {
                             <span className="font-medium font-mono text-sm">{globalConfig.cloud.router.dynamicDns}</span>
                           </div>
                         )}
+                        {!globalConfig?.cloud?.router?.ip && !globalConfig?.cloud?.router?.dynamicDns && (
+                          <div className="text-sm text-muted-foreground italic">Not configured</div>
+                        )}
                       </div>
                     )}
                   </Card>
-                )}
+
+                <Card className="p-4 border-l-4 border-l-green-500">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Network className="h-5 w-5 text-green-500" />
+                        <div className="text-sm text-muted-foreground">Dnsmasq</div>
+                      </div>
+                      {!editingDnsmasq && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleDnsmasqEdit}
+                          disabled={isUpdating}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {editingDnsmasq ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="dns-ip">DNS IP</Label>
+                          <Input
+                            id="dns-ip"
+                            value={formValues.cloud?.dnsmasq?.ip || ''}
+                            onChange={(e) => updateFormValue('cloud.dnsmasq.ip', e.target.value)}
+                            placeholder="192.168.1.1"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="dnsmasq-interface">Network Interface</Label>
+                          <Input
+                            id="dnsmasq-interface"
+                            value={formValues.cloud?.dnsmasq?.interface || ''}
+                            onChange={(e) => updateFormValue('cloud.dnsmasq.interface', e.target.value)}
+                            placeholder="eth0"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDnsmasqCancel}
+                            disabled={isUpdating}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleDnsmasqSave}
+                            disabled={isUpdating}
+                          >
+                            {isUpdating ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4 mr-1" />
+                            )}
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (<>
+                      <div className="space-y-1 ml-7">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-16">IP:</span>
+                          {globalConfig?.cloud?.dnsmasq?.ip ? (
+                            <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.ip}</span>
+                          ) : (
+                            <div className="text-sm text-muted-foreground italic">Not configured</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="font-medium font-mono text-sm ml-7">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-16">Interface:</span>
+                          {globalConfig?.cloud?.dnsmasq?.interface ? (
+                            <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.interface}</span>
+                          ) : (
+                            <div className="text-sm text-muted-foreground italic">Not configured</div>
+                          )}
+                        </div>
+                      </div>
+                      </>
+                    )}
+                  </Card>
               </div>
             </div>
           </div>

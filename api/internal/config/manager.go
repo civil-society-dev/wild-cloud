@@ -44,8 +44,7 @@ func (m *Manager) EnsureGlobalConfig(dataDir string) error {
 		log.Printf("Warning: Could not detect network info, using empty defaults: %v", err)
 	} else {
 		// Set detected values
-		initialConfig.Cloud.DNS.IP = netInfo.PrimaryIP
-		initialConfig.Cloud.DNS.ExternalResolver = "1.1.1.1" // Default external resolver
+		initialConfig.Cloud.Dnsmasq.IP = netInfo.PrimaryIP
 		initialConfig.Cloud.Router.IP = netInfo.Gateway
 		initialConfig.Cloud.Dnsmasq.Interface = netInfo.PrimaryInterface
 		log.Printf("Detected network: IP=%s, Gateway=%s, Interface=%s",

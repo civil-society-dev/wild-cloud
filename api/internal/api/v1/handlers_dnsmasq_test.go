@@ -39,7 +39,7 @@ func TestDnsmasqGenerate_WithoutOverwrite(t *testing.T) {
 
 	// Create global config
 	globalConfig := config.GlobalConfig{}
-	globalConfig.Cloud.DNS.IP = "192.168.1.100"
+	globalConfig.Cloud.Dnsmasq.IP = "192.168.1.100"
 	globalConfig.Cloud.Dnsmasq.Interface = "eth0"
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	configData, _ := yaml.Marshal(globalConfig)
@@ -88,7 +88,7 @@ func TestDnsmasqGenerate_WithOverwrite(t *testing.T) {
 
 	// Create global config
 	globalConfig := config.GlobalConfig{}
-	globalConfig.Cloud.DNS.IP = "192.168.1.100"
+	globalConfig.Cloud.Dnsmasq.IP = "192.168.1.100"
 	globalConfig.Cloud.Dnsmasq.Interface = "eth0"
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	configData, _ := yaml.Marshal(globalConfig)

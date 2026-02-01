@@ -43,7 +43,7 @@ func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.Ins
 		log.Printf("Warning: Failed to auto-detect network info, using config values: %v", err)
 		// Fall back to config values if detection fails
 		netInfo = &network.NetworkInfo{
-			PrimaryIP:        cfg.Cloud.DNS.IP,
+			PrimaryIP:        cfg.Cloud.Dnsmasq.IP,
 			PrimaryInterface: cfg.Cloud.Dnsmasq.Interface,
 		}
 	}

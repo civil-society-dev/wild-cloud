@@ -4,10 +4,10 @@ PRESET_NET_ETHERNET_ENABLED="1"
 PRESET_NET_WIFI_ENABLED="0"
 
 PRESET_NET_USE_STATIC="1"
-PRESET_NET_STATIC_IP="{{ .cloud.dns.ip }}"
+PRESET_NET_STATIC_IP="{{ .cloud.dnsmasq.ip }}"
 PRESET_NET_STATIC_MASK="255.255.255.0"
 PRESET_NET_STATIC_GATEWAY="{{ .cloud.router.ip }}"
-PRESET_NET_STATIC_DNS="{{ .cloud.dns.ip }}"
+PRESET_NET_STATIC_DNS="{{ .cloud.dnsmasq.ip }}"
 
 # For example:
 # PRESET_NET_STATIC_IP="192.168.8.50"

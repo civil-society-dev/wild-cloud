@@ -476,7 +476,7 @@ dhcp-boot=tag:!efi-x86_64,undionly.kpxe
 dhcp-boot=tag:efi-x86_64,ipxe.efi
 dhcp-boot=tag:efi-arm64,ipxe-arm64.efi
 dhcp-userclass=set:ipxe,iPXE
-dhcp-boot=tag:ipxe,http://{{ (ds="config").cloud.dns.ip }}/boot.ipxe
+dhcp-boot=tag:ipxe,http://{{ (ds="config").cloud.dnsmasq.ip }}/boot.ipxe
 
 # Encapsulated options for iPXE. All the options are
 # encapsulated within option 175

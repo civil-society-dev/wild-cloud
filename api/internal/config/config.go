@@ -14,15 +14,12 @@ type GlobalConfig struct {
 		Email string `yaml:"email,omitempty" json:"email,omitempty"`
 	} `yaml:"operator,omitempty" json:"operator,omitempty"`
 	Cloud struct {
-		DNS struct {
-			IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
-			ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
-		} `yaml:"dns,omitempty" json:"dns,omitempty"`
 		Router struct {
 			IP         string `yaml:"ip,omitempty" json:"ip,omitempty"`
 			DynamicDns string `yaml:"dynamicDns,omitempty" json:"dynamicDns,omitempty"`
 		} `yaml:"router,omitempty" json:"router,omitempty"`
 		Dnsmasq struct {
+			IP        string `yaml:"ip,omitempty" json:"ip,omitempty"`
 			Interface string `yaml:"interface,omitempty" json:"interface,omitempty"`
 		} `yaml:"dnsmasq,omitempty" json:"dnsmasq,omitempty"`
 	} `yaml:"cloud,omitempty" json:"cloud,omitempty"`
@@ -65,7 +62,7 @@ func (c *GlobalConfig) IsEmpty() bool {
 	}
 
 	// Check if essential fields are empty
-	return c.Cloud.DNS.IP == "" && c.Cloud.Router.IP == "" && c.Operator.Email == ""
+	return c.Cloud.Dnsmasq.IP == "" && c.Cloud.Router.IP == "" && c.Operator.Email == ""
 }
 
 type NodeConfig struct {
@@ -112,6 +109,9 @@ type InstanceConfig struct {
 		ExternalDns struct {
 			OwnerId string `yaml:"ownerId" json:"ownerId"`
 		} `yaml:"externalDns" json:"externalDns"`
+		InternalDns struct {
+			ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
+		} `yaml:"internalDns" json:"internalDns"`
 		DockerRegistry struct {
 			Storage string `yaml:"storage" json:"storage"`
 		} `yaml:"dockerRegistry" json:"dockerRegistry"`

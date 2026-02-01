@@ -152,7 +152,7 @@ export const ConfigurationForm = () => {
                     />
                     <FormField
                       control={form.control}
-                      name="cloud.dns.ip"
+                      name="cloud.dnsmasq.ip"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>DNS Server IP</FormLabel>

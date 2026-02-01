@@ -5,20 +5,12 @@ export interface Status {
   timestamp: string;
 }
 
-export interface ServerConfig {
-  host: string;
-  port: number;
-}
-
-export interface CloudDns {
-  ip: string;
-}
-
 export interface CloudRouter {
   ip: string;
 }
 
 export interface CloudDnsmasq {
+  ip: string;
   interface: string;
 }
 
@@ -26,7 +18,6 @@ export interface CloudConfig {
   domain: string;
   internalDomain: string;
   dhcpRange: string;
-  dns: CloudDns;
   router: CloudRouter;
   dnsmasq: CloudDnsmasq;
 }
@@ -45,17 +36,9 @@ export interface ClusterConfig {
   nodes: NodesConfig;
 }
 
-export interface WildcloudConfig {
-  repository: string;
-  currentPhase?: 'setup' | 'infrastructure' | 'cluster' | 'apps';
-  completedPhases?: ('setup' | 'infrastructure' | 'cluster' | 'apps')[];
-}
-
 export interface Config {
-  server: ServerConfig;
   cloud: CloudConfig;
   cluster: ClusterConfig;
-  wildcloud?: WildcloudConfig;
 }
 
 export interface ConfigResponse {
