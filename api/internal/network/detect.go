@@ -11,6 +11,7 @@ import (
 type NetworkInfo struct {
 	PrimaryIP        string `json:"primary_ip"`
 	PrimaryInterface string `json:"primary_interface"`
+	Gateway          string `json:"gateway"`
 }
 
 // DetectNetworkInfo detects the machine's primary network configuration
@@ -27,6 +28,16 @@ func DetectNetworkInfo() (*NetworkInfo, error) {
 
 	line := string(output)
 	// Example output: "8.8.8.8 via 192.168.8.1 dev wlan0 src 192.168.8.152 uid 1000"
+
+	// Extract gateway (after "via")
+	gateway := ""
+	if idx := strings.Index(line, "via "); idx != -1 {
+		rest := line[idx+4:]
+		parts := strings.Fields(rest)
+		if len(parts) > 0 {
+			gateway = parts[0]
+		}
+	}
 
 	// Extract interface (after "dev")
 	iface := ""
@@ -56,6 +67,7 @@ func DetectNetworkInfo() (*NetworkInfo, error) {
 	return &NetworkInfo{
 		PrimaryIP:        ip,
 		PrimaryInterface: iface,
+		Gateway:          gateway,
 	}, nil
 }
 

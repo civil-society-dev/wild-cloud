@@ -10,15 +10,6 @@ import (
 
 // GlobalConfig represents the main configuration structure
 type GlobalConfig struct {
-	Wildcloud struct {
-		Repository      string   `yaml:"repository,omitempty" json:"repository,omitempty"`
-		CurrentPhase    string   `yaml:"currentPhase,omitempty" json:"currentPhase,omitempty"`
-		CompletedPhases []string `yaml:"completedPhases,omitempty" json:"completedPhases,omitempty"`
-	} `yaml:"wildcloud,omitempty" json:"wildcloud,omitempty"`
-	Server struct {
-		Port int    `yaml:"port,omitempty" json:"port,omitempty"`
-		Host string `yaml:"host,omitempty" json:"host,omitempty"`
-	} `yaml:"server,omitempty" json:"server,omitempty"`
 	Operator struct {
 		Email string `yaml:"email,omitempty" json:"email,omitempty"`
 	} `yaml:"operator,omitempty" json:"operator,omitempty"`
@@ -35,14 +26,6 @@ type GlobalConfig struct {
 			Interface string `yaml:"interface,omitempty" json:"interface,omitempty"`
 		} `yaml:"dnsmasq,omitempty" json:"dnsmasq,omitempty"`
 	} `yaml:"cloud,omitempty" json:"cloud,omitempty"`
-	Cluster struct {
-		EndpointIP string `yaml:"endpointIp,omitempty" json:"endpointIp,omitempty"`
-		Nodes      struct {
-			Talos struct {
-				Version string `yaml:"version,omitempty" json:"version,omitempty"`
-			} `yaml:"talos,omitempty" json:"talos,omitempty"`
-		} `yaml:"nodes,omitempty" json:"nodes,omitempty"`
-	} `yaml:"cluster,omitempty" json:"cluster,omitempty"`
 }
 
 // LoadGlobalConfig loads configuration from the specified path
@@ -55,14 +38,6 @@ func LoadGlobalConfig(configPath string) (*GlobalConfig, error) {
 	config := &GlobalConfig{}
 	if err := yaml.Unmarshal(data, config); err != nil {
 		return nil, fmt.Errorf("parsing config file: %w", err)
-	}
-
-	// Set defaults
-	if config.Server.Port == 0 {
-		config.Server.Port = 5055
-	}
-	if config.Server.Host == "" {
-		config.Server.Host = "0.0.0.0"
 	}
 
 	return config, nil
@@ -89,8 +64,8 @@ func (c *GlobalConfig) IsEmpty() bool {
 		return true
 	}
 
-	// Check if any essential fields are empty
-	return c.Cloud.DNS.IP == "" || c.Cluster.Nodes.Talos.Version == ""
+	// Check if essential fields are empty
+	return c.Cloud.DNS.IP == "" && c.Cloud.Router.IP == "" && c.Operator.Email == ""
 }
 
 type NodeConfig struct {
@@ -109,18 +84,7 @@ type InstanceConfig struct {
 		Domain         string `yaml:"domain" json:"domain"`
 		InternalDomain string `yaml:"internalDomain" json:"internalDomain"`
 		DHCPRange      string `yaml:"dhcpRange" json:"dhcpRange"`
-		DNS            struct {
-			IP               string `yaml:"ip" json:"ip"`
-			ExternalResolver string `yaml:"externalResolver" json:"externalResolver"`
-		} `yaml:"dns" json:"dns"`
-		Router struct {
-			IP         string `yaml:"ip" json:"ip"`
-			DynamicDns string `yaml:"dynamicDns,omitempty" json:"dynamicDns,omitempty"`
-		} `yaml:"router" json:"router"`
-		Dnsmasq struct {
-			Interface string `yaml:"interface" json:"interface"`
-		} `yaml:"dnsmasq" json:"dnsmasq"`
-		NFS struct {
+		NFS            struct {
 			Host            string `yaml:"host" json:"host"`
 			MediaPath       string `yaml:"mediaPath" json:"mediaPath"`
 			StorageCapacity string `yaml:"storageCapacity" json:"storageCapacity"`

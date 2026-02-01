@@ -236,8 +236,8 @@ func fileExists(path string) bool {
 }
 
 func checkDNSConfigured(instanceConfig *config.InstanceConfig, globalConfig *config.GlobalConfig) bool {
-	// DNS is configured if we have DNS IP and DHCP range
-	return instanceConfig.Cloud.DNS.IP != "" &&
+	// DNS is configured if we have DNS IP (from global config) and DHCP range (from instance config)
+	return globalConfig.Cloud.DNS.IP != "" &&
 		instanceConfig.Cloud.DHCPRange != ""
 }
 

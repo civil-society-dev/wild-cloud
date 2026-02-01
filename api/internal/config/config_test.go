@@ -17,16 +17,7 @@ func TestLoadGlobalConfig(t *testing.T) {
 	}{
 		{
 			name: "loads complete configuration",
-			configYAML: `wildcloud:
-  repository: "https://github.com/example/repo"
-  currentPhase: "setup"
-  completedPhases:
-    - "phase1"
-    - "phase2"
-server:
-  port: 8080
-  host: "localhost"
-operator:
+			configYAML: `operator:
   email: "admin@example.com"
 cloud:
   dns:
@@ -37,67 +28,43 @@ cloud:
     dynamicDns: "example.dyndns.org"
   dnsmasq:
     interface: "eth0"
-cluster:
-  endpointIp: "192.168.1.100"
-  nodes:
-    talos:
-      version: "v1.8.0"
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {
-				if config.Wildcloud.Repository != "https://github.com/example/repo" {
-					t.Error("repository not loaded correctly")
-				}
-				if config.Server.Port != 8080 {
-					t.Error("port not loaded correctly")
+				if config.Operator.Email != "admin@example.com" {
+					t.Error("operator email not loaded correctly")
 				}
 				if config.Cloud.DNS.IP != "192.168.1.1" {
 					t.Error("DNS IP not loaded correctly")
 				}
-				if config.Cluster.EndpointIP != "192.168.1.100" {
-					t.Error("endpoint IP not loaded correctly")
+				if config.Cloud.Router.IP != "192.168.1.254" {
+					t.Error("router IP not loaded correctly")
+				}
+				if config.Cloud.Dnsmasq.Interface != "eth0" {
+					t.Error("dnsmasq interface not loaded correctly")
 				}
 			},
 			wantErr: false,
 		},
 		{
-			name: "applies default values",
+			name: "loads minimal configuration",
 			configYAML: `cloud:
   dns:
     ip: "192.168.1.1"
-cluster:
-  nodes:
-    talos:
-      version: "v1.8.0"
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {
-				if config.Server.Port != 5055 {
-					t.Errorf("default port not applied, got %d, want 5055", config.Server.Port)
-				}
-				if config.Server.Host != "0.0.0.0" {
-					t.Errorf("default host not applied, got %q, want %q", config.Server.Host, "0.0.0.0")
+				if config.Cloud.DNS.IP != "192.168.1.1" {
+					t.Error("DNS IP not loaded correctly")
 				}
 			},
 			wantErr: false,
 		},
 		{
-			name: "preserves custom port and host",
-			configYAML: `server:
-  port: 9000
-  host: "127.0.0.1"
-cloud:
-  dns:
-    ip: "192.168.1.1"
-cluster:
-  nodes:
-    talos:
-      version: "v1.8.0"
+			name: "loads empty configuration",
+			configYAML: `{}
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {
-				if config.Server.Port != 9000 {
-					t.Errorf("custom port not preserved, got %d, want 9000", config.Server.Port)
-				}
-				if config.Server.Host != "127.0.0.1" {
-					t.Errorf("custom host not preserved, got %q, want %q", config.Server.Host, "127.0.0.1")
+				if config.Cloud.DNS.IP != "" {
+					t.Error("expected empty DNS IP")
 				}
 			},
 			wantErr: false,
@@ -189,35 +156,25 @@ func TestSaveGlobalConfig(t *testing.T) {
 	}{
 		{
 			name: "saves complete configuration",
-			config: &GlobalConfig{
-				Wildcloud: struct {
-					Repository      string   `yaml:"repository,omitempty" json:"repository,omitempty"`
-					CurrentPhase    string   `yaml:"currentPhase,omitempty" json:"currentPhase,omitempty"`
-					CompletedPhases []string `yaml:"completedPhases,omitempty" json:"completedPhases,omitempty"`
-				}{
-					Repository:      "https://github.com/example/repo",
-					CurrentPhase:    "setup",
-					CompletedPhases: []string{"phase1", "phase2"},
-				},
-				Server: struct {
-					Port int    `yaml:"port,omitempty" json:"port,omitempty"`
-					Host string `yaml:"host,omitempty" json:"host,omitempty"`
-				}{
-					Port: 8080,
-					Host: "localhost",
-				},
-			},
+			config: func() *GlobalConfig {
+				cfg := &GlobalConfig{}
+				cfg.Operator.Email = "admin@example.com"
+				cfg.Cloud.DNS.IP = "192.168.1.1"
+				cfg.Cloud.Router.IP = "192.168.1.254"
+				cfg.Cloud.Dnsmasq.Interface = "eth0"
+				return cfg
+			}(),
 			verify: func(t *testing.T, configPath string) {
 				content, err := os.ReadFile(configPath)
 				if err != nil {
 					t.Fatalf("failed to read saved config: %v", err)
 				}
 				contentStr := string(content)
-				if !strings.Contains(contentStr, "repository") {
-					t.Error("saved config missing repository field")
+				if !strings.Contains(contentStr, "admin@example.com") {
+					t.Error("saved config missing operator email")
 				}
-				if !strings.Contains(contentStr, "8080") {
-					t.Error("saved config missing port value")
+				if !strings.Contains(contentStr, "192.168.1.1") {
+					t.Error("saved config missing DNS IP")
 				}
 			},
 		},
@@ -313,101 +270,41 @@ func TestGlobalConfig_IsEmpty(t *testing.T) {
 			want:   true,
 		},
 		{
-			name: "config with only DNS IP is empty",
-			config: &GlobalConfig{
-				Cloud: struct {
-					DNS struct {
-						IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
-						ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
-					} `yaml:"dns,omitempty" json:"dns,omitempty"`
-					Router struct {
-						IP         string `yaml:"ip,omitempty" json:"ip,omitempty"`
-						DynamicDns string `yaml:"dynamicDns,omitempty" json:"dynamicDns,omitempty"`
-					} `yaml:"router,omitempty" json:"router,omitempty"`
-					Dnsmasq struct {
-						Interface string `yaml:"interface,omitempty" json:"interface,omitempty"`
-					} `yaml:"dnsmasq,omitempty" json:"dnsmasq,omitempty"`
-				}{
-					DNS: struct {
-						IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
-						ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
-					}{
-						IP: "192.168.1.1",
-					},
-				},
-			},
-			want: true,
+			name: "config with only DNS IP is not empty",
+			config: func() *GlobalConfig {
+				cfg := &GlobalConfig{}
+				cfg.Cloud.DNS.IP = "192.168.1.1"
+				return cfg
+			}(),
+			want: false,
 		},
 		{
-			name: "config with only Talos version is empty",
-			config: &GlobalConfig{
-				Cluster: struct {
-					EndpointIP string `yaml:"endpointIp,omitempty" json:"endpointIp,omitempty"`
-					Nodes      struct {
-						Talos struct {
-							Version string `yaml:"version,omitempty" json:"version,omitempty"`
-						} `yaml:"talos,omitempty" json:"talos,omitempty"`
-					} `yaml:"nodes,omitempty" json:"nodes,omitempty"`
-				}{
-					Nodes: struct {
-						Talos struct {
-							Version string `yaml:"version,omitempty" json:"version,omitempty"`
-						} `yaml:"talos,omitempty" json:"talos,omitempty"`
-					}{
-						Talos: struct {
-							Version string `yaml:"version,omitempty" json:"version,omitempty"`
-						}{
-							Version: "v1.8.0",
-						},
-					},
-				},
-			},
-			want: true,
+			name: "config with only router IP is not empty",
+			config: func() *GlobalConfig {
+				cfg := &GlobalConfig{}
+				cfg.Cloud.Router.IP = "192.168.1.254"
+				return cfg
+			}(),
+			want: false,
 		},
 		{
-			name: "config with both DNS IP and Talos version is not empty",
-			config: &GlobalConfig{
-				Cloud: struct {
-					DNS struct {
-						IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
-						ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
-					} `yaml:"dns,omitempty" json:"dns,omitempty"`
-					Router struct {
-						IP         string `yaml:"ip,omitempty" json:"ip,omitempty"`
-						DynamicDns string `yaml:"dynamicDns,omitempty" json:"dynamicDns,omitempty"`
-					} `yaml:"router,omitempty" json:"router,omitempty"`
-					Dnsmasq struct {
-						Interface string `yaml:"interface,omitempty" json:"interface,omitempty"`
-					} `yaml:"dnsmasq,omitempty" json:"dnsmasq,omitempty"`
-				}{
-					DNS: struct {
-						IP               string `yaml:"ip,omitempty" json:"ip,omitempty"`
-						ExternalResolver string `yaml:"externalResolver,omitempty" json:"externalResolver,omitempty"`
-					}{
-						IP: "192.168.1.1",
-					},
-				},
-				Cluster: struct {
-					EndpointIP string `yaml:"endpointIp,omitempty" json:"endpointIp,omitempty"`
-					Nodes      struct {
-						Talos struct {
-							Version string `yaml:"version,omitempty" json:"version,omitempty"`
-						} `yaml:"talos,omitempty" json:"talos,omitempty"`
-					} `yaml:"nodes,omitempty" json:"nodes,omitempty"`
-				}{
-					Nodes: struct {
-						Talos struct {
-							Version string `yaml:"version,omitempty" json:"version,omitempty"`
-						} `yaml:"talos,omitempty" json:"talos,omitempty"`
-					}{
-						Talos: struct {
-							Version string `yaml:"version,omitempty" json:"version,omitempty"`
-						}{
-							Version: "v1.8.0",
-						},
-					},
-				},
-			},
+			name: "config with only operator email is not empty",
+			config: func() *GlobalConfig {
+				cfg := &GlobalConfig{}
+				cfg.Operator.Email = "admin@example.com"
+				return cfg
+			}(),
+			want: false,
+		},
+		{
+			name: "config with all fields is not empty",
+			config: func() *GlobalConfig {
+				cfg := &GlobalConfig{}
+				cfg.Cloud.DNS.IP = "192.168.1.1"
+				cfg.Cloud.Router.IP = "192.168.1.254"
+				cfg.Operator.Email = "admin@example.com"
+				return cfg
+			}(),
 			want: false,
 		},
 	}
@@ -433,11 +330,6 @@ func TestLoadCloudConfig(t *testing.T) {
 		{
 			name: "loads complete instance configuration",
 			configYAML: `cloud:
-  router:
-    ip: "192.168.1.254"
-  dns:
-    ip: "192.168.1.1"
-    externalResolver: "8.8.8.8"
   dhcpRange: "192.168.1.100,192.168.1.200"
   baseDomain: "example.com"
   domain: "home"
@@ -457,6 +349,9 @@ cluster:
 			verify: func(t *testing.T, config *InstanceConfig) {
 				if config.Cloud.BaseDomain != "example.com" {
 					t.Error("base domain not loaded correctly")
+				}
+				if config.Cloud.DHCPRange != "192.168.1.100,192.168.1.200" {
+					t.Error("DHCP range not loaded correctly")
 				}
 				if config.Cluster.Name != "my-cluster" {
 					t.Error("cluster name not loaded correctly")
@@ -611,29 +506,13 @@ func TestGlobalConfig_RoundTrip(t *testing.T) {
 	configPath := filepath.Join(tempDir, "config.yaml")
 
 	// Create config with all fields
-	original := &GlobalConfig{
-		Wildcloud: struct {
-			Repository      string   `yaml:"repository,omitempty" json:"repository,omitempty"`
-			CurrentPhase    string   `yaml:"currentPhase,omitempty" json:"currentPhase,omitempty"`
-			CompletedPhases []string `yaml:"completedPhases,omitempty" json:"completedPhases,omitempty"`
-		}{
-			Repository:      "https://github.com/example/repo",
-			CurrentPhase:    "setup",
-			CompletedPhases: []string{"phase1", "phase2"},
-		},
-		Server: struct {
-			Port int    `yaml:"port,omitempty" json:"port,omitempty"`
-			Host string `yaml:"host,omitempty" json:"host,omitempty"`
-		}{
-			Port: 8080,
-			Host: "localhost",
-		},
-		Operator: struct {
-			Email string `yaml:"email,omitempty" json:"email,omitempty"`
-		}{
-			Email: "admin@example.com",
-		},
-	}
+	original := &GlobalConfig{}
+	original.Operator.Email = "admin@example.com"
+	original.Cloud.DNS.IP = "192.168.1.1"
+	original.Cloud.DNS.ExternalResolver = "8.8.8.8"
+	original.Cloud.Router.IP = "192.168.1.254"
+	original.Cloud.Router.DynamicDns = "example.dyndns.org"
+	original.Cloud.Dnsmasq.Interface = "eth0"
 
 	// Save config
 	if err := SaveGlobalConfig(original, configPath); err != nil {
@@ -647,14 +526,17 @@ func TestGlobalConfig_RoundTrip(t *testing.T) {
 	}
 
 	// Verify all fields match
-	if loaded.Wildcloud.Repository != original.Wildcloud.Repository {
-		t.Errorf("repository mismatch: got %q, want %q", loaded.Wildcloud.Repository, original.Wildcloud.Repository)
-	}
-	if loaded.Server.Port != original.Server.Port {
-		t.Errorf("port mismatch: got %d, want %d", loaded.Server.Port, original.Server.Port)
-	}
 	if loaded.Operator.Email != original.Operator.Email {
 		t.Errorf("email mismatch: got %q, want %q", loaded.Operator.Email, original.Operator.Email)
+	}
+	if loaded.Cloud.DNS.IP != original.Cloud.DNS.IP {
+		t.Errorf("DNS IP mismatch: got %q, want %q", loaded.Cloud.DNS.IP, original.Cloud.DNS.IP)
+	}
+	if loaded.Cloud.Router.IP != original.Cloud.Router.IP {
+		t.Errorf("router IP mismatch: got %q, want %q", loaded.Cloud.Router.IP, original.Cloud.Router.IP)
+	}
+	if loaded.Cloud.Dnsmasq.Interface != original.Cloud.Dnsmasq.Interface {
+		t.Errorf("dnsmasq interface mismatch: got %q, want %q", loaded.Cloud.Dnsmasq.Interface, original.Cloud.Dnsmasq.Interface)
 	}
 }
 

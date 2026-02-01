@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 
+	"github.com/wild-cloud/wild-central/daemon/internal/network"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
@@ -18,6 +20,45 @@ func NewManager() *Manager {
 	return &Manager{
 		yq: tools.NewYQ(),
 	}
+}
+
+// EnsureGlobalConfig ensures a global config file exists with proper structure
+func (m *Manager) EnsureGlobalConfig(dataDir string) error {
+	configPath := filepath.Join(dataDir, "config.yaml")
+
+	// Check if config already exists
+	if storage.FileExists(configPath) {
+		// Validate existing config
+		if err := m.yq.Validate(configPath); err != nil {
+			return fmt.Errorf("invalid config file: %w", err)
+		}
+		return nil
+	}
+
+	// Create config structure with detected defaults
+	initialConfig := &GlobalConfig{}
+
+	// Detect network configuration
+	netInfo, err := network.DetectNetworkInfo()
+	if err != nil {
+		log.Printf("Warning: Could not detect network info, using empty defaults: %v", err)
+	} else {
+		// Set detected values
+		initialConfig.Cloud.DNS.IP = netInfo.PrimaryIP
+		initialConfig.Cloud.DNS.ExternalResolver = "1.1.1.1" // Default external resolver
+		initialConfig.Cloud.Router.IP = netInfo.Gateway
+		initialConfig.Cloud.Dnsmasq.Interface = netInfo.PrimaryInterface
+		log.Printf("Detected network: IP=%s, Gateway=%s, Interface=%s",
+			netInfo.PrimaryIP, netInfo.Gateway, netInfo.PrimaryInterface)
+	}
+
+	// Ensure data directory exists
+	if err := storage.EnsureDir(dataDir, 0755); err != nil {
+		return err
+	}
+
+	// Save config using the model's save function
+	return SaveGlobalConfig(initialConfig, configPath)
 }
 
 // EnsureInstanceConfig ensures an instance config file exists with proper structure

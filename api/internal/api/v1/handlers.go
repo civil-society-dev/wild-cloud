@@ -39,6 +39,14 @@ type API struct {
 // NewAPI creates a new API handler with all dependencies
 // Note: Setup files (cluster-services, cluster-nodes, etc.) are now embedded in the binary
 func NewAPI(dataDir, appsDir string) (*API, error) {
+	// Initialize config manager
+	configMgr := config.NewManager()
+
+	// Ensure global config exists
+	if err := configMgr.EnsureGlobalConfig(dataDir); err != nil {
+		return nil, fmt.Errorf("failed to ensure global config: %w", err)
+	}
+
 	// Ensure base directories exist
 	instancesDir := tools.GetInstancesPath(dataDir)
 	if err := os.MkdirAll(instancesDir, 0755); err != nil {
@@ -55,7 +63,7 @@ func NewAPI(dataDir, appsDir string) (*API, error) {
 	return &API{
 		dataDir:         dataDir,
 		appsDir:         appsDir,
-		config:          config.NewManager(),
+		config:          configMgr,
 		secrets:         secrets.NewManager(),
 		context:         context.NewManager(dataDir),
 		instance:        instance.NewManager(dataDir),
