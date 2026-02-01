@@ -59,22 +59,6 @@ export function ClusterServicesComponent() {
     ),
   });
 
-  const getStatusIcon = (status?: string) => {
-    switch (status) {
-      case 'running':
-      case 'ready':
-      case 'deployed':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      case 'deploying':
-      case 'installing':
-        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
-      default:
-        return null;
-    }
-  };
-
   const getStatusBadge = (service: Service) => {
     // Handle both old format (status as string) and new format (status as object)
     const status = typeof service.status === 'string' ? service.status :
@@ -231,7 +215,6 @@ export function ClusterServicesComponent() {
                           {service.version}
                         </Badge>
                       )}
-                      {getStatusIcon(typeof service.status === 'string' ? service.status : service.status?.status)}
                       {getStatusBadge(service)}
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">{service.description}</p>
@@ -241,9 +224,11 @@ export function ClusterServicesComponent() {
 
                     {/* Action buttons - horizontal layout with responsive icons */}
                     <div className="flex flex-wrap gap-2 mt-3">
-                      {((typeof service.status === 'string' && service.status === 'not-deployed') ||
-                        (!service.status || (typeof service.status === 'string' && service.status === 'not-deployed')) ||
-                        (typeof service.status === 'object' && service.status?.status === 'not-deployed')) && (
+                      {(
+                        (typeof service.status === 'string' && service.status === 'not-deployed') ||
+                        (typeof service.status === 'object' && String(service.status?.status) === 'not-deployed') ||
+                        service.deployed === false
+                      ) && (
                         <Button
                           size="sm"
                           onClick={() => handleInstallService(service.name)}
