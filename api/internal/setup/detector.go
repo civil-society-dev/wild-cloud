@@ -79,9 +79,7 @@ func DetectSetupStatus(instanceName, dataDir string) (*SetupStatus, error) {
 	// 2. Instance configuration phase - essential instance settings
 	instanceConfigComplete := instanceConfig.Cloud.Domain != "" &&
 		instanceConfig.Cloud.InternalDomain != "" &&
-		instanceConfig.Cluster.Name != "" &&
-		instanceConfig.Cluster.Nodes.Talos.Version != "" &&
-		instanceConfig.Cluster.Nodes.Control.Vip != ""
+		instanceConfig.Cluster.Name != ""
 
 	instanceConfigMissing := []string{}
 	if instanceConfig.Cloud.Domain == "" {
@@ -92,9 +90,6 @@ func DetectSetupStatus(instanceName, dataDir string) (*SetupStatus, error) {
 	}
 	if instanceConfig.Cluster.Name == "" {
 		instanceConfigMissing = append(instanceConfigMissing, "Cluster name")
-	}
-	if instanceConfig.Cluster.Nodes.Control.Vip == "" {
-		instanceConfigMissing = append(instanceConfigMissing, "Control plane VIP")
 	}
 
 	checks["instance-config"] = PhaseCheck{
@@ -112,9 +107,17 @@ func DetectSetupStatus(instanceName, dataDir string) (*SetupStatus, error) {
 			controlNodeCount++
 		}
 	}
-	controlNodesComplete := controlNodeCount >= 3
+	controlNodesComplete := controlNodeCount >= 3 &&
+		instanceConfig.Cluster.Nodes.Talos.Version != "" &&
+		instanceConfig.Cluster.Nodes.Control.Vip != ""
 
 	controlNodesMissing := []string{}
+	if instanceConfig.Cluster.Nodes.Talos.Version == "" {
+		controlNodesMissing = append(controlNodesMissing, "Talos version")
+	}
+	if instanceConfig.Cluster.Nodes.Control.Vip == "" {
+		controlNodesMissing = append(controlNodesMissing, "Control plane VIP")
+	}
 	if controlNodeCount < 3 {
 		controlNodesMissing = append(controlNodesMissing,
 			fmt.Sprintf("At least 3 control plane nodes (currently: %d)", controlNodeCount))

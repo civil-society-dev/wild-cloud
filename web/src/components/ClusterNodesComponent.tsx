@@ -11,7 +11,8 @@ import { useCluster } from '../hooks/useCluster';
 import { useClusterStatus } from '../services/api/hooks/useCluster';
 import { BootstrapModal } from './cluster/BootstrapModal';
 import { NodeStatusBadge } from './nodes/NodeStatusBadge';
-import { NodeFormDrawer } from './nodes/NodeFormDrawer';
+import { NodeFormDialog } from './nodes/NodeFormDialog';
+import { ClusterSettings } from './nodes/ClusterSettings';
 import type { NodeFormData } from './nodes/NodeForm';
 import type { Node, HardwareInfo, DiscoveredNode } from '../services/api/types';
 import { usePageHelp } from '../hooks/usePageHelp';
@@ -396,6 +397,11 @@ export function ClusterNodesComponent({
         </Alert>
       )}
 
+      {/* Cluster Settings - only show for control plane nodes */}
+      {filterRole === 'controlplane' && currentInstance && (
+        <ClusterSettings instanceId={currentInstance} />
+      )}
+
       <Card className="p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-2 bg-primary/10 rounded-lg">
@@ -566,107 +572,12 @@ export function ClusterNodesComponent({
             </div>
             )}
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-medium">Cluster Nodes ({assignedNodes.length})</h2>
               </div>
 
-              {assignedNodes.map((node) => (
-                <Card key={node.hostname} className="p-4 hover:shadow-md transition-shadow">
-                  <div className="mb-2">
-                    <NodeStatusBadge node={node} compact />
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-muted rounded-lg">
-                      {getRoleIcon(node.role)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium">{node.hostname}</h4>
-                        <Badge variant="outline" className="text-xs">
-                          {node.role}
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground mb-2">
-                        Target: {node.target_ip}
-                      </div>
-                      {node.disk && (
-                        <div className="text-xs text-muted-foreground">
-                          Disk: {node.disk}
-                        </div>
-                      )}
-                      {node.hardware && (
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-                          {node.hardware.cpu && (
-                            <span className="flex items-center gap-1">
-                              <Cpu className="h-3 w-3" />
-                              {node.hardware.cpu}
-                            </span>
-                          )}
-                          {node.hardware.memory && (
-                            <span className="flex items-center gap-1">
-                              <Monitor className="h-3 w-3" />
-                              {node.hardware.memory}
-                            </span>
-                          )}
-                          {node.hardware.disk && (
-                            <span className="flex items-center gap-1">
-                              <HardDrive className="h-3 w-3" />
-                              {node.hardware.disk}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {(node.version || node.schematic_id) && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {node.version && <span>Talos: {node.version}</span>}
-                          {node.version && node.schematic_id && <span> • </span>}
-                          {node.schematic_id && (
-                            <span
-                              title={node.schematic_id}
-                              onClick={() => {
-                                navigator.clipboard.writeText(node.schematic_id!);
-                              }}
-                              className="cursor-pointer hover:text-primary hover:underline"
-                            >
-                              Schema: {node.schematic_id.substring(0, 8)}...
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleConfigureNode(node)}
-                      >
-                        Configure
-                      </Button>
-                      {node.configured && !node.applied && (
-                        <Button
-                          size="sm"
-                          onClick={() => applyNode(node.hostname)}
-                          disabled={isApplying}
-                          variant="secondary"
-                        >
-                          {isApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteNode(node.hostname)}
-                        disabled={deletingNodeHostname === node.hostname}
-                      >
-                        {deletingNodeHostname === node.hostname ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-
-              {assignedNodes.length === 0 && (
+              {assignedNodes.length === 0 ? (
                 <Card className="p-8 text-center">
                   <Network className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium mb-2">No Nodes</h3>
@@ -674,6 +585,85 @@ export function ClusterNodesComponent({
                     Use the discover or auto-detect buttons above to find nodes on your network.
                   </p>
                 </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {assignedNodes.map((node) => (
+                    <Card
+                      key={node.hostname}
+                      className="p-4 hover:shadow-lg hover:border-primary/50 transition-all flex flex-col cursor-pointer"
+                      onClick={() => handleConfigureNode(node)}
+                    >
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <h4 className="font-medium truncate">{node.hostname}</h4>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {node.role}
+                          </Badge>
+                        </div>
+                        <div className="mb-2">
+                          <NodeStatusBadge node={node} compact />
+                        </div>
+                        <div className="text-sm text-muted-foreground font-mono truncate">
+                          {node.target_ip}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 text-xs text-muted-foreground mb-3 flex-1">
+                        {node.disk && (
+                          <div className="flex items-center gap-1">
+                            <HardDrive className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{node.disk}</span>
+                          </div>
+                        )}
+                        {node.hardware && (
+                          <>
+                            {node.hardware.cpu && (
+                              <div className="flex items-center gap-1">
+                                <Cpu className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{node.hardware.cpu}</span>
+                              </div>
+                            )}
+                            {node.hardware.memory && (
+                              <div className="flex items-center gap-1">
+                                <Monitor className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{node.hardware.memory}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {node.version && (
+                          <div className="truncate">Talos: {node.version}</div>
+                        )}
+                        {node.schematic_id && (
+                          <div
+                            title={node.schematic_id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(node.schematic_id!);
+                            }}
+                            className="cursor-pointer hover:text-primary hover:underline truncate"
+                          >
+                            Schema: {node.schematic_id.substring(0, 12)}...
+                          </div>
+                        )}
+                      </div>
+
+                      {node.configured && !node.applied && (
+                        <div className="pt-2 border-t" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="sm"
+                            onClick={() => applyNode(node.hostname)}
+                            disabled={isApplying}
+                            variant="secondary"
+                            className="w-full"
+                          >
+                            {isApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                          </Button>
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
               )}
             </div>
           </>
@@ -694,9 +684,9 @@ export function ClusterNodesComponent({
         />
       )}
 
-      {/* Node Form Drawer - only render after first open to prevent infinite loop on initial mount */}
+      {/* Node Form Dialog - only render after first open to prevent infinite loop on initial mount */}
       {drawerEverOpened && (
-        <NodeFormDrawer
+        <NodeFormDialog
           open={drawerState.open}
           onClose={closeDrawer}
           mode={drawerState.mode}
@@ -704,6 +694,10 @@ export function ClusterNodesComponent({
           detection={drawerState.detection}
           onSubmit={drawerState.mode === 'add' ? handleAddSubmit : handleConfigureSubmit}
           onApply={drawerState.mode === 'configure' ? handleApply : undefined}
+          onDelete={drawerState.mode === 'configure' && drawerState.node ? async () => {
+            await handleDeleteNode(drawerState.node!.hostname);
+            closeDrawer();
+          } : undefined}
           instanceName={currentInstance || ''}
         />
       )}

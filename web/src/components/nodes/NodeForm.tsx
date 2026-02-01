@@ -4,6 +4,7 @@ import { useInstanceConfig } from '../../hooks/useInstances';
 import { useNodes } from '../../hooks/useNodes';
 import type { HardwareInfo } from '../../services/api/types';
 import { Input, Label, Button } from '../ui';
+import { Trash2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -27,9 +28,11 @@ interface NodeFormProps {
   detection?: HardwareInfo;
   onSubmit: (data: NodeFormData) => Promise<void>;
   onApply?: (data: NodeFormData) => Promise<void>;
+  onDelete?: () => Promise<void>;
   onCancel?: () => void;
   submitLabel?: string;
   showApplyButton?: boolean;
+  showDeleteButton?: boolean;
   instanceName?: string;
 }
 
@@ -122,9 +125,11 @@ export function NodeForm({
   detection,
   onSubmit,
   onApply,
+  onDelete,
   onCancel,
   submitLabel = 'Save',
   showApplyButton = false,
+  showDeleteButton = false,
   instanceName,
 }: NodeFormProps) {
   // Track if we're editing an existing node (has initial hostname from backend)
@@ -567,36 +572,50 @@ export function NodeForm({
         </p>
       </div>
 
-      <div className="flex gap-2">
-        {onCancel && (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                reset();
+                onCancel();
+              }}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+          )}
+          {showApplyButton && onApply ? (
+            <Button
+              type="button"
+              onClick={handleSubmit(onApply)}
+              disabled={isSubmitting}
+              className="flex-1"
+            >
+              {isSubmitting ? 'Applying...' : 'Apply Configuration'}
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1"
+            >
+              {isSubmitting ? 'Saving...' : submitLabel}
+            </Button>
+          )}
+        </div>
+        {showDeleteButton && onDelete && (
           <Button
             type="button"
-            variant="outline"
-            onClick={() => {
-              reset();
-              onCancel();
-            }}
+            variant="destructive"
+            onClick={onDelete}
             disabled={isSubmitting}
+            size="sm"
+            className="w-full"
           >
-            Cancel
-          </Button>
-        )}
-        {showApplyButton && onApply ? (
-          <Button
-            type="button"
-            onClick={handleSubmit(onApply)}
-            disabled={isSubmitting}
-            className="flex-1"
-          >
-            {isSubmitting ? 'Applying...' : 'Apply Configuration'}
-          </Button>
-        ) : (
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex-1"
-          >
-            {isSubmitting ? 'Saving...' : submitLabel}
+            <Trash2 className="h-4 w-4" />
           </Button>
         )}
       </div>

@@ -12,6 +12,7 @@ interface NodeFormDrawerProps {
   detection?: HardwareInfo;
   onSubmit: (data: NodeFormData) => Promise<void>;
   onApply?: (data: NodeFormData) => Promise<void>;
+  onDelete?: () => Promise<void>;
   instanceName?: string;
 }
 
@@ -23,6 +24,7 @@ export function NodeFormDrawer({
   detection,
   onSubmit,
   onApply,
+  onDelete,
   instanceName,
 }: NodeFormDrawerProps) {
   const title = mode === 'add' ? 'Add Node to Cluster' : `Configure ${node?.hostname}`;
@@ -57,9 +59,11 @@ export function NodeFormDrawer({
         detection={detection}
         onSubmit={onSubmit}
         onApply={onApply}
+        onDelete={onDelete}
         onCancel={onClose}
         submitLabel={mode === 'add' ? 'Add Node' : 'Save'}
         showApplyButton={mode === 'configure'}
+        showDeleteButton={mode === 'configure'}
         instanceName={instanceName}
       />
     </Drawer>
