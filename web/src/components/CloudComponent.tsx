@@ -22,7 +22,6 @@ export function CloudComponent() {
   const config = fullConfig?.cloud as CloudConfig | undefined;
 
   const [editingDomains, setEditingDomains] = useState(false);
-  const [editingNetwork, setEditingNetwork] = useState(false);
   const [formValues, setFormValues] = useState<CloudConfig | null>(null);
 
   // Sync form values when config loads or instance changes
@@ -36,13 +35,6 @@ export function CloudComponent() {
     if (config) {
       setFormValues(config as CloudConfig);
       setEditingDomains(true);
-    }
-  };
-
-  const handleNetworkEdit = () => {
-    if (config) {
-      setFormValues(config as CloudConfig);
-      setEditingNetwork(true);
     }
   };
 
@@ -65,32 +57,9 @@ export function CloudComponent() {
     }
   };
 
-  const handleNetworkSave = async () => {
-    if (!formValues || !fullConfig) return;
-
-    try {
-      // Update cloud section with new network values
-      await updateConfig({
-        ...fullConfig,
-        cloud: {
-          ...fullConfig.cloud,
-          dhcpRange: formValues.dhcpRange,
-        },
-      });
-      setEditingNetwork(false);
-    } catch (err) {
-      console.error('Failed to save network settings:', err);
-    }
-  };
-
   const handleDomainsCancel = () => {
     setFormValues(config as CloudConfig);
     setEditingDomains(false);
-  };
-
-  const handleNetworkCancel = () => {
-    setFormValues(config as CloudConfig);
-    setEditingNetwork(false);
   };
 
   const updateFormValue = (path: string, value: string) => {
@@ -256,79 +225,7 @@ export function CloudComponent() {
             )}
           </Card>
 
-          {/* Network Configuration Section */}
-          <Card className="p-4 border-l-4 border-l-green-500">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-medium">Network Configuration</h3>
-                <p className="text-sm text-muted-foreground">
-                  Network settings and DHCP configuration
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm">
-                  <HelpCircle className="h-4 w-4" />
-                </Button>
-                {!editingNetwork && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleNetworkEdit}
-                    disabled={isUpdating}
-                  >
-                    <Edit2 className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                )}
-              </div>
-            </div>
 
-            {editingNetwork ? (
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="dhcp-range-edit">DHCP Range</Label>
-                  <Input
-                    id="dhcp-range-edit"
-                    value={formValues.dhcpRange}
-                    onChange={(e) => updateFormValue('dhcpRange', e.target.value)}
-                    placeholder="192.168.1.100,192.168.1.200"
-                    className="mt-1"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Format: start_ip,end_ip
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={handleNetworkSave} disabled={isUpdating}>
-                    {isUpdating ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4 mr-1" />
-                    )}
-                    Save
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleNetworkCancel}
-                    disabled={isUpdating}
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <Label>DHCP Range</Label>
-                  <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
-                    {formValues.dhcpRange}
-                  </div>
-                </div>
-              </div>
-            )}
-          </Card>
 
         </div>
       </Card>

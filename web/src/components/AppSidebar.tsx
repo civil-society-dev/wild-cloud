@@ -13,6 +13,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarRail,
+  useSidebar,
 } from './ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { useTheme } from '../contexts/ThemeContext';
@@ -21,6 +22,7 @@ import { useSetupStatus } from '../services/api';
 
 export function AppSidebar() {
   const { theme, setTheme } = useTheme();
+  const { state } = useSidebar();
   const { instanceId } = useParams<{ instanceId: string }>();
   const { data: setupStatus } = useSetupStatus(instanceId || '', {
     enabled: !!instanceId,
@@ -99,7 +101,139 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarMenu>
-          <Collapsible defaultOpen className="group/collapsible">
+          {/* When collapsed (icon mode), show all nav items at root level */}
+          {state === 'collapsed' ? (
+            <>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/central`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="Wild Central">
+                      <Server className="h-4 w-4" />
+                      <span>Central</span>
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/dns`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="DNS">
+                      <Globe className="h-4 w-4" />
+                      <span>DNS</span>
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/iso`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="ISO / USB">
+                      <Usb className="h-4 w-4" />
+                      <span>ISO / USB</span>
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/cloud`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="Cloud Settings">
+                      <Settings className="h-4 w-4" />
+                      <span>Cloud</span>
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/control`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="Control Nodes">
+                      <Cpu className="h-4 w-4" />
+                      <span>Control</span>
+                      {renderPhaseIndicator('control-nodes')}
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/worker`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="Worker Nodes">
+                      <HardDrive className="h-4 w-4" />
+                      <span>Worker</span>
+                      {renderPhaseIndicator('control-nodes')}
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/cluster`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="Cluster Services">
+                      <Container className="h-4 w-4" />
+                      <span>Services</span>
+                      {renderPhaseIndicator('cluster-services')}
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/apps/available`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="Available Apps">
+                      <Download className="h-4 w-4" />
+                      <span>Available</span>
+                      {renderPhaseIndicator('apps')}
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/apps/installed`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="Installed Apps">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Installed</span>
+                      {renderPhaseIndicator('apps')}
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/advanced/config`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="Configuration">
+                      <Cog className="h-4 w-4" />
+                      <span>Config</span>
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/advanced/terminal`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="Terminal">
+                      <TerminalSquare className="h-4 w-4" />
+                      <span>Terminal</span>
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavLink to={`/instances/${instanceId}/advanced/k8s-dashboard`}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton isActive={isActive} tooltip="K8s Dashboard">
+                      <LayoutDashboard className="h-4 w-4" />
+                      <span>K8s</span>
+                    </SidebarMenuButton>
+                  )}
+                </NavLink>
+              </SidebarMenuItem>
+            </>
+          ) : (
+            /* When expanded, show grouped/collapsible structure */
+            <>
+              <Collapsible defaultOpen className="group/collapsible">
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton>
@@ -169,26 +303,10 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </Collapsible>
 
-          {/* Instance Selector and Configuration */}
+          {/* Instance Selector */}
           <SidebarMenuItem>
             <div className="px-2 py-2">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <InstanceSwitcher />
-                </div>
-                <NavLink to={`/instances/${instanceId}/cloud`}>
-                  {({ isActive }) => (
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      tooltip="Configure instance settings"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </SidebarMenuButton>
-                  )}
-                </NavLink>
-              </div>
+              <InstanceSwitcher />
             </div>
           </SidebarMenuItem>
 
@@ -210,6 +328,29 @@ export function AppSidebar() {
                     )} />
                   </div>
                   <span className="truncate">Dashboard</span>
+                </SidebarMenuButton>
+              )}
+            </NavLink>
+          </SidebarMenuItem>
+
+          <SidebarMenuItem>
+            <NavLink to={`/instances/${instanceId}/cloud`}>
+              {({ isActive }) => (
+                <SidebarMenuButton
+                  isActive={isActive}
+                  tooltip="Configure cloud instance settings"
+                >
+                  <div className={cn(
+                    "p-1 rounded-md",
+                    isActive && "bg-primary/10"
+                  )}>
+                    <Settings className={cn(
+                      "h-4 w-4",
+                      isActive && "text-primary",
+                      !isActive && "text-muted-foreground"
+                    )} />
+                  </div>
+                  <span className="truncate">Cloud</span>
                 </SidebarMenuButton>
               )}
             </NavLink>
@@ -374,6 +515,8 @@ export function AppSidebar() {
               </CollapsibleContent>
             </SidebarMenuItem>
           </Collapsible>
+            </>
+          )}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
