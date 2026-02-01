@@ -71,7 +71,7 @@ export function AppSidebar() {
   const renderPhaseIndicator = (phase: string) => {
     const { available, complete } = getPhaseStatus(phase);
     if (complete) {
-      return <CheckCircle className="h-3 w-3 text-green-500 ml-auto" />;
+      return <></>;
     }
     if (!available) {
       return <Lock className="h-3 w-3 text-muted-foreground ml-auto" />;
