@@ -20,12 +20,11 @@ func TestLoadGlobalConfig(t *testing.T) {
 			configYAML: `operator:
   email: "admin@example.com"
 cloud:
-  dns:
-    ip: "192.168.1.1"
   router:
     ip: "192.168.1.254"
     dynamicDns: "example.dyndns.org"
   dnsmasq:
+    ip: "192.168.1.1"
     interface: "eth0"
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {
@@ -47,7 +46,7 @@ cloud:
 		{
 			name: "loads minimal configuration",
 			configYAML: `cloud:
-  dns:
+  dnsmasq:
     ip: "192.168.1.1"
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {

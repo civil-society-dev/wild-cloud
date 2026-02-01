@@ -113,7 +113,7 @@ apps: {}
 				tt.setupFunc(t, instancePath)
 			}
 
-			err := m.EnsureInstanceConfig(instancePath)
+			err := m.EnsureInstanceConfig(tt.name, instancePath)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("expected error, got nil")
@@ -830,7 +830,7 @@ func TestEnsureInstanceConfig_FilePermissions(t *testing.T) {
 	tempDir := t.TempDir()
 	m := NewManager()
 
-	if err := m.EnsureInstanceConfig(tempDir); err != nil {
+	if err := m.EnsureInstanceConfig("my-wild-cloud", tempDir); err != nil {
 		t.Fatalf("EnsureInstanceConfig failed: %v", err)
 	}
 
@@ -852,7 +852,7 @@ func TestEnsureInstanceConfig_Idempotent(t *testing.T) {
 	m := NewManager()
 
 	// First call creates config
-	if err := m.EnsureInstanceConfig(tempDir); err != nil {
+	if err := m.EnsureInstanceConfig("my-wild-cloud", tempDir); err != nil {
 		t.Fatalf("first EnsureInstanceConfig failed: %v", err)
 	}
 
@@ -863,7 +863,7 @@ func TestEnsureInstanceConfig_Idempotent(t *testing.T) {
 	}
 
 	// Second call should not modify config
-	if err := m.EnsureInstanceConfig(tempDir); err != nil {
+	if err := m.EnsureInstanceConfig("my-wild-cloud", tempDir); err != nil {
 		t.Fatalf("second EnsureInstanceConfig failed: %v", err)
 	}
 
@@ -882,7 +882,7 @@ func TestEnsureInstanceConfig_RequiredFields(t *testing.T) {
 	tempDir := t.TempDir()
 	m := NewManager()
 
-	if err := m.EnsureInstanceConfig(tempDir); err != nil {
+	if err := m.EnsureInstanceConfig("my-wild-cloud", tempDir); err != nil {
 		t.Fatalf("EnsureInstanceConfig failed: %v", err)
 	}
 

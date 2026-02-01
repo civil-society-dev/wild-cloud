@@ -69,8 +69,6 @@ func main() {
 
 	// Set up HTTP router
 	router := mux.NewRouter()
-
-	// Register Phase 1 API routes
 	api.RegisterRoutes(router)
 
 	// Health check endpoint

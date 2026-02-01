@@ -83,7 +83,7 @@ func (m *Manager) CreateInstance(name string) error {
 		}
 
 		// Create config file
-		if err := m.configMgr.EnsureInstanceConfig(instancePath); err != nil {
+		if err := m.configMgr.EnsureInstanceConfig(name, instancePath); err != nil {
 			return fmt.Errorf("creating config file: %w", err)
 		}
 

@@ -61,7 +61,7 @@ func (m *Manager) EnsureGlobalConfig(dataDir string) error {
 }
 
 // EnsureInstanceConfig ensures an instance config file exists with proper structure
-func (m *Manager) EnsureInstanceConfig(instancePath string) error {
+func (m *Manager) EnsureInstanceConfig(name string, instancePath string) error {
 	configPath := filepath.Join(instancePath, "config.yaml")
 
 	// Check if config already exists
@@ -73,18 +73,15 @@ func (m *Manager) EnsureInstanceConfig(instancePath string) error {
 		return nil
 	}
 
-	// Create minimal config structure using InstanceConfig model
-	initialConfig := &InstanceConfig{}
-	// Initialize nested maps
-	initialConfig.Cluster.Nodes.Active = make(map[string]NodeConfig)
-	initialConfig.Apps = make(map[string]interface{})
-
 	// Ensure instance directory exists
 	if err := storage.EnsureDir(instancePath, 0755); err != nil {
 		return err
 	}
 
-	// Save config using the model's save function
+	initialConfig := &InstanceConfig{}
+	initialConfig.Cluster.Name = name
+	initialConfig.Cluster.Nodes.Active = make(map[string]NodeConfig)
+	initialConfig.Apps = make(map[string]interface{})
 	return SaveCloudConfig(initialConfig, configPath)
 }
 
