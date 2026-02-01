@@ -253,7 +253,7 @@ export function CentralComponent() {
             <Server className="h-6 w-6 text-primary" />
           </div>
           <div className="flex-1">
-            <h2 className="text-2xl font-semibold">Central Service Status</h2>
+            <h2 className="text-2xl font-semibold">Wild Central</h2>
             <p className="text-muted-foreground">
               Monitor the Wild Central server
             </p>
@@ -311,27 +311,6 @@ export function CentralComponent() {
                   </div>
                 </Card>
 
-              </div>
-            </div>
-
-            {/* Configuration */}
-            <div>
-              <h3 className="text-lg font-medium mb-4">Configuration</h3>
-              <div className="space-y-3">
-                <Card className="p-4 border-l-4 border-l-cyan-500">
-                  <div className="flex items-start gap-3">
-                    <Server className="h-5 w-5 text-cyan-500 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground mb-1">Server Host</div>
-                      <div className="font-medium font-mono">{serverConfig?.host || '0.0.0.0'}</div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground mb-1">Server Port</div>
-                      <div className="font-medium font-mono">{serverConfig?.port || 5055}</div>
-                    </div>
-                  </div>
-                </Card>
-
                 <Card className="p-4 border-l-4 border-l-indigo-500">
                   <div className="flex items-start gap-3">
                     <HardDrive className="h-5 w-5 text-indigo-500 mt-0.5" />
@@ -355,6 +334,14 @@ export function CentralComponent() {
                     </div>
                   </div>
                 </Card>
+
+              </div>
+            </div>
+
+            {/* Configuration */}
+            <div>
+              <h3 className="text-lg font-medium mb-4">Configuration</h3>
+              <div className="space-y-3">
 
                 <Card className="p-4 border-l-4 border-l-amber-500">
                     <div className="flex items-center justify-between mb-2">
@@ -487,7 +474,7 @@ export function CentralComponent() {
                         {globalConfig?.cloud?.router?.ip && (
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground w-16">IP:</span>
-                            <span className="font-medium font-mono text-sm">{globalConfig.cloud.router.ip}</span>
+                            <span className="font-medium font-mono text-sm"><a href={`http://${globalConfig.cloud.router.ip}`} target="_blank" rel="noopener noreferrer">{globalConfig.cloud.router.ip}</a></span>
                           </div>
                         )}
                         {globalConfig?.cloud?.router?.dynamicDns && (

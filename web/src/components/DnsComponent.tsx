@@ -34,7 +34,7 @@ import { usePageHelp } from '../hooks/usePageHelp';
 
 export function DnsComponent() {
   const { config: globalConfig } = useConfig();
-  const dnsIp = globalConfig?.cloud?.dns?.ip;
+  const dnsIp = globalConfig?.cloud?.dnsmasq?.ip;
 
   usePageHelp({
     title: 'How DNS Works in Wild Cloud',
