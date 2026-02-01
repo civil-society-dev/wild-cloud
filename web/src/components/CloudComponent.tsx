@@ -18,9 +18,6 @@ interface ClusterConfig {
     control: {
       vip: string;
     };
-    talos: {
-      version: string;
-    };
   };
 }
 
@@ -168,25 +165,13 @@ export function CloudComponent() {
     setClusterFormValues(prev => {
       if (!prev) return prev;
 
-      // Handle nested paths like "nodes.talos.version" or "nodes.control.vip"
+      // Handle nested paths like "nodes.control.vip"
       const keys = path.split('.');
       if (keys.length === 1) {
         return { ...prev, [keys[0]]: value };
       }
 
       if (keys.length === 3 && keys[0] === 'nodes') {
-        if (keys[1] === 'talos') {
-          return {
-            ...prev,
-            nodes: {
-              ...prev.nodes,
-              talos: {
-                ...prev.nodes.talos,
-                [keys[2]]: value,
-              },
-            },
-          };
-        }
         if (keys[1] === 'control') {
           return {
             ...prev,
@@ -449,7 +434,7 @@ export function CloudComponent() {
               {editingCluster ? (
                 <div className="space-y-3">
                   <div>
-                    <Label htmlFor="endpoint-ip-edit">Cluster Endpoint IP</Label>
+                    <Label htmlFor="endpoint-ip-edit">Cluster Control Endpoint IP</Label>
                     <Input
                       id="endpoint-ip-edit"
                       value={clusterFormValues.nodes.control.vip}
@@ -472,19 +457,6 @@ export function CloudComponent() {
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       Prefix for auto-generated node hostnames (e.g., "mycluster-control-1")
-                    </p>
-                  </div>
-                  <div>
-                    <Label htmlFor="talos-version-edit">Talos Version</Label>
-                    <Input
-                      id="talos-version-edit"
-                      value={clusterFormValues.nodes.talos.version}
-                      onChange={(e) => updateClusterFormValue('nodes.talos.version', e.target.value)}
-                      placeholder="v1.8.0"
-                      className="mt-1"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Talos Linux version for cluster nodes
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -510,7 +482,7 @@ export function CloudComponent() {
               ) : (
                 <div className="space-y-3">
                   <div>
-                    <Label>Cluster Endpoint IP</Label>
+                    <Label>Cluster Control Endpoint IP (VIP)</Label>
                     <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
                       {clusterFormValues.nodes.control.vip}
                     </div>
@@ -519,12 +491,6 @@ export function CloudComponent() {
                     <Label>Hostname Prefix</Label>
                     <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
                       {clusterFormValues.hostnamePrefix || '(none)'}
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Talos Version</Label>
-                    <div className="mt-1 p-2 bg-muted rounded-md font-mono text-sm">
-                      {clusterFormValues.nodes.talos.version}
                     </div>
                   </div>
                 </div>
