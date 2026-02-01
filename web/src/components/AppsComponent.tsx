@@ -387,19 +387,17 @@ export function AppsComponent() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <AppWindow className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold">App Management</h2>
-            <p className="text-muted-foreground">
-              Install and manage applications on your Kubernetes cluster
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Applications</h2>
+          <p className="text-muted-foreground">
+            Install and manage applications on your Kubernetes cluster
+          </p>
         </div>
+      </div>
 
+      <Card className="p-6">
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />

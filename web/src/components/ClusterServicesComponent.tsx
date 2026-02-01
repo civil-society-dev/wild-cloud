@@ -158,144 +158,127 @@ export function ClusterServicesComponent() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Container className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold">Cluster Services</h2>
-            <p className="text-muted-foreground">
-              Install and configure essential cluster services
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Cluster Services</h2>
+          <p className="text-muted-foreground">
+            Install and configure essential cluster services
+          </p>
         </div>
+        <Button
+          size="sm"
+          onClick={handleInstallAll}
+          disabled={isInstallingAll || services.length === 0}
+        >
+          {isInstallingAll ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : null}
+          Install All
+        </Button>
+      </div>
 
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-sm text-muted-foreground">
-            {isLoading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading services...
-              </span>
-            ) : (
-              `${services.length} services available`
-            )}
-          </div>
-          <Button
-            size="sm"
-            onClick={handleInstallAll}
-            disabled={isInstallingAll || services.length === 0}
-          >
-            {isInstallingAll ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : null}
-            Install All
-          </Button>
-        </div>
-
-        {isLoading ? (
-          <Card className="p-8 text-center">
-            <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
-            <p className="text-muted-foreground">Loading services...</p>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {services.map((service) => (
-              <Card key={service.name} className="p-4 hover:shadow-lg hover:border-primary/50 transition-all flex flex-col">
-                <div className="mb-3">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <h3 className="font-medium truncate">{service.name}</h3>
-                    {service.version && (
-                      <Badge variant="outline" className="text-xs flex-shrink-0">
-                        {service.version}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="mb-2">
-                    {getStatusBadge(service)}
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">{service.description}</p>
-                  {typeof service.status === 'object' && service.status?.message && (
-                    <p className="text-xs text-muted-foreground">{service.status.message}</p>
+      {isLoading ? (
+        <Card className="p-8 text-center">
+          <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-muted-foreground">Loading services...</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {services.map((service) => (
+            <Card key={service.name} className="p-4 hover:shadow-lg hover:border-primary/50 transition-all flex flex-col">
+              <div className="mb-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h3 className="font-medium truncate">{service.name}</h3>
+                  {service.version && (
+                    <Badge variant="outline" className="text-xs flex-shrink-0">
+                      {service.version}
+                    </Badge>
                   )}
                 </div>
+                <div className="mb-2">
+                  {getStatusBadge(service)}
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">{service.description}</p>
+                {typeof service.status === 'object' && service.status?.message && (
+                  <p className="text-xs text-muted-foreground">{service.status.message}</p>
+                )}
+              </div>
 
-                {/* Action buttons */}
-                <div className="flex flex-col gap-2 mt-auto pt-2 border-t">
-                  {(
-                    (typeof service.status === 'string' && service.status === 'not-deployed') ||
-                    (typeof service.status === 'object' && String(service.status?.status) === 'not-deployed') ||
-                    service.deployed === false
-                  ) && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleInstallService(service.name)}
-                      disabled={isInstalling}
-                      className="w-full"
-                    >
-                      {isInstalling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                      Install
-                    </Button>
-                  )}
-                  {((typeof service.status === 'string' && ['deployed', 'degraded', 'progressing'].includes(service.status)) ||
-                    (typeof service.status === 'object' && ['deployed', 'degraded', 'progressing'].includes(service.status?.status || ''))) && (
-                    <>
-                      <div className="flex gap-2">
+              {/* Action buttons */}
+              <div className="flex flex-col gap-2 mt-auto pt-2 border-t">
+                {(
+                  (typeof service.status === 'string' && service.status === 'not-deployed') ||
+                  (typeof service.status === 'object' && String(service.status?.status) === 'not-deployed') ||
+                  service.deployed === false
+                ) && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleInstallService(service.name)}
+                    disabled={isInstalling}
+                    className="w-full"
+                  >
+                    {isInstalling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                    Install
+                  </Button>
+                )}
+                {((typeof service.status === 'string' && ['deployed', 'degraded', 'progressing'].includes(service.status)) ||
+                  (typeof service.status === 'object' && ['deployed', 'degraded', 'progressing'].includes(service.status?.status || ''))) && (
+                  <>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setStatusService(service.name)}
+                        className="aspect-square p-0"
+                      >
+                        <Activity className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setLogsService(service.name)}
+                        className="aspect-square p-0"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      {service.hasConfig && (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setStatusService(service.name)}
+                          onClick={() => setConfigService(service.name)}
                           className="aspect-square p-0"
                         >
-                          <Activity className="h-4 w-4" />
+                          <Settings className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setLogsService(service.name)}
-                          className="aspect-square p-0"
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                        {service.hasConfig && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setConfigService(service.name)}
-                            className="aspect-square p-0"
-                          >
-                            <Settings className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteService(service.name)}
-                          disabled={isDeleting}
-                          className="aspect-square p-0"
-                        >
-                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </Card>
-            ))}
+                      )}
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteService(service.name)}
+                        disabled={isDeleting}
+                        className="aspect-square p-0"
+                      >
+                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
+          ))}
 
-            {services.length === 0 && (
-              <Card className="p-8 text-center">
-                <Container className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No Services Available</h3>
-                <p className="text-muted-foreground">
-                  No cluster services are configured for this instance.
-                </p>
-              </Card>
-            )}
-          </div>
-        )}
-      </Card>
+          {services.length === 0 && (
+            <Card className="p-8 text-center">
+              <Container className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No Services Available</h3>
+              <p className="text-muted-foreground">
+                No cluster services are configured for this instance.
+              </p>
+            </Card>
+          )}
+        </div>
+      )}
 
       {statusService && (
         <ServiceStatusDialog

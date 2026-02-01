@@ -124,19 +124,17 @@ export function CloudComponent() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Cloud className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold">Cloud Configuration</h2>
-            <p className="text-muted-foreground">
-              Configure top-level cloud settings and domains
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Cloud Configuration</h2>
+          <p className="text-muted-foreground">
+            Configure top-level cloud settings and domains
+          </p>
         </div>
+      </div>
 
+      <Card className="p-6">
         <div className="space-y-6">
           {/* Domains Section */}
           <Card className="p-4 border-l-4 border-l-blue-500">

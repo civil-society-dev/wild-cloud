@@ -247,341 +247,348 @@ export function CentralComponent() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Server className="h-6 w-6 text-primary" />
-          </div>
-          <div className="flex-1">
-            <h2 className="text-2xl font-semibold">Wild Central</h2>
-            <p className="text-muted-foreground">
-              Monitor the Wild Central server
-            </p>
-          </div>
-          {centralStatus && (
-            <Badge variant="success" className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              {centralStatus.status === 'running' ? 'Running' : centralStatus.status}
-            </Badge>
-          )}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Wild Central</h2>
+          <p className="text-muted-foreground">
+            Manage your Wild Central server
+          </p>
         </div>
+        {centralStatus && (
+          <Badge variant="success" className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4" />
+            {centralStatus.status === 'running' ? 'Running' : centralStatus.status}
+          </Badge>
+        )}
+      </div>
 
-        {statusLoading || configLoading ? (
+      {statusLoading ? (
+        <Card className="p-6">
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Server Information */}
-            <div>
-              <h3 className="text-lg font-medium mb-4">Server Information</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Card className="p-4 border-l-4 border-l-blue-500">
-                  <div className="flex items-start gap-3">
-                    <Settings className="h-5 w-5 text-blue-500 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground mb-1">Version</div>
-                      <div className="font-medium font-mono">{centralStatus?.version || 'Unknown'}</div>
-                    </div>
+        </Card>
+      ) : (
+        <>
+          {/* Server Information */}
+          <Card className="p-6">
+            <h3 className="text-lg font-medium mb-4">Wild Central Status</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Card className="p-4 border-l-4 border-l-blue-500">
+                <div className="flex items-start gap-3">
+                  <Settings className="h-5 w-5 text-blue-500 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="text-sm text-muted-foreground mb-1">Version</div>
+                    <div className="font-medium font-mono">{centralStatus?.version || 'Unknown'}</div>
                   </div>
-                </Card>
+                </div>
+              </Card>
 
-                <Card className="p-4 border-l-4 border-l-green-500">
-                  <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-green-500 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground mb-1">Uptime</div>
-                      <div className="font-medium">{formatUptime(centralStatus?.uptimeSeconds)}</div>
-                    </div>
+              <Card className="p-4 border-l-4 border-l-green-500">
+                <div className="flex items-start gap-3">
+                  <Clock className="h-5 w-5 text-green-500 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="text-sm text-muted-foreground mb-1">Uptime</div>
+                    <div className="font-medium">{formatUptime(centralStatus?.uptimeSeconds)}</div>
                   </div>
-                </Card>
+                </div>
+              </Card>
 
-                <Card className="p-4 border-l-4 border-l-purple-500">
-                  <div className="flex items-start gap-3">
-                    <Database className="h-5 w-5 text-purple-500 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground mb-1">Instances</div>
-                      <div className="font-medium">{centralStatus?.instances.count || 0} configured</div>
-                      {centralStatus?.instances.names && centralStatus.instances.names.length > 0 && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {centralStatus.instances.names.join(', ')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4 border-l-4 border-l-indigo-500">
-                  <div className="flex items-start gap-3">
-                    <HardDrive className="h-5 w-5 text-indigo-500 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground mb-1">Data Directory</div>
-                      <div className="font-medium font-mono text-sm break-all">
-                        {centralStatus?.dataDir || '/var/lib/wild-central'}
+              <Card className="p-4 border-l-4 border-l-purple-500">
+                <div className="flex items-start gap-3">
+                  <Database className="h-5 w-5 text-purple-500 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="text-sm text-muted-foreground mb-1">Instances</div>
+                    <div className="font-medium">{centralStatus?.instances.count || 0} configured</div>
+                    {centralStatus?.instances.names && centralStatus.instances.names.length > 0 && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {centralStatus.instances.names.join(', ')}
                       </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-4 border-l-4 border-l-indigo-500">
+                <div className="flex items-start gap-3">
+                  <HardDrive className="h-5 w-5 text-indigo-500 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="text-sm text-muted-foreground mb-1">Data Directory</div>
+                    <div className="font-medium font-mono text-sm break-all">
+                      {centralStatus?.dataDir || '/var/lib/wild-central'}
                     </div>
                   </div>
-                </Card>
+                </div>
+              </Card>
 
-                <Card className="p-4 border-l-4 border-l-pink-500">
-                  <div className="flex items-start gap-3">
-                    <FolderTree className="h-5 w-5 text-pink-500 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground mb-1">Apps Directory</div>
-                      <div className="font-medium font-mono text-sm break-all">
-                        {centralStatus?.appsDir || '/opt/wild-cloud/apps'}
-                      </div>
+              <Card className="p-4 border-l-4 border-l-pink-500">
+                <div className="flex items-start gap-3">
+                  <FolderTree className="h-5 w-5 text-pink-500 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="text-sm text-muted-foreground mb-1">Apps Directory</div>
+                    <div className="font-medium font-mono text-sm break-all">
+                      {centralStatus?.appsDir || '/opt/wild-cloud/apps'}
                     </div>
                   </div>
-                </Card>
-
-              </div>
+                </div>
+              </Card>
             </div>
+          </Card>
+        </>
+      )}
 
-            {/* Configuration */}
-            <div>
-              <h3 className="text-lg font-medium mb-4">Configuration</h3>
-              <div className="space-y-3">
-
-                <Card className="p-4 border-l-4 border-l-amber-500">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-5 w-5 text-amber-500" />
-                        <div className="text-sm text-muted-foreground">Operator Email</div>
-                      </div>
-                      {!editingOperator && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleOperatorEdit}
-                          disabled={isUpdating}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    {editingOperator ? (
-                      <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="operator-email">Email</Label>
-                          <Input
-                            id="operator-email"
-                            type="email"
-                            value={formValues.operator?.email || ''}
-                            onChange={(e) => updateFormValue('operator.email', e.target.value)}
-                            placeholder="email@example.com"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleOperatorCancel}
-                            disabled={isUpdating}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleOperatorSave}
-                            disabled={isUpdating || !formValues.operator?.email}
-                          >
-                            {isUpdating ? (
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            ) : (
-                              <Check className="h-4 w-4 mr-1" />
-                            )}
-                            Save
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="font-medium font-mono text-sm ml-7">
-                        {globalConfig?.operator?.email || (
-                          <span className="text-muted-foreground italic">Not configured</span>
-                        )}
-                      </div>
-                    )}
-                  </Card>
-
-                <Card className="p-4 border-l-4 border-l-teal-500">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Router className="h-5 w-5 text-teal-500" />
-                        <div className="text-sm text-muted-foreground">Router</div>
-                      </div>
-                      {!editingRouter && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleRouterEdit}
-                          disabled={isUpdating}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    {editingRouter ? (
-                      <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="router-ip">Router IP</Label>
-                          <Input
-                            id="router-ip"
-                            value={formValues.cloud?.router?.ip || ''}
-                            onChange={(e) => updateFormValue('cloud.router.ip', e.target.value)}
-                            placeholder="192.168.1.1"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="router-ddns">Dynamic DNS</Label>
-                          <Input
-                            id="router-ddns"
-                            value={formValues.cloud?.router?.dynamicDns || ''}
-                            onChange={(e) => updateFormValue('cloud.router.dynamicDns', e.target.value)}
-                            placeholder="example.ddns.com"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleRouterCancel}
-                            disabled={isUpdating}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleRouterSave}
-                            disabled={isUpdating}
-                          >
-                            {isUpdating ? (
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            ) : (
-                              <Check className="h-4 w-4 mr-1" />
-                            )}
-                            Save
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-1 ml-7">
-                        {globalConfig?.cloud?.router?.ip && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground w-16">IP:</span>
-                            <span className="font-medium font-mono text-sm"><a href={`http://${globalConfig.cloud.router.ip}`} target="_blank" rel="noopener noreferrer">{globalConfig.cloud.router.ip}</a></span>
-                          </div>
-                        )}
-                        {globalConfig?.cloud?.router?.dynamicDns && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground w-16">DDNS:</span>
-                            <span className="font-medium font-mono text-sm">{globalConfig.cloud.router.dynamicDns}</span>
-                          </div>
-                        )}
-                        {!globalConfig?.cloud?.router?.ip && !globalConfig?.cloud?.router?.dynamicDns && (
-                          <div className="text-sm text-muted-foreground italic">Not configured</div>
-                        )}
-                      </div>
-                    )}
-                  </Card>
-
-                <Card className="p-4 border-l-4 border-l-green-500">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Network className="h-5 w-5 text-green-500" />
-                        <div className="text-sm text-muted-foreground">Dnsmasq</div>
-                      </div>
-                      {!editingDnsmasq && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleDnsmasqEdit}
-                          disabled={isUpdating}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    {editingDnsmasq ? (
-                      <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="dns-ip">DNS IP</Label>
-                          <Input
-                            id="dns-ip"
-                            value={formValues.cloud?.dnsmasq?.ip || ''}
-                            onChange={(e) => updateFormValue('cloud.dnsmasq.ip', e.target.value)}
-                            placeholder="192.168.1.1"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="dnsmasq-interface">Network Interface</Label>
-                          <Input
-                            id="dnsmasq-interface"
-                            value={formValues.cloud?.dnsmasq?.interface || ''}
-                            onChange={(e) => updateFormValue('cloud.dnsmasq.interface', e.target.value)}
-                            placeholder="eth0"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDnsmasqCancel}
-                            disabled={isUpdating}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleDnsmasqSave}
-                            disabled={isUpdating}
-                          >
-                            {isUpdating ? (
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            ) : (
-                              <Check className="h-4 w-4 mr-1" />
-                            )}
-                            Save
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (<>
-                      <div className="space-y-1 ml-7">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-16">IP:</span>
-                          {globalConfig?.cloud?.dnsmasq?.ip ? (
-                            <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.ip}</span>
-                          ) : (
-                            <div className="text-sm text-muted-foreground italic">Not configured</div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="font-medium font-mono text-sm ml-7">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-16">Interface:</span>
-                          {globalConfig?.cloud?.dnsmasq?.interface ? (
-                            <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.interface}</span>
-                          ) : (
-                            <div className="text-sm text-muted-foreground italic">Not configured</div>
-                          )}
-                        </div>
-                      </div>
-                      </>
-                    )}
-                  </Card>
-              </div>
-            </div>
+      {configLoading ? (
+        <Card className="p-6">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <>
+          {/* Configuration */}
+          <Card className="p-6">
+            <h3 className="text-lg font-medium mb-4">Wild Central Configuration</h3>
+            <div className="space-y-3">
+
+              <Card className="p-4 border-l-4 border-l-amber-500">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-amber-500" />
+                    <div className="text-sm text-muted-foreground">Operator Email</div>
+                  </div>
+                  {!editingOperator && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleOperatorEdit}
+                      disabled={isUpdating}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {editingOperator ? (
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="operator-email">Email</Label>
+                      <Input
+                        id="operator-email"
+                        type="email"
+                        value={formValues.operator?.email || ''}
+                        onChange={(e) => updateFormValue('operator.email', e.target.value)}
+                        placeholder="email@example.com"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOperatorCancel}
+                        disabled={isUpdating}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleOperatorSave}
+                        disabled={isUpdating || !formValues.operator?.email}
+                      >
+                        {isUpdating ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4 mr-1" />
+                        )}
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="font-medium font-mono text-sm ml-7">
+                    {globalConfig?.operator?.email || (
+                      <span className="text-muted-foreground italic">Not configured</span>
+                    )}
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-4 border-l-4 border-l-teal-500">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Router className="h-5 w-5 text-teal-500" />
+                    <div className="text-sm text-muted-foreground">Router</div>
+                  </div>
+                  {!editingRouter && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRouterEdit}
+                      disabled={isUpdating}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {editingRouter ? (
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="router-ip">Router IP</Label>
+                      <Input
+                        id="router-ip"
+                        value={formValues.cloud?.router?.ip || ''}
+                        onChange={(e) => updateFormValue('cloud.router.ip', e.target.value)}
+                        placeholder="192.168.1.1"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="router-ddns">Dynamic DNS</Label>
+                      <Input
+                        id="router-ddns"
+                        value={formValues.cloud?.router?.dynamicDns || ''}
+                        onChange={(e) => updateFormValue('cloud.router.dynamicDns', e.target.value)}
+                        placeholder="example.ddns.com"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRouterCancel}
+                        disabled={isUpdating}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleRouterSave}
+                        disabled={isUpdating}
+                      >
+                        {isUpdating ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4 mr-1" />
+                        )}
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1 ml-7">
+                    {globalConfig?.cloud?.router?.ip && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-16">IP:</span>
+                        <span className="font-medium font-mono text-sm"><a href={`http://${globalConfig.cloud.router.ip}`} target="_blank" rel="noopener noreferrer">{globalConfig.cloud.router.ip}</a></span>
+                      </div>
+                    )}
+                    {globalConfig?.cloud?.router?.dynamicDns && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-16">DDNS:</span>
+                        <span className="font-medium font-mono text-sm">{globalConfig.cloud.router.dynamicDns}</span>
+                      </div>
+                    )}
+                    {!globalConfig?.cloud?.router?.ip && !globalConfig?.cloud?.router?.dynamicDns && (
+                      <div className="text-sm text-muted-foreground italic">Not configured</div>
+                    )}
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-4 border-l-4 border-l-green-500">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Network className="h-5 w-5 text-green-500" />
+                    <div className="text-sm text-muted-foreground">Dnsmasq</div>
+                  </div>
+                  {!editingDnsmasq && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDnsmasqEdit}
+                      disabled={isUpdating}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {editingDnsmasq ? (
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="dns-ip">DNS IP</Label>
+                      <Input
+                        id="dns-ip"
+                        value={formValues.cloud?.dnsmasq?.ip || ''}
+                        onChange={(e) => updateFormValue('cloud.dnsmasq.ip', e.target.value)}
+                        placeholder="192.168.1.1"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="dnsmasq-interface">Network Interface</Label>
+                      <Input
+                        id="dnsmasq-interface"
+                        value={formValues.cloud?.dnsmasq?.interface || ''}
+                        onChange={(e) => updateFormValue('cloud.dnsmasq.interface', e.target.value)}
+                        placeholder="eth0"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDnsmasqCancel}
+                        disabled={isUpdating}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleDnsmasqSave}
+                        disabled={isUpdating}
+                      >
+                        {isUpdating ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4 mr-1" />
+                        )}
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                ) : (<>
+                  <div className="space-y-1 ml-7">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-16">IP:</span>
+                      {globalConfig?.cloud?.dnsmasq?.ip ? (
+                        <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.ip}</span>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic">Not configured</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="font-medium font-mono text-sm ml-7">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-16">Interface:</span>
+                      {globalConfig?.cloud?.dnsmasq?.interface ? (
+                        <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.interface}</span>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic">Not configured</div>
+                      )}
+                    </div>
+                  </div>
+                  </>
+                )}
+              </Card>
+            </div>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

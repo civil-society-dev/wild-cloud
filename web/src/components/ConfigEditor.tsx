@@ -63,19 +63,26 @@ export function ConfigEditor({ className }: ConfigEditorProps) {
   };
 
   return (
-    <Card className={cn("flex flex-col", className)}>
-      <CardHeader className="shrink-0">
-        <CardTitle className="flex items-center gap-2">
-          <Settings className="h-5 w-5" />
-          Configuration Editor
-        </CardTitle>
-        <CardDescription>
-          Edit the raw YAML configuration file. This provides direct access to all configuration options.
-          <span className="block mt-2 text-orange-600 dark:text-orange-400">
-            Warning: Incorrect changes can break this instance. Most users don't need to edit this manually. Ensure you have a backup before making changes.
-          </span>
-        </CardDescription>
-      </CardHeader>
+    <div className={cn("space-y-6 h-full flex flex-col", className)}>
+      {/* Header */}
+      <div className="flex items-center justify-between shrink-0">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Configuration Editor</h2>
+          <p className="text-muted-foreground">
+            Edit the raw YAML configuration file
+          </p>
+        </div>
+      </div>
+
+      <Card className="flex flex-col flex-1 min-h-0">
+        <CardHeader className="shrink-0">
+          <CardDescription>
+            This provides direct access to all configuration options.
+            <span className="block mt-2 text-orange-600 dark:text-orange-400">
+              Warning: Incorrect changes can break this instance. Most users don't need to edit this manually. Ensure you have a backup before making changes.
+            </span>
+          </CardDescription>
+        </CardHeader>
       <CardContent className="flex flex-col flex-1 min-h-0">
         {error && error instanceof Error && error.message && (
           <div className="p-3 mb-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md shrink-0">
@@ -137,6 +144,7 @@ export function ConfigEditor({ className }: ConfigEditorProps) {
           </div>
         </div>
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }

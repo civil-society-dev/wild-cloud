@@ -14,34 +14,30 @@ export function Terminal() {
 
   if (!instanceId) {
     return (
-      <Card className="flex flex-col h-full">
-        <CardHeader className="shrink-0">
-          <CardTitle className="flex items-center gap-2">
-            <TerminalSquare className="h-5 w-5" />
-            Terminal
-          </CardTitle>
-          <CardDescription>
-            No instance selected
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Terminal</h2>
+            <p className="text-muted-foreground">No instance selected</p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="flex flex-col h-full">
-      <CardHeader className="shrink-0 pb-2">
-        <CardTitle className="flex items-center gap-2">
-          <TerminalSquare className="h-5 w-5" />
-          Terminal
-        </CardTitle>
-        <CardDescription>
-          Interactive shell on Wild Central - {instanceId}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1 min-h-0 pb-4">
-        <XTerminal key={instanceId} instanceId={instanceId} />
-      </CardContent>
-    </Card>
+    <div className="space-y-6 h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between shrink-0">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Terminal</h2>
+          <p className="text-muted-foreground">
+            Interactive shell on Wild Central
+          </p>
+        </div>
+      </div>
+
+      <XTerminal key={instanceId} instanceId={instanceId} />
+    </div>
   );
 }

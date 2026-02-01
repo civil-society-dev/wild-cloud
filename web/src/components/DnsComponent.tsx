@@ -336,20 +336,23 @@ export function DnsComponent() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">DNS Configuration</h2>
+          <p className="text-muted-foreground">
+            Configure external access to your Wild Cloud from anywhere
+          </p>
+        </div>
+      </div>
+
       {/* Global DNS Configuration */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <Cloud className="h-6 w-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <CardTitle>Global DNS (DDNS)</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Configure external access to your Wild Cloud from anywhere
-              </p>
-            </div>
-          </div>
+          <CardTitle>Global DNS (DDNS)</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Your router's dynamic DNS address for external access
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* DDNS Value Configuration */}

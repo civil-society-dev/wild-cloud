@@ -126,20 +126,23 @@ export function IsoPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Node USB Installer Creation</h2>
+          <p className="text-muted-foreground">
+            Download Talos ISO images, burn to a USB drive, and use for all node installations
+          </p>
+        </div>
+      </div>
+
       {/* Download New ISO Section */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Disc className="h-6 w-6 text-primary" />
-            </div>
-            <div className="flex-1">
-              <CardTitle>Download Talos ISO</CardTitle>
-              <CardDescription>
-                Specify the schematic ID, version, and platform to download a Talos ISO image
-              </CardDescription>
-            </div>
-          </div>
+          <CardTitle>Download Talos ISO</CardTitle>
+          <CardDescription>
+            Specify the schematic ID, version, and platform to download a Talos ISO image
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Platform Selection */}

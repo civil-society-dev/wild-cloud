@@ -63,11 +63,21 @@ export function KubernetesDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Kubernetes Dashboard</h2>
+          <p className="text-muted-foreground">
+            Access the Kubernetes dashboard for advanced cluster management
+          </p>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Kubernetes Dashboard</CardTitle>
+          <CardTitle>Access Dashboard</CardTitle>
           <CardDescription>
-            Access the Kubernetes dashboard for advanced cluster management
+            Open the dashboard and copy your authentication token
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -371,9 +371,21 @@ export function ClusterNodesComponent({
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">
+            {filterRole === 'controlplane' ? 'Control Nodes' : filterRole === 'worker' ? 'Worker Nodes' : 'Cluster Nodes'}
+          </h2>
+          <p className="text-muted-foreground">
+            Connect machines to your wild-cloud
+          </p>
+        </div>
+      </div>
+
       {/* Bootstrap Alert */}
       {showBootstrap && needsBootstrap && firstReadyControl && (
-        <Alert variant="info" className="mb-6">
+        <Alert variant="info">
           <CheckCircle className="h-5 w-5" />
           <div className="flex-1">
             <h3 className="font-semibold mb-1">First Control Plane Node Ready!</h3>
@@ -402,273 +414,253 @@ export function ClusterNodesComponent({
         <ClusterSettings instanceId={currentInstance} />
       )}
 
-      <Card className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Network className="h-6 w-6 text-primary" />
-          </div>
+
+      {/* Error and Success Alerts */}
+      {discoverError && (
+        <Alert variant="error" onClose={() => setDiscoverError(null)} className="mb-4">
+          <AlertCircle className="h-4 w-4" />
           <div>
-            <h2 className="text-2xl font-semibold">
-              {filterRole === 'controlplane' ? 'Control Nodes' : filterRole === 'worker' ? 'Worker Nodes' : 'Cluster Nodes'}
-            </h2>
-            <p className="text-muted-foreground">
-              Connect machines to your wild-cloud
+            <strong>Discovery Failed</strong>
+            <p className="text-sm mt-1">{discoverError}</p>
+          </div>
+        </Alert>
+      )}
+
+      {discoverSuccess && (
+        <Alert variant="success" onClose={() => setDiscoverSuccess(null)} className="mb-4">
+          <CheckCircle className="h-4 w-4" />
+          <div>
+            <strong>Discovery Successful</strong>
+            <p className="text-sm mt-1">{discoverSuccess}</p>
+          </div>
+        </Alert>
+      )}
+
+      {detectError && (
+        <Alert variant="error" onClose={() => setDetectError(null)} className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <div>
+            <strong>Auto-Detect Failed</strong>
+            <p className="text-sm mt-1">{detectError}</p>
+          </div>
+        </Alert>
+      )}
+
+
+      {addError && (
+        <Alert variant="error" onClose={() => {}} className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <div>
+            <strong>Failed to Add Node</strong>
+            <p className="text-sm mt-1">{addError instanceof Error ? addError.message : 'An error occurred'}</p>
+          </div>
+        </Alert>
+      )}
+
+      {deleteError && (
+        <Alert variant="error" onClose={() => {}} className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <div>
+            <strong>Failed to Remove Node</strong>
+            <p className="text-sm mt-1">{deleteError instanceof Error ? deleteError.message : 'An error occurred'}</p>
+          </div>
+        </Alert>
+      )}
+
+
+      {/* ADD NODES SECTION - Discovery and manual add combined */}
+      {(!hideDiscoveryWhenNodesGte || assignedNodes.length < hideDiscoveryWhenNodesGte) && (
+        <Card className="p-6">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+            Add Nodes to Cluster
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Discover nodes on the network or manually add by IP address
+          </p>
+
+          {/* Discovery button */}
+          <div className="flex gap-2 mb-4">
+            <Button
+              onClick={handleDiscover}
+              disabled={isDiscovering || discoveryStatus?.active}
+              className="flex-1"
+            >
+              {isDiscovering || discoveryStatus?.active ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Discovering...
+                </>
+              ) : (
+                'Discover Nodes'
+              )}
+            </Button>
+            {(isDiscovering || discoveryStatus?.active) && (
+              <Button
+                onClick={() => cancelDiscovery()}
+                disabled={isCancellingDiscovery}
+                variant="destructive"
+              >
+                {isCancellingDiscovery && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Cancel
+              </Button>
+            )}
+          </div>
+
+          {/* Discovered nodes display */}
+          {discoveryStatus?.nodes_found && discoveryStatus.nodes_found.length > 0 && (
+            <div className="space-y-3 mb-4">
+              {discoveryStatus.nodes_found.map((discovered) => (
+                <div key={discovered.ip} className="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium font-mono text-gray-900 dark:text-gray-100">{discovered.ip}</p>
+                      {discovered.version && discovered.version !== 'maintenance' && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {discovered.version}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      onClick={() => handleAddFromDiscovery(discovered)}
+                      size="sm"
+                    >
+                      Add to Cluster
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Manual add by IP - styled like a list item */}
+          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <Input
+                type="text"
+                value={addNodeIp}
+                onChange={(e) => setAddNodeIp(e.target.value)}
+                placeholder="192.168.8.128"
+                className="flex-1 font-mono"
+              />
+              <Button
+                onClick={handleAddNode}
+                disabled={isGettingHardware}
+                size="sm"
+              >
+                {isGettingHardware ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Detecting...
+                  </>
+                ) : (
+                  'Add to Cluster'
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+              Add a node by IP address if not discovered automatically
             </p>
           </div>
-        </div>
+        </Card>
+      )}
 
-        {isLoading ? (
-          <Card className="p-8 text-center">
-            <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
-            <p className="text-muted-foreground">Loading nodes...</p>
-          </Card>
-        ) : (
-          <>
-            {/* Error and Success Alerts */}
-            {discoverError && (
-              <Alert variant="error" onClose={() => setDiscoverError(null)} className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <div>
-                  <strong>Discovery Failed</strong>
-                  <p className="text-sm mt-1">{discoverError}</p>
-                </div>
-              </Alert>
-            )}
-
-            {discoverSuccess && (
-              <Alert variant="success" onClose={() => setDiscoverSuccess(null)} className="mb-4">
-                <CheckCircle className="h-4 w-4" />
-                <div>
-                  <strong>Discovery Successful</strong>
-                  <p className="text-sm mt-1">{discoverSuccess}</p>
-                </div>
-              </Alert>
-            )}
-
-            {detectError && (
-              <Alert variant="error" onClose={() => setDetectError(null)} className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <div>
-                  <strong>Auto-Detect Failed</strong>
-                  <p className="text-sm mt-1">{detectError}</p>
-                </div>
-              </Alert>
-            )}
-
-
-            {addError && (
-              <Alert variant="error" onClose={() => {}} className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <div>
-                  <strong>Failed to Add Node</strong>
-                  <p className="text-sm mt-1">{addError instanceof Error ? addError.message : 'An error occurred'}</p>
-                </div>
-              </Alert>
-            )}
-
-            {deleteError && (
-              <Alert variant="error" onClose={() => {}} className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <div>
-                  <strong>Failed to Remove Node</strong>
-                  <p className="text-sm mt-1">{deleteError instanceof Error ? deleteError.message : 'An error occurred'}</p>
-                </div>
-              </Alert>
-            )}
-
-            {/* ADD NODES SECTION - Discovery and manual add combined */}
-            {(!hideDiscoveryWhenNodesGte || assignedNodes.length < hideDiscoveryWhenNodesGte) && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                Add Nodes to Cluster
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Discover nodes on the network or manually add by IP address
+      {isLoading ? (
+        <Card className="p-8 text-center">
+          <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-muted-foreground">Loading nodes...</p>
+        </Card>
+      ) : (
+        <>
+          {assignedNodes.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Network className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No Nodes</h3>
+              <p className="text-muted-foreground mb-4">
+                Use the discover or auto-detect buttons above to find nodes on your network.
               </p>
-
-              {/* Discovery button */}
-              <div className="flex gap-2 mb-4">
-                <Button
-                  onClick={handleDiscover}
-                  disabled={isDiscovering || discoveryStatus?.active}
-                  className="flex-1"
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {assignedNodes.map((node) => (
+                <Card
+                  key={node.hostname}
+                  className="p-4 hover:shadow-lg hover:border-primary/50 transition-all flex flex-col cursor-pointer"
+                  onClick={() => handleConfigureNode(node)}
                 >
-                  {isDiscovering || discoveryStatus?.active ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Discovering...
-                    </>
-                  ) : (
-                    'Discover Nodes'
-                  )}
-                </Button>
-                {(isDiscovering || discoveryStatus?.active) && (
-                  <Button
-                    onClick={() => cancelDiscovery()}
-                    disabled={isCancellingDiscovery}
-                    variant="destructive"
-                  >
-                    {isCancellingDiscovery && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Cancel
-                  </Button>
-                )}
-              </div>
-
-              {/* Discovered nodes display */}
-              {discoveryStatus?.nodes_found && discoveryStatus.nodes_found.length > 0 && (
-                <div className="space-y-3 mb-4">
-                  {discoveryStatus.nodes_found.map((discovered) => (
-                    <div key={discovered.ip} className="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium font-mono text-gray-900 dark:text-gray-100">{discovered.ip}</p>
-                          {discovered.version && discovered.version !== 'maintenance' && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {discovered.version}
-                            </p>
-                          )}
-                        </div>
-                        <Button
-                          onClick={() => handleAddFromDiscovery(discovered)}
-                          size="sm"
-                        >
-                          Add to Cluster
-                        </Button>
-                      </div>
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <h4 className="font-medium truncate">{node.hostname}</h4>
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {node.role}
+                      </Badge>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="mb-2">
+                      <NodeStatusBadge node={node} compact />
+                    </div>
+                    <div className="text-sm text-muted-foreground font-mono truncate">
+                      {node.target_ip}
+                    </div>
+                  </div>
 
-              {/* Manual add by IP - styled like a list item */}
-              <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="text"
-                    value={addNodeIp}
-                    onChange={(e) => setAddNodeIp(e.target.value)}
-                    placeholder="192.168.8.128"
-                    className="flex-1 font-mono"
-                  />
-                  <Button
-                    onClick={handleAddNode}
-                    disabled={isGettingHardware}
-                    size="sm"
-                  >
-                    {isGettingHardware ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Detecting...
-                      </>
-                    ) : (
-                      'Add to Cluster'
+                  <div className="space-y-2 text-xs text-muted-foreground mb-3 flex-1">
+                    {node.disk && (
+                      <div className="flex items-center gap-1">
+                        <HardDrive className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{node.disk}</span>
+                      </div>
                     )}
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                  Add a node by IP address if not discovered automatically
-                </p>
-              </div>
-            </div>
-            )}
-
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-medium">Cluster Nodes ({assignedNodes.length})</h2>
-              </div>
-
-              {assignedNodes.length === 0 ? (
-                <Card className="p-8 text-center">
-                  <Network className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Nodes</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Use the discover or auto-detect buttons above to find nodes on your network.
-                  </p>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {assignedNodes.map((node) => (
-                    <Card
-                      key={node.hostname}
-                      className="p-4 hover:shadow-lg hover:border-primary/50 transition-all flex flex-col cursor-pointer"
-                      onClick={() => handleConfigureNode(node)}
-                    >
-                      <div className="mb-3">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <h4 className="font-medium truncate">{node.hostname}</h4>
-                          <Badge variant="outline" className="text-xs shrink-0">
-                            {node.role}
-                          </Badge>
-                        </div>
-                        <div className="mb-2">
-                          <NodeStatusBadge node={node} compact />
-                        </div>
-                        <div className="text-sm text-muted-foreground font-mono truncate">
-                          {node.target_ip}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 text-xs text-muted-foreground mb-3 flex-1">
-                        {node.disk && (
+                    {node.hardware && (
+                      <>
+                        {node.hardware.cpu && (
                           <div className="flex items-center gap-1">
-                            <HardDrive className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{node.disk}</span>
+                            <Cpu className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{node.hardware.cpu}</span>
                           </div>
                         )}
-                        {node.hardware && (
-                          <>
-                            {node.hardware.cpu && (
-                              <div className="flex items-center gap-1">
-                                <Cpu className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{node.hardware.cpu}</span>
-                              </div>
-                            )}
-                            {node.hardware.memory && (
-                              <div className="flex items-center gap-1">
-                                <Monitor className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{node.hardware.memory}</span>
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {node.version && (
-                          <div className="truncate">Talos: {node.version}</div>
-                        )}
-                        {node.schematic_id && (
-                          <div
-                            title={node.schematic_id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(node.schematic_id!);
-                            }}
-                            className="cursor-pointer hover:text-primary hover:underline truncate"
-                          >
-                            Schema: {node.schematic_id.substring(0, 12)}...
+                        {node.hardware.memory && (
+                          <div className="flex items-center gap-1">
+                            <Monitor className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{node.hardware.memory}</span>
                           </div>
                         )}
+                      </>
+                    )}
+                    {node.version && (
+                      <div className="truncate">Talos: {node.version}</div>
+                    )}
+                    {node.schematic_id && (
+                      <div
+                        title={node.schematic_id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(node.schematic_id!);
+                        }}
+                        className="cursor-pointer hover:text-primary hover:underline truncate"
+                      >
+                        Schema: {node.schematic_id.substring(0, 12)}...
                       </div>
+                    )}
+                  </div>
 
-                      {node.configured && !node.applied && (
-                        <div className="pt-2 border-t" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            size="sm"
-                            onClick={() => applyNode(node.hostname)}
-                            disabled={isApplying}
-                            variant="secondary"
-                            className="w-full"
-                          >
-                            {isApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
-                          </Button>
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              )}
+                  {node.configured && !node.applied && (
+                    <div className="pt-2 border-t" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        onClick={() => applyNode(node.hostname)}
+                        disabled={isApplying}
+                        variant="secondary"
+                        className="w-full"
+                      >
+                        {isApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              ))}
             </div>
-          </>
-        )}
-      </Card>
+          )}
+        </>
+      )}
 
       {/* Bootstrap Modal */}
       {showBootstrapModal && bootstrapNode && (
