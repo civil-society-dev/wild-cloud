@@ -127,9 +127,9 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <NavLink to={`/instances/${instanceId}/iso`}>
                   {({ isActive }) => (
-                    <SidebarMenuButton isActive={isActive} tooltip="ISO / USB">
+                    <SidebarMenuButton isActive={isActive} tooltip="Node USB Installer">
                       <Usb className="h-4 w-4" />
-                      <span>ISO / USB</span>
+                      <span>Node USB Installer</span>
                     </SidebarMenuButton>
                   )}
                 </NavLink>
@@ -272,7 +272,7 @@ export function AppSidebar() {
                         <div className="p-1 rounded-md">
                           <Usb className="h-4 w-4" />
                         </div>
-                        <span className="truncate">ISO / USB</span>
+                        <span className="truncate">Node USB Installer</span>
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
