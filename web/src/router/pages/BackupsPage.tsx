@@ -54,7 +54,7 @@ export function BackupsPage() {
   const [selectedSchedule, setSelectedSchedule] = useState<BackupSchedule | null>(null);
 
   // Fetch deployed apps to get their backups
-  const { apps: deployedApps = [], isLoading: isLoadingApps } = useDeployedApps(instanceId);
+  const { isLoading: isLoadingApps } = useDeployedApps(instanceId);
 
   // Fetch all backups (cluster + apps)
   const { allBackups, isLoading: isLoadingBackups, refetch } = useAllBackupsUnified(instanceId);
@@ -166,11 +166,6 @@ export function BackupsPage() {
       console.error('Failed to delete backup:', error);
       alert('Failed to delete backup');
     }
-  };
-
-  const handleCreateBackup = (appName: string) => {
-    // This will be handled by the CreateBackupModal's hook
-    // We just need to pass the callback
   };
 
   const isLoading = isLoadingApps || isLoadingBackups;

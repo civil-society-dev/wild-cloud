@@ -309,8 +309,8 @@ export function NodeForm({
     const currentTargetIp = watch('targetIp');
     if (currentTargetIp && role === 'worker') return; // For workers, keep any existing value
 
-    const clusterConfig = instanceConfig?.cluster as any;
-    const vip = clusterConfig?.nodes?.control?.vip as string | undefined;
+    const clusterConfig = instanceConfig?.cluster as { nodes?: { control?: { vip?: string } } } | undefined;
+    const vip = clusterConfig?.nodes?.control?.vip;
 
     if (role === 'controlplane' && vip) {
 
@@ -503,9 +503,9 @@ export function NodeForm({
         {errors.targetIp && (
           <p className="text-sm text-red-600 mt-1">{errors.targetIp.message}</p>
         )}
-        {role === 'controlplane' && (instanceConfig?.cluster as any)?.nodes?.control?.vip && (
+        {role === 'controlplane' && (instanceConfig?.cluster as { nodes?: { control?: { vip?: string } } } | undefined)?.nodes?.control?.vip && (
           <p className="mt-1 text-xs text-muted-foreground">
-            Auto-calculated from VIP ({(instanceConfig?.cluster as any)?.nodes?.control?.vip})
+            Auto-calculated from VIP ({(instanceConfig?.cluster as { nodes?: { control?: { vip?: string } } } | undefined)?.nodes?.control?.vip})
           </p>
         )}
       </div>

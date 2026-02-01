@@ -38,7 +38,7 @@ export interface DetailedServiceStatus {
   deploymentStatus: 'Ready' | 'Progressing' | 'Degraded' | 'NotFound';
   replicas?: ReplicaStatus;
   pods?: PodStatus[];
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
   manifest?: ServiceManifest;
 }
 
@@ -66,7 +66,7 @@ export interface ServiceInstallRequest {
 }
 
 export interface ServiceConfigUpdateRequest {
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   redeploy?: boolean;
   fetch?: boolean;
 }

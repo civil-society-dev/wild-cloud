@@ -112,14 +112,14 @@ export function ClusterNodesComponent({
   // Sync mutation errors to local state for display
   useEffect(() => {
     if (discoverMutationError) {
-      const errorMsg = (discoverMutationError as any)?.message || 'Failed to discover nodes';
+      const errorMsg = discoverMutationError instanceof Error ? discoverMutationError.message : 'Failed to discover nodes';
       setDiscoverError(errorMsg);
     }
   }, [discoverMutationError]);
 
   useEffect(() => {
     if (getHardwareError) {
-      const errorMsg = (getHardwareError as any)?.message || 'Failed to detect hardware';
+      const errorMsg = getHardwareError instanceof Error ? getHardwareError.message : 'Failed to detect hardware';
       setDetectError(errorMsg);
     }
   }, [getHardwareError]);
@@ -170,7 +170,7 @@ export function ClusterNodesComponent({
       });
     } catch (err) {
       console.error('Failed to detect hardware:', err);
-      setDetectError((err as any)?.message || 'Failed to detect hardware');
+      setDetectError(err instanceof Error ? err.message : 'Failed to detect hardware');
     }
   };
 
@@ -187,7 +187,7 @@ export function ClusterNodesComponent({
       });
     } catch (err) {
       console.error('Failed to detect hardware:', err);
-      setDetectError((err as any)?.message || 'Failed to detect hardware');
+      setDetectError(err instanceof Error ? err.message : 'Failed to detect hardware');
     }
   };
 
@@ -455,7 +455,7 @@ export function ClusterNodesComponent({
                 <AlertCircle className="h-4 w-4" />
                 <div>
                   <strong>Failed to Add Node</strong>
-                  <p className="text-sm mt-1">{(addError as any)?.message || 'An error occurred'}</p>
+                  <p className="text-sm mt-1">{addError instanceof Error ? addError.message : 'An error occurred'}</p>
                 </div>
               </Alert>
             )}
@@ -465,7 +465,7 @@ export function ClusterNodesComponent({
                 <AlertCircle className="h-4 w-4" />
                 <div>
                   <strong>Failed to Remove Node</strong>
-                  <p className="text-sm mt-1">{(deleteError as any)?.message || 'An error occurred'}</p>
+                  <p className="text-sm mt-1">{deleteError instanceof Error ? deleteError.message : 'An error occurred'}</p>
                 </div>
               </Alert>
             )}

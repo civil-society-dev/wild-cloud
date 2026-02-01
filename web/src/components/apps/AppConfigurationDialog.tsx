@@ -36,7 +36,7 @@ export function AppConfigurationDialog({
     if (showSecrets && Object.keys(secrets).length === 0) {
       setLoadingSecrets(true);
       apiClient.get(`/api/v1/instances/${instanceName}/secrets?raw=true`)
-        .then((data: Record<string, any>) => {
+        .then((data: { apps?: Record<string, Record<string, string>> }) => {
           if (data.apps && data.apps[appName]) {
             setSecrets(data.apps[appName]);
           }

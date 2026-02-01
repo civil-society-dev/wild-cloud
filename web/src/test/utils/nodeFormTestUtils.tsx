@@ -51,7 +51,7 @@ export function createMockNodes(count: number, role: 'controlplane' | 'worker' =
   );
 }
 
-export function createMockConfig(overrides: any = {}) {
+export function createMockConfig(overrides: Record<string, unknown> = {}) {
   return {
     cluster: {
       hostnamePrefix: 'test-',
@@ -82,7 +82,7 @@ export function createMockHardwareInfo(overrides: Partial<HardwareInfo> = {}): H
   };
 }
 
-export function mockUseInstanceConfig(config: any = null) {
+export function mockUseInstanceConfig(config: Record<string, unknown> | null = null) {
   return {
     config,
     isLoading: false,

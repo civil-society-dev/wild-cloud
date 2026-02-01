@@ -21,14 +21,14 @@ interface AppConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   app: App | null;
-  existingConfig?: Record<string, any>;
+  existingConfig?: Record<string, unknown>;
   existingAppName?: string; // The current name if editing an existing app
-  onSave: (appName: string, config: Record<string, any>, requiredAppMappings?: Record<string, string>) => void;
+  onSave: (appName: string, config: Record<string, unknown>, requiredAppMappings?: Record<string, string>) => void;
   isSaving?: boolean;
 }
 
 // Utility function to flatten nested objects with dot notation
-function flattenObject(obj: Record<string, any>, prefix = ''): Record<string, string> {
+function flattenObject(obj: Record<string, unknown>, prefix = ''): Record<string, string> {
   const flattened: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(obj)) {
@@ -36,7 +36,7 @@ function flattenObject(obj: Record<string, any>, prefix = ''): Record<string, st
 
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       // Recursively flatten nested objects
-      Object.assign(flattened, flattenObject(value, newKey));
+      Object.assign(flattened, flattenObject(value as Record<string, unknown>, newKey));
     } else {
       // Convert primitive values to strings
       flattened[newKey] = String(value ?? '');
@@ -47,8 +47,8 @@ function flattenObject(obj: Record<string, any>, prefix = ''): Record<string, st
 }
 
 // Utility function to unflatten dot notation back to nested objects
-function unflattenObject(obj: Record<string, string>): Record<string, any> {
-  const unflattened: Record<string, any> = {};
+function unflattenObject(obj: Record<string, string>): Record<string, unknown> {
+  const unflattened: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(obj)) {
     const keys = key.split('.');
@@ -57,13 +57,13 @@ function unflattenObject(obj: Record<string, string>): Record<string, any> {
     for (let i = 0; i < keys.length - 1; i++) {
       const k = keys[i];
       if (!(k in current)) {
-        current[k] = {};
+        (current as Record<string, unknown>)[k] = {};
       }
-      current = current[k];
+      current = (current as Record<string, unknown>)[k] as Record<string, unknown>;
     }
 
     // Set the final value
-    current[keys[keys.length - 1]] = value;
+    (current as Record<string, unknown>)[keys[keys.length - 1]] = value;
   }
 
   return unflattened;
@@ -162,6 +162,7 @@ export function AppConfigDialog({
       }
       setRequiredAppMappings(initialMappings);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app, existingConfig, open, deployedApps]);
 
   // Validate name whenever it changes
@@ -175,6 +176,7 @@ export function AppConfigDialog({
     } else {
       setNameError('');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appName, deployedApps]);
 
   const handleSave = () => {

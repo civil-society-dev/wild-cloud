@@ -3,12 +3,9 @@ import { useInstances } from '../../hooks/useInstances';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Server, CloudLightning, Loader2, Plus } from 'lucide-react';
-import { useState } from 'react';
-
 export function LandingPage() {
   const navigate = useNavigate();
   const { instances, isLoading, error, createInstance, isCreating } = useInstances();
-  const [newInstanceName, setNewInstanceName] = useState('');
 
   const handleSelectInstance = (instanceName: string) => {
     navigate(`/instances/${instanceName}/dashboard`);

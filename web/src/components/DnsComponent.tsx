@@ -136,7 +136,7 @@ export function DnsComponent() {
 
         if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
           // Find the A record (type 1) in the answer chain (may have CNAME first)
-          const aRecord = data.Answer.find((ans: any) => ans.type === 1);
+          const aRecord = data.Answer.find((ans: { type: number; data: string }) => ans.type === 1);
           const resolvedIp = aRecord ? aRecord.data : data.Answer[data.Answer.length - 1].data;
           setTestResults(prev => ({
             ...prev,
@@ -189,7 +189,7 @@ export function DnsComponent() {
           }));
         }
       }
-    } catch (error) {
+    } catch {
       setTestResults(prev => ({
         ...prev,
         [domain]: {
@@ -208,11 +208,6 @@ export function DnsComponent() {
 
   const handleStart = () => {
     // Generate config and apply it (overwrite=true)
-    generateConfig(true);
-  };
-
-  const handleRegenerateAndRestart = () => {
-    // Regenerate from instances and restart
     generateConfig(true);
   };
 

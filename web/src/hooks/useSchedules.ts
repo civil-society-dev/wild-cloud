@@ -8,7 +8,6 @@ import {
   getScheduleHistory,
   type BackupSchedule,
   type CreateScheduleRequest,
-  type BackupHistoryEntry,
 } from '../services/api/schedules';
 import { toast } from 'sonner';
 
@@ -16,8 +15,6 @@ import { toast } from 'sonner';
  * Hook to fetch and manage backup schedules for an instance
  */
 export function useSchedules(instanceName: string | null | undefined) {
-  const queryClient = useQueryClient();
-
   // Query for listing schedules
   const schedulesQuery = useQuery({
     queryKey: ['instances', instanceName, 'backup-schedules'],

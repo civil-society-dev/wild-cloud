@@ -110,7 +110,7 @@ export function SetupWizard() {
           {/* Progress indicator */}
           <div className="mb-4">
             <div className="flex items-center gap-2">
-              {Object.entries(PHASE_INFO).map(([phase, info]) => {
+              {Object.entries(PHASE_INFO).map(([phase]) => {
                 const check = setupStatus.phaseChecks[phase];
                 const isComplete = check?.complete || false;
                 const isCurrent = phase === setupStatus.currentPhase;

@@ -11,7 +11,6 @@ import {
   PowerOff,
   Package,
   Server,
-  CheckCircle,
 } from 'lucide-react';
 import type { BackupSchedule } from '../../services/api/schedules';
 import { formatDistanceToNow } from 'date-fns';

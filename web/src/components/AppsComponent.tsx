@@ -57,10 +57,8 @@ export function AppsComponent() {
     isAdding,
     addingAppNames,
     deployApp,
-    isDeploying,
     deployingAppNames,
     deleteApp,
-    isDeleting,
     deletingAppNames
   } = useDeployedApps(currentInstance);
 

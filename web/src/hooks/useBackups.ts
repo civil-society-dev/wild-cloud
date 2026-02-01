@@ -3,7 +3,6 @@ import {
   backupsApi,
   type BackupInfo,
   type RestoreOptions,
-  type ClusterBackupInfo,
   type ClusterBackupComponents,
   type ClusterRestoreOptions,
 } from '../services/api/backups';
@@ -121,8 +120,6 @@ export function useAllBackups(instanceName: string | null | undefined, deployedA
  * Hook to fetch unified view of all backups (cluster + apps)
  */
 export function useAllBackupsUnified(instanceName: string | null | undefined) {
-  const queryClient = useQueryClient();
-
   const backupsQuery = useQuery({
     queryKey: ['instances', instanceName, 'backups', 'all'],
     queryFn: () => backupsApi.listAllBackups(instanceName!),
