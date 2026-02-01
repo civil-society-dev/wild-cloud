@@ -1,24 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '../services/api-legacy';
-import type { Config } from '../types';
-
-interface ConfigResponse {
-  configured: boolean;
-  config?: Config;
-  message?: string;
-}
+import type { GlobalConfig, GlobalConfigResponse } from '../types';
 
 interface CreateConfigResponse {
   status: string;
 }
 
+/**
+ * Hook for managing Wild Central global configuration
+ * Endpoint: /api/v1/config
+ * File: {dataDir}/config.yaml
+ */
 export const useConfig = () => {
   const queryClient = useQueryClient();
   const [showConfigSetup, setShowConfigSetup] = useState(false);
 
-  const configQuery = useQuery<ConfigResponse>({
-    queryKey: ['config'],
+  const configQuery = useQuery<GlobalConfigResponse>({
+    queryKey: ['globalConfig'],
     queryFn: () => apiService.getConfig(),
   });
 
@@ -29,20 +28,20 @@ export const useConfig = () => {
     }
   }, [configQuery.data]);
 
-  const createConfigMutation = useMutation<CreateConfigResponse, Error, Config>({
+  const createConfigMutation = useMutation<CreateConfigResponse, Error, GlobalConfig>({
     mutationFn: (config) => apiService.createConfig(config),
     onSuccess: () => {
       // Invalidate and refetch config after successful creation
-      queryClient.invalidateQueries({ queryKey: ['config'] });
+      queryClient.invalidateQueries({ queryKey: ['globalConfig'] });
       setShowConfigSetup(false);
     },
   });
 
-  const updateConfigMutation = useMutation<CreateConfigResponse, Error, Config>({
+  const updateConfigMutation = useMutation<CreateConfigResponse, Error, GlobalConfig>({
     mutationFn: (config) => apiService.updateConfig(config),
     onSuccess: () => {
       // Invalidate and refetch config after successful update
-      queryClient.invalidateQueries({ queryKey: ['config'] });
+      queryClient.invalidateQueries({ queryKey: ['globalConfig'] });
     },
   });
 

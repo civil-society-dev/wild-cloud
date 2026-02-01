@@ -46,6 +46,11 @@ export function useInstance(instanceName: string | null | undefined) {
   });
 }
 
+/**
+ * Hook for managing Wild Cloud instance configuration
+ * Endpoint: /api/v1/instances/{name}/config
+ * File: {dataDir}/instances/{name}/config.yaml
+ */
 export function useInstanceConfig(instanceName: string | null | undefined) {
   const queryClient = useQueryClient();
 

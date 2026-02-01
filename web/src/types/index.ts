@@ -5,47 +5,114 @@ export interface Status {
   timestamp: string;
 }
 
-export interface CloudRouter {
-  ip: string;
+// ========================================
+// Global Config Types (Wild Central level)
+// Endpoint: /api/v1/config
+// File: {dataDir}/config.yaml
+// ========================================
+
+export interface GlobalConfig {
+  operator: {
+    email: string;
+  };
+  cloud: {
+    router: {
+      ip: string;
+      dynamicDns?: string;
+    };
+    dnsmasq: {
+      ip: string;
+      interface: string;
+    };
+    baseDomain?: string;
+  };
 }
 
-export interface CloudDnsmasq {
-  ip: string;
-  interface: string;
-}
-
-export interface CloudConfig {
-  domain: string;
-  internalDomain: string;
-  dhcpRange: string;
-  router: CloudRouter;
-  dnsmasq: CloudDnsmasq;
-}
-
-export interface TalosConfig {
-  version: string;
-  schematicId?: string;
-}
-
-export interface NodesConfig {
-  talos: TalosConfig;
-}
-
-export interface ClusterConfig {
-  endpointIp: string;
-  nodes: NodesConfig;
-}
-
-export interface Config {
-  cloud: CloudConfig;
-  cluster: ClusterConfig;
-}
-
-export interface ConfigResponse {
+export interface GlobalConfigResponse {
   configured: boolean;
-  config?: Config;
+  config?: GlobalConfig;
   message?: string;
 }
+
+// ========================================
+// Instance Config Types (Wild Cloud instance level)
+// Endpoint: /api/v1/instances/{name}/config
+// File: {dataDir}/instances/{name}/config.yaml
+// ========================================
+
+export interface NodeConfig {
+  role: string;
+  interface: string;
+  disk: string;
+  currentIp: string;
+}
+
+export interface InstanceConfig {
+  operator: {
+    email: string;
+  };
+  cloud: {
+    baseDomain: string;
+    domain: string;
+    internalDomain: string;
+    dhcpRange: string;
+    nfs: {
+      host: string;
+      mediaPath: string;
+      storageCapacity: string;
+    };
+    dockerRegistryHost: string;
+    smtp: {
+      host: string;
+      port: string;
+      user: string;
+      from: string;
+      tls: string;
+      startTls: string;
+    };
+  };
+  cluster: {
+    name: string;
+    loadBalancerIp: string;
+    ipAddressPool: string;
+    hostnamePrefix: string;
+    certManager: {
+      cloudflare: {
+        domain: string;
+      };
+    };
+    externalDns: {
+      ownerId: string;
+    };
+    internalDns: {
+      externalResolver: string;
+    };
+    dockerRegistry: {
+      storage: string;
+    };
+    nodes: {
+      talos: {
+        version: string;
+        schematicId: string;
+      };
+      control: {
+        vip: string;
+      };
+      active: Record<string, NodeConfig>;
+    };
+  };
+  apps: Record<string, unknown>;
+}
+
+export interface InstanceConfigResponse {
+  config?: InstanceConfig;
+  message?: string;
+}
+
+// Legacy type alias for backward compatibility
+// TODO: Remove once all components are migrated
+export type Config = GlobalConfig;
+export type ConfigResponse = GlobalConfigResponse;
 
 export interface Message {
   message: string;

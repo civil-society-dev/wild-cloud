@@ -1,4 +1,16 @@
-import type { Status, ConfigResponse, Config, HealthResponse, StatusResponse, NetworkInfo, DnsmasqStatus, DnsmasqConfigResponse } from '../types';
+import type {
+  Status,
+  GlobalConfig,
+  GlobalConfigResponse,
+  HealthResponse,
+  StatusResponse,
+  NetworkInfo,
+  DnsmasqStatus,
+  DnsmasqConfigResponse,
+  // Legacy aliases for backward compatibility
+  Config,
+  ConfigResponse
+} from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
 
@@ -39,8 +51,13 @@ class ApiService {
     return this.request<HealthResponse>('/api/v1/health');
   }
 
-  async getConfig(): Promise<ConfigResponse> {
-    return this.request<ConfigResponse>('/api/v1/config');
+  // ========================================
+  // Global Config APIs (Wild Central level)
+  // Endpoint: /api/v1/config
+  // ========================================
+
+  async getConfig(): Promise<GlobalConfigResponse> {
+    return this.request<GlobalConfigResponse>('/api/v1/config');
   }
 
   async getConfigYaml(): Promise<string> {
@@ -55,7 +72,7 @@ class ApiService {
     });
   }
 
-  async createConfig(config: Config): Promise<StatusResponse> {
+  async createConfig(config: GlobalConfig): Promise<StatusResponse> {
     return this.request<StatusResponse>('/api/v1/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -63,7 +80,7 @@ class ApiService {
     });
   }
 
-  async updateConfig(config: Config): Promise<StatusResponse> {
+  async updateConfig(config: GlobalConfig): Promise<StatusResponse> {
     return this.request<StatusResponse>('/api/v1/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

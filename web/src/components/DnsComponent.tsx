@@ -32,8 +32,11 @@ import {
 } from 'lucide-react';
 import { useDnsmasq } from '../hooks/useDnsmasq';
 import { useConfig } from '../hooks';
+import { useInstances } from '../hooks/useInstances';
+import { instancesApi } from '../services/api';
 import { apiService } from '../services/api-legacy';
 import { usePageHelp } from '../hooks/usePageHelp';
+import type { InstanceConfig } from '../types';
 
 export function DnsComponent() {
   const { config: globalConfig, updateConfig, isUpdating } = useConfig();
@@ -41,6 +44,8 @@ export function DnsComponent() {
   const routerIp = globalConfig?.cloud?.router?.ip;
   const dynamicDns = globalConfig?.cloud?.router?.dynamicDns || '';
   const baseDomain = globalConfig?.cloud?.baseDomain;
+
+  const { instances, isLoading: isLoadingInstances } = useInstances();
 
   usePageHelp({
     title: 'How DNS Works in Wild Cloud',
@@ -92,6 +97,7 @@ export function DnsComponent() {
   const [isEditingDdns, setIsEditingDdns] = useState(false);
   const [editedDdns, setEditedDdns] = useState(dynamicDns);
   const [ddnsSaveSuccess, setDdnsSaveSuccess] = useState(false);
+  const [instanceConfigs, setInstanceConfigs] = useState<Record<string, InstanceConfig>>({});
 
   const isRunning = status?.status === 'active';
 
@@ -105,29 +111,42 @@ export function DnsComponent() {
     setEditedDdns(dynamicDns);
   }, [dynamicDns]);
 
-  // Parse configured instance domains from config (including commented ones)
+  // Fetch configs for all instances
+  useEffect(() => {
+    const fetchInstanceConfigs = async () => {
+      if (!instances || instances.length === 0) return;
+
+      const configs: Record<string, InstanceConfig> = {};
+      await Promise.all(
+        instances.map(async (instanceName) => {
+          try {
+            const config = await instancesApi.getConfig(instanceName) as InstanceConfig;
+            configs[instanceName] = config;
+          } catch (error) {
+            console.error(`Failed to fetch config for instance ${instanceName}:`, error);
+          }
+        })
+      );
+      setInstanceConfigs(configs);
+    };
+
+    fetchInstanceConfigs();
+  }, [instances]);
+
+  // Build list of configured domains from instance configs
   const configuredDomains = (() => {
-    if (!config?.content) return [];
-    const lines = config.content.split('\n');
-    const domains: Array<{ domain: string; isCommented: boolean }> = [];
-    const seenDomains = new Set<string>();
+    return instances.map(instanceName => {
+      const config = instanceConfigs[instanceName];
+      const domain = config?.cloud?.domain || instanceName;
+      const hasLoadBalancer = !!config?.cluster?.loadBalancerIp;
 
-    for (const line of lines) {
-      // Match both "local=/domain/" and "address=/domain/ip" patterns
-      // Also match commented versions
-      const localMatch = line.match(/^(?:# )?local=\/(.+?)\/$/);
-      const addressMatch = line.match(/^(?:# )?address=\/(.+?)\//);
-      const isCommented = line.trim().startsWith('#');
-
-      const domain = localMatch?.[1] || addressMatch?.[1];
-
-      // Skip internal domains and duplicates
-      if (domain && !domain.startsWith('internal.') && !seenDomains.has(domain)) {
-        domains.push({ domain, isCommented });
-        seenDomains.add(domain);
-      }
-    }
-    return domains;
+      return {
+        domain,
+        instanceName,
+        isCommented: !hasLoadBalancer,
+        loadBalancerIp: config?.cluster?.loadBalancerIp
+      };
+    });
   })();
 
   const handleCopyIp = () => {
@@ -317,221 +336,7 @@ export function DnsComponent() {
 
   return (
     <div className="space-y-6">
-      {/* Main Status Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Globe className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <CardTitle>DNS Service</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Local domain name resolution for your Wild Cloud
-                </p>
-              </div>
-            </div>
-            <Badge
-              variant={isRunning ? 'default' : 'secondary'}
-              className="gap-2"
-            >
-              {isLoadingStatus ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isRunning ? (
-                <CheckCircle className="h-4 w-4" />
-              ) : (
-                <XCircle className="h-4 w-4" />
-              )}
-              {isLoadingStatus ? 'Checking...' : isRunning ? 'Running' : 'Stopped'}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* DNS IP Address - Prominent Display */}
-          {dnsIp && (
-            <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                      DNS Server IP Address
-                    </p>
-                  </div>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
-                    Configure your router to use this IP as the primary DNS server
-                  </p>
-                  <code className="text-2xl font-mono font-bold bg-white dark:bg-gray-900 px-4 py-2 rounded border border-blue-300 dark:border-blue-700 inline-block">
-                    {dnsIp}
-                  </code>
-                </div>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={handleCopyIp}
-                  className="ml-4 border-blue-300 hover:bg-blue-100 dark:border-blue-700 dark:hover:bg-blue-900/20"
-                >
-                  <Copy className="h-5 w-5 mr-2" />
-                  {copiedIp ? 'Copied!' : 'Copy IP'}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Status Details */}
-          {status && (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg border">
-                <p className="text-sm text-muted-foreground mb-2">Configured Instances</p>
-                {isLoadingConfig ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : configuredDomains.length > 0 ? (
-                  <div className="space-y-2">
-                    {configuredDomains.map(({ domain, isCommented }) => (
-                      <div key={domain} className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-1">
-                            <div className={`h-1.5 w-1.5 rounded-full ${isCommented ? 'bg-muted-foreground' : 'bg-primary'}`} />
-                            <code className={`text-sm font-mono ${isCommented ? 'text-muted-foreground' : ''}`}>{domain}</code>
-                            {isCommented && (
-                              <Badge variant="outline" className="text-xs">No Load Balancer</Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleTestDomain(domain, 'internal')}
-                              disabled={testingDomain === domain && testType === 'internal'}
-                              className="h-7 px-2"
-                              title="Test internal DNS"
-                            >
-                              {testingDomain === domain && testType === 'internal' ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <TestTube2 className="h-3 w-3" />
-                              )}
-                              <span className="ml-1 text-xs">Int</span>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleTestDomain(domain, 'external')}
-                              disabled={testingDomain === domain && testType === 'external'}
-                              className="h-7 px-2"
-                              title="Test external DNS"
-                            >
-                              {testingDomain === domain && testType === 'external' ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <TestTube2 className="h-3 w-3" />
-                              )}
-                              <span className="ml-1 text-xs">Ext</span>
-                            </Button>
-                          </div>
-                        </div>
-                        {testResults[domain] && (
-                          <div className="ml-5 space-y-0.5">
-                            {testResults[domain].internal && (
-                              <div className={`text-xs flex items-center gap-1 ${testResults[domain].internal.success ? 'text-green-600' : 'text-red-600'}`}>
-                                <span className="font-medium">Internal:</span>
-                                <span className="font-mono">{testResults[domain].internal.message}</span>
-                              </div>
-                            )}
-                            {testResults[domain].external && (
-                              <div className={`text-xs flex items-center gap-1 ${testResults[domain].external.success ? 'text-green-600' : 'text-red-600'}`}>
-                                <span className="font-medium">External:</span>
-                                <span className="font-mono">{testResults[domain].external.message}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No instances configured. Create a Wild Cloud instance to see it listed here.</p>
-                )}
-              </div>
-              {status.last_restart && status.last_restart !== '0001-01-01T00:00:00Z' && (
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Last restart:</span>
-                  <span className="font-mono">
-                    {new Date(status.last_restart).toLocaleString()}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            {!isRunning ? (
-              <Button
-                onClick={handleStart}
-                disabled={isGenerating}
-                className="gap-2"
-                size="lg"
-              >
-                {isGenerating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-                Start DNS
-              </Button>
-            ) : (
-              <Button
-                onClick={() => restart()}
-                disabled={isRestarting}
-                variant="outline"
-                className="gap-2"
-              >
-                {isRestarting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RotateCw className="h-4 w-4" />
-                )}
-                Restart
-              </Button>
-            )}
-          </div>
-
-          {/* Success Messages */}
-          {restartData && (
-            <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800 dark:text-green-200">
-                {restartData.message || 'DNS service restarted successfully'}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Error Messages */}
-          {generateError && (
-            <Alert variant="error">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Failed to generate config: {generateError.message}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {restartError && (
-            <Alert variant="error">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Failed to restart service: {restartError.message}
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Dynamic DNS Configuration */}
+      {/* Global DNS Configuration */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
@@ -539,7 +344,7 @@ export function DnsComponent() {
               <Cloud className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <CardTitle>Dynamic DNS (DDNS)</CardTitle>
+              <CardTitle>Global DNS (DDNS)</CardTitle>
               <p className="text-sm text-muted-foreground">
                 Configure external access to your Wild Cloud from anywhere
               </p>
@@ -691,6 +496,220 @@ export function DnsComponent() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* LAN DNS Service Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Globe className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle>LAN DNS</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Local domain name resolution for your Wild Cloud
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant={isRunning ? 'default' : 'secondary'}
+              className="gap-2"
+            >
+              {isLoadingStatus ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isRunning ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <XCircle className="h-4 w-4" />
+              )}
+              {isLoadingStatus ? 'Checking...' : isRunning ? 'Running' : 'Stopped'}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* DNS IP Address - Prominent Display */}
+          {dnsIp && (
+            <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                      DNS Server IP Address
+                    </p>
+                  </div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                    Configure your router to use this IP as the primary DNS server
+                  </p>
+                  <code className="text-2xl font-mono font-bold bg-white dark:bg-gray-900 px-4 py-2 rounded border border-blue-300 dark:border-blue-700 inline-block">
+                    {dnsIp}
+                  </code>
+                </div>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleCopyIp}
+                  className="ml-4 border-blue-300 hover:bg-blue-100 dark:border-blue-700 dark:hover:bg-blue-900/20"
+                >
+                  <Copy className="h-5 w-5 mr-2" />
+                  {copiedIp ? 'Copied!' : 'Copy IP'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Status Details */}
+          {status && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg border">
+                <p className="text-sm text-muted-foreground mb-2">Configured Instances</p>
+                {isLoadingInstances ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : configuredDomains.length > 0 ? (
+                  <div className="space-y-2">
+                    {configuredDomains.map(({ domain, instanceName, isCommented }) => (
+                      <div key={instanceName} className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className={`h-1.5 w-1.5 rounded-full ${isCommented ? 'bg-muted-foreground' : 'bg-primary'}`} />
+                            <code className={`text-sm font-mono ${isCommented ? 'text-muted-foreground' : ''}`}>{domain}</code>
+                            {isCommented && (
+                              <Badge variant="outline" className="text-xs">No Load Balancer</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleTestDomain(domain, 'internal')}
+                              disabled={testingDomain === domain && testType === 'internal'}
+                              className="h-7 px-2"
+                              title="Test internal DNS"
+                            >
+                              {testingDomain === domain && testType === 'internal' ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <TestTube2 className="h-3 w-3" />
+                              )}
+                              <span className="ml-1 text-xs">Int</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleTestDomain(domain, 'external')}
+                              disabled={testingDomain === domain && testType === 'external'}
+                              className="h-7 px-2"
+                              title="Test external DNS"
+                            >
+                              {testingDomain === domain && testType === 'external' ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <TestTube2 className="h-3 w-3" />
+                              )}
+                              <span className="ml-1 text-xs">Ext</span>
+                            </Button>
+                          </div>
+                        </div>
+                        {testResults[domain] && (
+                          <div className="ml-5 space-y-0.5">
+                            {testResults[domain].internal && (
+                              <div className={`text-xs flex items-center gap-1 ${testResults[domain].internal.success ? 'text-green-600' : 'text-red-600'}`}>
+                                <span className="font-medium">Internal:</span>
+                                <span className="font-mono">{testResults[domain].internal.message}</span>
+                              </div>
+                            )}
+                            {testResults[domain].external && (
+                              <div className={`text-xs flex items-center gap-1 ${testResults[domain].external.success ? 'text-green-600' : 'text-red-600'}`}>
+                                <span className="font-medium">External:</span>
+                                <span className="font-mono">{testResults[domain].external.message}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No instances configured. Create a Wild Cloud instance to see it listed here.</p>
+                )}
+              </div>
+              {status.last_restart && status.last_restart !== '0001-01-01T00:00:00Z' && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Last restart:</span>
+                  <span className="font-mono">
+                    {new Date(status.last_restart).toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            {!isRunning ? (
+              <Button
+                onClick={handleStart}
+                disabled={isGenerating}
+                className="gap-2"
+                size="lg"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                Start DNS
+              </Button>
+            ) : (
+              <Button
+                onClick={() => restart()}
+                disabled={isRestarting}
+                variant="outline"
+                className="gap-2"
+              >
+                {isRestarting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCw className="h-4 w-4" />
+                )}
+                Restart
+              </Button>
+            )}
+          </div>
+
+          {/* Success Messages */}
+          {restartData && (
+            <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 dark:text-green-200">
+                {restartData.message || 'DNS service restarted successfully'}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Error Messages */}
+          {generateError && (
+            <Alert variant="error">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Failed to generate config: {generateError.message}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {restartError && (
+            <Alert variant="error">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Failed to restart service: {restartError.message}
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
