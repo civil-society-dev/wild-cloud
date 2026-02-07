@@ -43,10 +43,11 @@ export function CloudComponent() {
 
     try {
       // Update cloud section with new domain values
+      const existingCloud = (fullConfig.cloud ?? {}) as Record<string, unknown>;
       await updateConfig({
         ...fullConfig,
         cloud: {
-          ...fullConfig.cloud,
+          ...existingCloud,
           domain: formValues.domain,
           internalDomain: formValues.internalDomain,
         },
@@ -62,28 +63,9 @@ export function CloudComponent() {
     setEditingDomains(false);
   };
 
-  const updateFormValue = (path: string, value: string) => {
+  const updateFormValue = (key: keyof CloudConfig, value: string) => {
     if (!formValues) return;
-
-    setFormValues(prev => {
-      if (!prev) return prev;
-
-      // Handle nested paths like "dns.ip"
-      const keys = path.split('.');
-      if (keys.length === 1) {
-        return { ...prev, [keys[0]]: value };
-      }
-
-      // Handle nested object updates
-      const [parentKey, childKey] = keys;
-      return {
-        ...prev,
-        [parentKey]: {
-          ...(prev[parentKey as keyof CloudConfig] as Record<string, unknown>),
-          [childKey]: value,
-        },
-      };
-    });
+    setFormValues(prev => prev ? { ...prev, [key]: value } : prev);
   };
 
   // Show message if no instance is selected

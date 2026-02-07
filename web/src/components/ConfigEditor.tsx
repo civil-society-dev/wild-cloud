@@ -7,9 +7,8 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "./ui/card";
-import { Settings, Save, RotateCcw, FileText } from 'lucide-react';
+import { Save, RotateCcw, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface ConfigEditorProps {

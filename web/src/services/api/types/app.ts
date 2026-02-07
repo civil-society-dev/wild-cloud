@@ -8,7 +8,7 @@ export interface App {
   defaultConfig?: Record<string, unknown>;
   defaultSecrets?: string[];
   dependencies?: string[];
-  config?: Record<string, string>;
+  config?: Record<string, unknown>;
   status?: AppStatus;
   readme?: string;
   documentation?: string;
@@ -119,7 +119,7 @@ export interface EnhancedApp {
   description?: string;
   icon?: string;
   manifest?: AppManifest;
-  config?: Record<string, string>;
+  config?: Record<string, unknown>;
   runtime?: RuntimeStatus;
   readme?: string;
   documentation?: string;
@@ -134,9 +134,13 @@ export interface AppListResponse {
   apps: App[];
 }
 
+export interface DeployedAppListResponse {
+  apps: DeployedApp[];
+}
+
 export interface AppAddRequest {
   name: string;
-  config?: Record<string, string>;
+  config?: Record<string, unknown>;
   requiredAppMappings?: Record<string, string>;
 }
 

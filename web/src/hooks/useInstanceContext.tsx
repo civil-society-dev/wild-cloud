@@ -1,4 +1,5 @@
-import { useState, createContext, useContext, ReactNode, useEffect } from 'react';
+import { useState, createContext, useContext, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useParams } from 'react-router';
 
 interface InstanceContextValue {

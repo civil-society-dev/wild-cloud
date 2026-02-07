@@ -6,10 +6,7 @@ import type {
   StatusResponse,
   NetworkInfo,
   DnsmasqStatus,
-  DnsmasqConfigResponse,
-  // Legacy aliases for backward compatibility
-  Config,
-  ConfigResponse
+  DnsmasqConfigResponse
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';

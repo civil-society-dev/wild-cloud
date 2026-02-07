@@ -27,8 +27,7 @@ import {
   ChevronUp,
   Edit,
   TestTube2,
-  ExternalLink,
-  Cloud
+  ExternalLink
 } from 'lucide-react';
 import { useDnsmasq } from '../hooks/useDnsmasq';
 import { useConfig } from '../hooks';
@@ -71,7 +70,6 @@ export function DnsComponent() {
     status,
     isLoadingStatus,
     config,
-    isLoadingConfig,
     fetchConfig,
     generateConfig,
     isGenerating,
@@ -351,7 +349,7 @@ export function DnsComponent() {
         <CardHeader>
           <CardTitle>Global DNS (DDNS)</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Your router's dynamic DNS address for external access
+            How machines globally find your wild cloud
           </p>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input, Label } from './ui';
-import { Server, HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X, Network, Globe } from 'lucide-react';
+import { HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X, Network } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useCentralStatus } from '../hooks/useCentralStatus';
 import { useInstanceConfig, useInstanceContext, useConfig } from '../hooks';
@@ -27,15 +27,13 @@ interface GlobalConfigForm {
 export function CentralComponent() {
   const { currentInstance } = useInstanceContext();
   const { data: centralStatus, isLoading: statusLoading, error: statusError } = useCentralStatus();
-  const { config: fullConfig, isLoading: configLoading } = useInstanceConfig(currentInstance);
+  const { isLoading: configLoading } = useInstanceConfig(currentInstance);
   const { config: globalConfig, updateConfig: updateGlobalConfig, isUpdating } = useConfig();
 
   const [editingOperator, setEditingOperator] = useState(false);
   const [editingRouter, setEditingRouter] = useState(false);
   const [editingDnsmasq, setEditingDnsmasq] = useState(false);
   const [formValues, setFormValues] = useState<GlobalConfigForm>({});
-
-  const serverConfig = fullConfig?.server as { host?: string; port?: number } | undefined;
 
   // Sync form values when globalConfig loads
   useEffect(() => {

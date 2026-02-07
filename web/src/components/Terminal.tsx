@@ -1,12 +1,4 @@
 import { useParams } from "react-router-dom";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
-import { TerminalSquare } from "lucide-react";
 import { XTerminal } from "./XTerminal";
 
 export function Terminal() {

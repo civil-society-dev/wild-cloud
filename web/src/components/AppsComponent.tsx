@@ -67,7 +67,7 @@ export function AppsComponent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
-  const [selectedAppForConfig, setSelectedAppForConfig] = useState<App | null>(null);
+  const [selectedAppForConfig, setSelectedAppForConfig] = useState<MergedApp | null>(null);
   const [backupModalOpen, setBackupModalOpen] = useState(false);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [selectedAppForBackup, setSelectedAppForBackup] = useState<string | null>(null);
@@ -324,7 +324,7 @@ export function AppsComponent() {
     }
   };
 
-  const handleConfigSave = (appName: string, config: Record<string, string>, requiredAppMappings?: Record<string, string>) => {
+  const handleConfigSave = (appName: string, config: Record<string, unknown>, requiredAppMappings?: Record<string, string>) => {
     if (!selectedAppForConfig) return;
 
     addApp({

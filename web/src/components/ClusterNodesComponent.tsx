@@ -106,7 +106,6 @@ export function ClusterNodesComponent({
     mode: 'add',
   });
   const [drawerEverOpened, setDrawerEverOpened] = useState(false);
-  const [deletingNodeHostname, setDeletingNodeHostname] = useState<string | null>(null);
 
   const closeDrawer = () => setDrawerState({ ...drawerState, open: false });
 
@@ -150,14 +149,6 @@ export function ClusterNodesComponent({
     // Update previous state
     setPrevDiscoveryActive(isActive);
   }, [discoveryStatus, prevDiscoveryActive, refetch]);
-
-  const getRoleIcon = (role: string) => {
-    return role === 'controlplane' ? (
-      <Cpu className="h-4 w-4" />
-    ) : (
-      <HardDrive className="h-4 w-4" />
-    );
-  };
 
   const handleAddFromDiscovery = async (discovered: DiscoveredNode) => {
     // Fetch full hardware details for the discovered node
@@ -272,12 +263,7 @@ export function ClusterNodesComponent({
   const handleDeleteNode = async (hostname: string) => {
     if (!currentInstance) return;
     if (confirm(`Reset and remove node ${hostname}?\n\nThis will reset the node and remove it from the cluster. The node will reboot to maintenance mode and can be reconfigured.`)) {
-      setDeletingNodeHostname(hostname);
-      try {
-        await deleteNode(hostname);
-      } finally {
-        setDeletingNodeHostname(null);
-      }
+      await deleteNode(hostname);
     }
   };
 

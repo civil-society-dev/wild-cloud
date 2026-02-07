@@ -1,4 +1,4 @@
-import { Config } from '../types';
+import type { Config } from '../types';
 
 // Simple YAML to JSON parser for basic configuration
 export const parseSimpleYaml = (yamlText: string): Config => {

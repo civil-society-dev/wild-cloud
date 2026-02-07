@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import type {
   AppListResponse,
+  DeployedAppListResponse,
   App,
   AppAddRequest,
   AppAddResponse,
@@ -23,7 +24,7 @@ export const appsApi = {
   },
 
   // Deployed apps (instance-specific)
-  async listDeployed(instanceName: string): Promise<AppListResponse> {
+  async listDeployed(instanceName: string): Promise<DeployedAppListResponse> {
     return apiClient.get(`/api/v1/instances/${instanceName}/apps`);
   },
 

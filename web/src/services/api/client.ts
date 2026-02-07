@@ -1,16 +1,25 @@
 export class ApiError extends Error {
+  statusCode: number;
+  details?: unknown;
+
   constructor(
     message: string,
-    public statusCode: number,
-    public details?: unknown
+    statusCode: number,
+    details?: unknown
   ) {
     super(message);
     this.name = 'ApiError';
+    this.statusCode = statusCode;
+    this.details = details;
   }
 }
 
 export class ApiClient {
-  constructor(private baseUrl: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055') {}
+  private baseUrl: string;
+
+  constructor(baseUrl: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055') {
+    this.baseUrl = baseUrl;
+  }
 
   private async request<T>(
     endpoint: string,

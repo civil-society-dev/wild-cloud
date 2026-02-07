@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Container, Shield, Network, Database, CheckCircle, AlertCircle, Terminal, BookOpen, ExternalLink, Loader2, Activity, FileText, Settings, Trash2, Download } from 'lucide-react';
+import { Container, AlertCircle, BookOpen, ExternalLink, Loader2, Activity, FileText, Settings, Trash2, Download } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useServices } from '../hooks/useServices';
 import type { Service } from '../services/api';
@@ -95,21 +95,6 @@ export function ClusterServicesComponent() {
         {labels[status] || status}
       </Badge>
     );
-  };
-
-  const getServiceIcon = (name: string) => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('network') || lowerName.includes('cni') || lowerName.includes('cilium')) {
-      return <Network className="h-5 w-5" />;
-    } else if (lowerName.includes('storage') || lowerName.includes('volume')) {
-      return <Database className="h-5 w-5" />;
-    } else if (lowerName.includes('ingress') || lowerName.includes('traefik') || lowerName.includes('nginx')) {
-      return <Shield className="h-5 w-5" />;
-    } else if (lowerName.includes('monitor') || lowerName.includes('prometheus') || lowerName.includes('grafana')) {
-      return <Terminal className="h-5 w-5" />;
-    } else {
-      return <Container className="h-5 w-5" />;
-    }
   };
 
   const handleInstallService = (serviceName: string) => {

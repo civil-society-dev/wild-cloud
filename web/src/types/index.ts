@@ -12,17 +12,17 @@ export interface Status {
 // ========================================
 
 export interface GlobalConfig {
-  operator: {
-    email: string;
+  operator?: {
+    email?: string;
   };
-  cloud: {
-    router: {
-      ip: string;
+  cloud?: {
+    router?: {
+      ip?: string;
       dynamicDns?: string;
     };
-    dnsmasq: {
-      ip: string;
-      interface: string;
+    dnsmasq?: {
+      ip?: string;
+      interface?: string;
     };
     baseDomain?: string;
   };

@@ -1,33 +1,22 @@
-export enum NodeStatus {
-  // Discovery Phase
-  DISCOVERED = "discovered",
+export const NodeStatus = {
+  DISCOVERED: "discovered",
+  PENDING: "pending",
+  CONFIGURING: "configuring",
+  CONFIGURED: "configured",
+  APPLYING: "applying",
+  PROVISIONING: "provisioning",
+  READY: "ready",
+  HEALTHY: "healthy",
+  MAINTENANCE: "maintenance",
+  REPROVISIONING: "reprovisioning",
+  UNREACHABLE: "unreachable",
+  DEGRADED: "degraded",
+  FAILED: "failed",
+  UNKNOWN: "unknown",
+  ORPHANED: "orphaned",
+} as const;
 
-  // Configuration Phase
-  PENDING = "pending",
-  CONFIGURING = "configuring",
-  CONFIGURED = "configured",
-
-  // Deployment Phase
-  APPLYING = "applying",
-  PROVISIONING = "provisioning",
-
-  // Operational Phase
-  READY = "ready",
-  HEALTHY = "healthy",
-
-  // Maintenance States
-  MAINTENANCE = "maintenance",
-  REPROVISIONING = "reprovisioning",
-
-  // Error States
-  UNREACHABLE = "unreachable",
-  DEGRADED = "degraded",
-  FAILED = "failed",
-
-  // Special States
-  UNKNOWN = "unknown",
-  ORPHANED = "orphaned"
-}
+export type NodeStatus = typeof NodeStatus[keyof typeof NodeStatus];
 
 export interface StatusDesign {
   status: NodeStatus;

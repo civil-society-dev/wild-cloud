@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { useInstanceContext } from '../hooks';
