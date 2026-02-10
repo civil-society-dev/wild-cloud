@@ -14,6 +14,32 @@ export const ServiceStatus = {
 
 export type ServiceStatusType = typeof ServiceStatus[keyof typeof ServiceStatus];
 
+// Lifecycle state types
+export interface ServiceLifecycleStatus {
+  templates: TemplateState;
+  configuration: ConfigurationState;
+  deployment: DeploymentState;
+}
+
+export interface TemplateState {
+  state: 'not_fetched' | 'cached' | 'up_to_date' | 'update_available';
+  version: string;
+  latestVersion: string;
+  updateAvailable: boolean;
+}
+
+export interface ConfigurationState {
+  state: 'compiled' | 'needs_recompile' | 'not_configured';
+  reason?: string; // e.g., "config_changed", "templates_changed"
+  lastCompiled?: string;
+}
+
+export interface DeploymentState {
+  state: 'deployed' | 'not_deployed' | 'degraded' | 'out_of_sync';
+  healthy: boolean;
+  replicas?: ReplicaStatus;
+}
+
 export interface Service {
   name: string;
   description: string;
@@ -22,6 +48,7 @@ export interface Service {
   deployed?: boolean;
   namespace?: string;
   hasConfig?: boolean; // Whether service has configurable fields
+  lifecycle?: ServiceLifecycleStatus; // Enhanced lifecycle state
 }
 
 export interface ServiceStatus {
@@ -80,6 +107,8 @@ export interface ServiceManifest {
 
 export interface ServiceInstallRequest {
   name: string;
+  fetch?: boolean; // Default: false (use cached templates)
+  deploy?: boolean; // Default: true (deploy after compile)
 }
 
 export interface ServiceConfigUpdateRequest {

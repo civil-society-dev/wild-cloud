@@ -409,6 +409,70 @@ func (k *Kubectl) GetDaemonSet(name, namespace string) (*DeploymentInfo, error) 
 	}, nil
 }
 
+// NamespaceInfo represents namespace information
+type NamespaceInfo struct {
+	Status struct {
+		Phase string `json:"phase"`
+	} `json:"status"`
+}
+
+// GetNamespace retrieves namespace information
+func (k *Kubectl) GetNamespace(name string) (*NamespaceInfo, error) {
+	args := []string{
+		"get", "namespace", name,
+		"-o", "json",
+	}
+
+	if k.kubeconfigPath != "" {
+		args = append([]string{"--kubeconfig", k.kubeconfigPath}, args...)
+	}
+
+	cmd := exec.Command("kubectl", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get namespace: %w", err)
+	}
+
+	var namespace NamespaceInfo
+	if err := json.Unmarshal(output, &namespace); err != nil {
+		return nil, fmt.Errorf("failed to parse namespace: %w", err)
+	}
+
+	return &namespace, nil
+}
+
+// StorageClassInfo represents storage class information
+type StorageClassInfo struct {
+	Metadata struct {
+		Name string `json:"name"`
+	} `json:"metadata"`
+}
+
+// GetStorageClass retrieves storage class information
+func (k *Kubectl) GetStorageClass(name string) (*StorageClassInfo, error) {
+	args := []string{
+		"get", "storageclass", name,
+		"-o", "json",
+	}
+
+	if k.kubeconfigPath != "" {
+		args = append([]string{"--kubeconfig", k.kubeconfigPath}, args...)
+	}
+
+	cmd := exec.Command("kubectl", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage class: %w", err)
+	}
+
+	var storageClass StorageClassInfo
+	if err := json.Unmarshal(output, &storageClass); err != nil {
+		return nil, fmt.Errorf("failed to parse storage class: %w", err)
+	}
+
+	return &storageClass, nil
+}
+
 // GetReplicas retrieves aggregated replica information for a namespace
 func (k *Kubectl) GetReplicas(namespace string) (*ReplicaInfo, error) {
 	info := &ReplicaInfo{}

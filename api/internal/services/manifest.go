@@ -18,6 +18,7 @@ type ServiceManifest struct {
 	Version          string                      `yaml:"version,omitempty" json:"version,omitempty"`
 	Namespace        string                      `yaml:"namespace" json:"namespace"`
 	DeploymentName   string                      `yaml:"deploymentName,omitempty" json:"deploymentName,omitempty"` // Optional: defaults to Name
+	StorageClassName string                      `yaml:"storageClassName,omitempty" json:"storageClassName,omitempty"` // Optional: for configuration-only services that create StorageClass
 	Category         string                      `yaml:"category,omitempty" json:"category,omitempty"`
 	Dependencies     []string                    `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
 	ConfigReferences []string                    `yaml:"configReferences,omitempty" json:"configReferences,omitempty"`

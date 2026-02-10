@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -54,6 +55,7 @@ func NewManager(dataDir string) *Manager {
 					Version:          manifest.Version,
 					Namespace:        manifest.Namespace,
 					DeploymentName:   manifest.DeploymentName,
+					StorageClassName: manifest.StorageClassName,
 					Category:         manifest.Category,
 					Dependencies:     manifest.Dependencies,
 					ConfigReferences: manifest.ConfigReferences,
@@ -71,13 +73,44 @@ func NewManager(dataDir string) *Manager {
 
 // Service represents a base service
 type Service struct {
-	Name         string   `json:"name"`
-	Description  string   `json:"description"`
-	Status       string   `json:"status"`
-	Version      string   `json:"version"`
-	Namespace    string   `json:"namespace"`
-	Dependencies []string `json:"dependencies,omitempty"`
-	HasConfig    bool     `json:"hasConfig"` // Whether service has configurable fields
+	Name             string                  `json:"name"`
+	Description      string                  `json:"description"`
+	Status           string                  `json:"status"` // Overall status (for backward compatibility)
+	Version          string                  `json:"version"`
+	Namespace        string                  `json:"namespace"`
+	StorageClassName string                  `json:"storageClassName,omitempty"`
+	Dependencies     []string                `json:"dependencies,omitempty"`
+	HasConfig        bool                    `json:"hasConfig"` // Whether service has configurable fields
+	Lifecycle        *ServiceLifecycleStatus `json:"lifecycle,omitempty"` // Enhanced lifecycle state
+}
+
+// ServiceLifecycleStatus provides detailed state information for each lifecycle phase
+type ServiceLifecycleStatus struct {
+	Templates     TemplateState     `json:"templates"`
+	Configuration ConfigurationState `json:"configuration"`
+	Deployment    DeploymentState    `json:"deployment"`
+}
+
+// TemplateState represents the fetch/template phase state
+type TemplateState struct {
+	State          string `json:"state"`          // "not_fetched", "cached", "up_to_date", "update_available"
+	Version        string `json:"version"`        // Currently installed version
+	LatestVersion  string `json:"latestVersion"`  // Latest available version
+	UpdateAvailable bool   `json:"updateAvailable"`
+}
+
+// ConfigurationState represents the compile phase state
+type ConfigurationState struct {
+	State        string  `json:"state"`        // "compiled", "needs_recompile", "not_configured"
+	Reason       string  `json:"reason,omitempty"` // "config_changed", "templates_changed", null
+	LastCompiled *string `json:"lastCompiled,omitempty"` // ISO timestamp
+}
+
+// DeploymentState represents the deploy phase state
+type DeploymentState struct {
+	State   string               `json:"state"`   // "deployed", "not_deployed", "degraded", "out_of_sync"
+	Healthy bool                 `json:"healthy"`
+	Replicas *tools.DeploymentInfo `json:"replicas,omitempty"`
 }
 
 // Base services in Wild Cloud (kept for reference/validation)
@@ -148,6 +181,261 @@ func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 	return "deployed"
 }
 
+// getServiceLifecycleStatus returns detailed lifecycle state for a service
+func (m *Manager) getServiceLifecycleStatus(instanceName, serviceName string) *ServiceLifecycleStatus {
+	return &ServiceLifecycleStatus{
+		Templates:     m.checkTemplateState(instanceName, serviceName),
+		Configuration: m.checkConfigurationState(instanceName, serviceName),
+		Deployment:    m.checkDeploymentState(instanceName, serviceName),
+	}
+}
+
+// checkTemplateState determines if templates are fetched and if updates are available
+func (m *Manager) checkTemplateState(instanceName, serviceName string) TemplateState {
+	manifest, ok := m.manifests[serviceName]
+	if !ok {
+		return TemplateState{State: "not_fetched"}
+	}
+
+	// Check if service files exist in instance directory
+	instanceServiceDir := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName), "setup", "cluster-services", serviceName)
+	if !storage.FileExists(instanceServiceDir) {
+		return TemplateState{
+			State:          "not_fetched",
+			LatestVersion:  manifest.Version,
+			UpdateAvailable: false,
+		}
+	}
+
+	// Read instance manifest to get installed version
+	instanceManifestPath := filepath.Join(instanceServiceDir, "wild-manifest.yaml")
+	var instanceManifest ServiceManifest
+	if data, err := os.ReadFile(instanceManifestPath); err == nil {
+		if err := yaml.Unmarshal(data, &instanceManifest); err == nil {
+			// Compare versions
+			if instanceManifest.Version != manifest.Version {
+				return TemplateState{
+					State:          "update_available",
+					Version:        instanceManifest.Version,
+					LatestVersion:  manifest.Version,
+					UpdateAvailable: true,
+				}
+			}
+			// Versions match
+			return TemplateState{
+				State:          "up_to_date",
+				Version:        instanceManifest.Version,
+				LatestVersion:  manifest.Version,
+				UpdateAvailable: false,
+			}
+		}
+	}
+
+	// Can't read version, assume cached
+	return TemplateState{
+		State:          "cached",
+		Version:        manifest.Version,
+		LatestVersion:  manifest.Version,
+		UpdateAvailable: false,
+	}
+}
+
+// checkConfigurationState determines if service needs recompilation
+func (m *Manager) checkConfigurationState(instanceName, serviceName string) ConfigurationState {
+	instanceServiceDir := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName), "setup", "cluster-services", serviceName)
+
+	// Check if kustomize directory exists (compiled manifests)
+	kustomizeDir := filepath.Join(instanceServiceDir, "kustomize")
+	if !storage.FileExists(kustomizeDir) {
+		return ConfigurationState{
+			State: "not_configured",
+			Reason: "",
+		}
+	}
+
+	// Check if kustomize.template exists
+	templateDir := filepath.Join(instanceServiceDir, "kustomize.template")
+	if !storage.FileExists(templateDir) {
+		// No templates = always compiled
+		return ConfigurationState{
+			State: "compiled",
+		}
+	}
+
+	// Get modification times to determine if recompile needed
+	templateModTime := getDirectoryModTime(templateDir)
+	kustomizeModTime := getDirectoryModTime(kustomizeDir)
+
+	configPath := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName), "config.yaml")
+	configModTime := getFileModTime(configPath)
+
+	// If templates or config changed after last compile, needs recompile
+	if templateModTime.After(kustomizeModTime) {
+		lastCompiled := kustomizeModTime.Format(time.RFC3339)
+		return ConfigurationState{
+			State:        "needs_recompile",
+			Reason:       "templates_changed",
+			LastCompiled: &lastCompiled,
+		}
+	}
+
+	if configModTime.After(kustomizeModTime) {
+		lastCompiled := kustomizeModTime.Format(time.RFC3339)
+		return ConfigurationState{
+			State:        "needs_recompile",
+			Reason:       "config_changed",
+			LastCompiled: &lastCompiled,
+		}
+	}
+
+	// Up to date
+	lastCompiled := kustomizeModTime.Format(time.RFC3339)
+	return ConfigurationState{
+		State:        "compiled",
+		LastCompiled: &lastCompiled,
+	}
+}
+
+// checkDeploymentState determines cluster deployment status
+func (m *Manager) checkDeploymentState(instanceName, serviceName string) DeploymentState {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
+	// If kubeconfig doesn't exist, cluster isn't bootstrapped
+	if !storage.FileExists(kubeconfigPath) {
+		return DeploymentState{
+			State:   "not_deployed",
+			Healthy: false,
+		}
+	}
+
+	kubectl := tools.NewKubectl(kubeconfigPath)
+	manifest, ok := m.manifests[serviceName]
+	if !ok {
+		return DeploymentState{
+			State:   "not_deployed",
+			Healthy: false,
+		}
+	}
+
+	namespace := manifest.Namespace
+	deploymentName := manifest.GetDeploymentName()
+
+	// If no deployment name specified, this is a configuration-only service (e.g., NFS StorageClass)
+	// Check for StorageClass or namespace existence instead of workload
+	// Note: Check the raw DeploymentName field, not GetDeploymentName(), because Get falls back to Name
+	if manifest.DeploymentName == "" {
+		// If storageClassName specified, check for that
+		if manifest.StorageClassName != "" {
+			_, err := kubectl.GetStorageClass(manifest.StorageClassName)
+			if err != nil {
+				return DeploymentState{
+					State:   "not_deployed",
+					Healthy: false,
+				}
+			}
+			// Configuration service is deployed if storage class exists
+			return DeploymentState{
+				State:   "deployed",
+				Healthy: true,
+			}
+		}
+
+		// Otherwise check namespace existence
+		namespaceInfo, err := kubectl.GetNamespace(namespace)
+		if err != nil || namespaceInfo.Status.Phase != "Active" {
+			return DeploymentState{
+				State:   "not_deployed",
+				Healthy: false,
+			}
+		}
+		// Configuration service is deployed if namespace exists and is active
+		return DeploymentState{
+			State:   "deployed",
+			Healthy: true,
+		}
+	}
+
+	// Try to get deployment first, then try daemonset
+	deploymentInfo, err := kubectl.GetDeployment(deploymentName, namespace)
+	if err != nil {
+		// If deployment not found, try daemonset
+		deploymentInfo, err = kubectl.GetDaemonSet(deploymentName, namespace)
+		if err != nil {
+			return DeploymentState{
+				State:   "not_deployed",
+				Healthy: false,
+			}
+		}
+	}
+
+	// Check if compiled manifests are newer than the last deployment
+	instanceServiceDir := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName), "setup", "cluster-services", serviceName)
+	kustomizeDir := filepath.Join(instanceServiceDir, "kustomize")
+	lastDeployFile := filepath.Join(instanceServiceDir, ".last-deploy")
+
+	if storage.FileExists(kustomizeDir) && storage.FileExists(lastDeployFile) {
+		kustomizeModTime := getDirectoryModTime(kustomizeDir)
+		lastDeployTime := getFileModTime(lastDeployFile)
+
+		// If kustomize files are newer than last deploy, manifests need to be redeployed
+		if !kustomizeModTime.IsZero() && !lastDeployTime.IsZero() {
+			if kustomizeModTime.After(lastDeployTime) {
+				return DeploymentState{
+					State:   "needs_redeploy",
+					Healthy: deploymentInfo.Ready == deploymentInfo.Desired,
+					Replicas: deploymentInfo,
+				}
+			}
+		}
+	}
+
+	// Determine health
+	healthy := deploymentInfo.Ready == deploymentInfo.Desired && deploymentInfo.Desired > 0
+	if deploymentInfo.Desired == 0 {
+		// Scaled to zero or DaemonSet with no matching nodes is still "deployed"
+		healthy = true
+	}
+
+	// Determine state
+	state := "deployed"
+	if !healthy {
+		if deploymentInfo.Ready < deploymentInfo.Desired {
+			if deploymentInfo.Current > deploymentInfo.Desired {
+				state = "progressing"
+			} else {
+				state = "degraded"
+			}
+		}
+	}
+
+	return DeploymentState{
+		State:   state,
+		Healthy: healthy,
+		Replicas: deploymentInfo,
+	}
+}
+
+// Helper functions for file/directory modification times
+func getFileModTime(path string) time.Time {
+	if info, err := os.Stat(path); err == nil {
+		return info.ModTime()
+	}
+	return time.Time{}
+}
+
+func getDirectoryModTime(path string) time.Time {
+	var latestModTime time.Time
+	filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			if info.ModTime().After(latestModTime) {
+				latestModTime = info.ModTime()
+			}
+		}
+		return nil
+	})
+	return latestModTime
+}
+
 // List returns all base services and their status
 func (m *Manager) List(instanceName string) ([]Service, error) {
 	services := []Service{}
@@ -180,6 +468,9 @@ func (m *Manager) List(instanceName string) ([]Service, error) {
 			continue
 		}
 
+		// Get lifecycle status
+		lifecycleStatus := m.getServiceLifecycleStatus(instanceName, name)
+
 		service := Service{
 			Name:         name,
 			Status:       m.checkServiceStatus(instanceName, name),
@@ -188,6 +479,7 @@ func (m *Manager) List(instanceName string) ([]Service, error) {
 			Version:      version,
 			Dependencies: dependencies,
 			HasConfig:    hasConfig,
+			Lifecycle:    lifecycleStatus,
 		}
 
 		services = append(services, service)
@@ -203,10 +495,15 @@ func (m *Manager) Get(instanceName, serviceName string) (*Service, error) {
 		return nil, fmt.Errorf("service not found: %s", serviceName)
 	}
 
+	// Get lifecycle status
+	lifecycleStatus := m.getServiceLifecycleStatus(instanceName, serviceName)
+
 	service := &Service{
-		Name:      serviceName,
-		Status:    m.checkServiceStatus(instanceName, serviceName),
-		Namespace: manifest.Namespace,
+		Name:             serviceName,
+		Status:           m.checkServiceStatus(instanceName, serviceName),
+		Namespace:        manifest.Namespace,
+		StorageClassName: manifest.StorageClassName,
+		Lifecycle:        lifecycleStatus,
 	}
 
 	return service, nil
@@ -290,10 +587,14 @@ func (m *Manager) GetStatus(instanceName, serviceName string) (*Service, error) 
 		return nil, fmt.Errorf("service not found: %s", serviceName)
 	}
 
+	// Get lifecycle status
+	lifecycleStatus := m.getServiceLifecycleStatus(instanceName, serviceName)
+
 	service := &Service{
 		Name:      serviceName,
 		Namespace: manifest.Namespace,
 		Status:    m.checkServiceStatus(instanceName, serviceName),
+		Lifecycle: lifecycleStatus,
 	}
 
 	return service, nil
@@ -493,6 +794,16 @@ func (m *Manager) Compile(instanceName, serviceName string) error {
 		return fmt.Errorf("template compilation failed: %w", err)
 	}
 
+	// Touch all output files to update their modification times
+	// This ensures lifecycle detection recognizes the compile happened
+	now := time.Now()
+	filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			os.Chtimes(path, now, now)
+		}
+		return nil
+	})
+
 	return nil
 }
 
@@ -566,27 +877,42 @@ func (m *Manager) Deploy(instanceName, serviceName, opID string, broadcaster *op
 	cmd.Dir = serviceDir
 	cmd.Env = env
 
+	var err error
 	if outputWriter != nil {
 		// Stream output to file and SSE clients
 		cmd.Stdout = outputWriter
 		cmd.Stderr = outputWriter
 		fmt.Printf("[DEBUG] Starting command execution for opID=%s\n", opID)
-		err := cmd.Run()
+		err = cmd.Run()
 		fmt.Printf("[DEBUG] Command completed for opID=%s, err=%v\n", opID, err)
 		if broadcaster != nil {
 			outputWriter.Flush()    // Flush any remaining buffered data
 			broadcaster.Close(opID) // Close all SSE clients
 		}
-		return err
 	} else {
 		// Fallback: capture output for logging (backward compatibility)
-		output, err := cmd.CombinedOutput()
+		output, cmdErr := cmd.CombinedOutput()
 		fmt.Printf("=== Deploy %s output ===\n%s\n=== End output ===\n", serviceName, output)
-		if err != nil {
-			return fmt.Errorf("deployment failed: %w\nOutput: %s", err, output)
+		if cmdErr != nil {
+			return fmt.Errorf("deployment failed: %w\nOutput: %s", cmdErr, output)
 		}
-		return nil
 	}
+
+	// If deployment succeeded, touch .last-deploy file to track deployment time
+	if err == nil {
+		lastDeployFile := filepath.Join(serviceDir, ".last-deploy")
+		now := time.Now()
+		if touchErr := os.Chtimes(lastDeployFile, now, now); touchErr != nil {
+			// If file doesn't exist, create it
+			if os.IsNotExist(touchErr) {
+				if file, createErr := os.Create(lastDeployFile); createErr == nil {
+					file.Close()
+				}
+			}
+		}
+	}
+
+	return err
 }
 
 // validateConfig checks that all required config is set for a service

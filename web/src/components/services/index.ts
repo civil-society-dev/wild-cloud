@@ -4,3 +4,4 @@ export { ServiceConfigEditor } from './ServiceConfigEditor';
 export { ServiceDetailModal } from './ServiceDetailModal';
 export { ServiceStatusDialog } from './ServiceStatusDialog';
 export { ServiceLogsDialog } from './ServiceLogsDialog';
+export { ServiceLifecycleBadges } from './ServiceLifecycleBadges';

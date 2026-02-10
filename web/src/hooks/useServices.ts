@@ -34,14 +34,23 @@ export function useServices(instanceName: string | null | undefined) {
 
   const fetchMutation = useMutation({
     mutationFn: (serviceName: string) => servicesApi.fetch(instanceName!, serviceName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services'] });
+    },
   });
 
   const compileMutation = useMutation({
     mutationFn: (serviceName: string) => servicesApi.compile(instanceName!, serviceName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services'] });
+    },
   });
 
   const deployMutation = useMutation({
     mutationFn: (serviceName: string) => servicesApi.deploy(instanceName!, serviceName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services'] });
+    },
   });
 
   return {

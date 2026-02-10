@@ -3,6 +3,9 @@ description: NFS client provisioner for external NFS storage
 version: v4.0.18
 namespace: nfs
 category: infrastructure
+# NFS is configuration-only (StorageClass), no workload to monitor
+deploymentName: ""
+storageClassName: "nfs"
 
 serviceConfig:
   nfsHost:
