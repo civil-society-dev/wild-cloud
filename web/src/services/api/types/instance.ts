@@ -1,6 +1,8 @@
+import type { InstanceConfig } from '../../../types';
+
 export interface Instance {
   name: string;
-  config: Record<string, unknown>;
+  config?: InstanceConfig;
 }
 
 export interface InstanceListResponse {
@@ -23,5 +25,5 @@ export interface DeleteInstanceResponse {
 
 export interface GetInstanceResponse {
   name: string;
-  config: Record<string, unknown>;
+  config?: InstanceConfig;
 }

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { NodeForm, NodeFormData } from './NodeForm';
+import { NodeForm } from './NodeForm';
+import type { NodeFormData } from './NodeForm';
 import { useInstanceConfig } from '../../hooks/useInstances';
 import { useNodes } from '../../hooks/useNodes';
 import {

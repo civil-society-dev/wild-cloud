@@ -1,3 +1,14 @@
+// Recursive type for nested configuration values
+export type ConfigValue = string | number | boolean | null | ConfigValue[] | { [key: string]: ConfigValue };
+
+// Configuration map type - use this instead of Record<string, ConfigValue>
+export type Config = Record<string, ConfigValue>;
+
+export interface SecretDefinition {
+  key: string;
+  default?: string;
+}
+
 export interface App {
   name: string;
   description: string;
@@ -5,10 +16,10 @@ export interface App {
   category?: string;
   icon?: string;
   requires?: AppRequirement[];
-  defaultConfig?: Record<string, unknown>;
-  defaultSecrets?: string[];
+  defaultConfig?: Config;
+  defaultSecrets?: SecretDefinition[];
   dependencies?: string[];
-  config?: Record<string, unknown>;
+  config?: Config;
   status?: AppStatus;
   readme?: string;
   documentation?: string;
@@ -106,8 +117,8 @@ export interface AppManifest {
   category?: string;
   icon?: string;
   dependencies?: string[];
-  defaultConfig?: Record<string, unknown>;
-  defaultSecrets?: string[];
+  defaultConfig?: Config;
+  defaultSecrets?: SecretDefinition[];
 }
 
 export interface EnhancedApp {
@@ -119,15 +130,21 @@ export interface EnhancedApp {
   description?: string;
   icon?: string;
   manifest?: AppManifest;
-  config?: Record<string, unknown>;
+  config?: Config;
   runtime?: RuntimeStatus;
   readme?: string;
   documentation?: string;
 }
 
-export interface LogEntry {
+export interface LogLine {
+  timestamp: string;
+  message: string;
   pod: string;
-  logs: string[];
+}
+
+export interface LogResponse {
+  pod: string;
+  logs: LogLine[];
 }
 
 export interface AppListResponse {
@@ -140,7 +157,7 @@ export interface DeployedAppListResponse {
 
 export interface AppAddRequest {
   name: string;
-  config?: Record<string, unknown>;
+  config?: Config;
   requiredAppMappings?: Record<string, string>;
 }
 

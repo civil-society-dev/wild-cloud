@@ -23,14 +23,14 @@ export function AssetsIsoPage() {
   const downloadAsset = useDownloadAsset();
   const [selectedSchematicId] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState('v1.8.0');
-  const { data: statusData } = useAssetStatus(selectedSchematicId);
+  const { data: statusData } = useAssetStatus(selectedSchematicId, selectedVersion);
 
   // Select the first schematic by default if available
-  const schematic = data?.schematics?.[0] || null;
+  const schematic = data?.assets?.[0] || null;
   const schematicId = schematic?.schematic_id || null;
 
   // Get the ISO asset
-  const isoAsset = schematic?.assets.find((asset) => asset.type === 'iso');
+  const isoAsset = schematic?.assets.find((asset: { type: string }) => asset.type === 'iso');
 
   const handleDownload = async () => {
     if (!schematicId) return;
@@ -38,7 +38,8 @@ export function AssetsIsoPage() {
     try {
       await downloadAsset.mutateAsync({
         schematicId,
-        request: { version: selectedVersion, assets: ['iso'] },
+        version: selectedVersion,
+        request: { assets: ['iso'] },
       });
     } catch (err) {
       console.error('Download failed:', err);
@@ -261,7 +262,7 @@ export function AssetsIsoPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              window.location.href = assetsApi.getAssetUrl(schematicId, 'iso');
+                              window.location.href = assetsApi.getAssetUrl(schematicId, selectedVersion, 'iso');
                             }}
                           >
                             <Download className="h-4 w-4 mr-1" />

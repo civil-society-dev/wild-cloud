@@ -6,6 +6,7 @@ import type {
   DeleteInstanceResponse,
   GetInstanceResponse,
 } from './types';
+import type { InstanceConfig } from '../../types';
 
 export const instancesApi = {
   async list(): Promise<InstanceListResponse> {
@@ -25,7 +26,7 @@ export const instancesApi = {
   },
 
   // Config management
-  async getConfig(instanceName: string): Promise<Record<string, unknown>> {
+  async getConfig(instanceName: string): Promise<InstanceConfig> {
     return apiClient.get(`/api/v1/instances/${instanceName}/config`);
   },
 

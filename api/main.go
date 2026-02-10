@@ -106,6 +106,10 @@ func main() {
 				fmt.Sprintf("http://%s:80", hostname),
 				fmt.Sprintf("http://%s.local", hostname),
 				fmt.Sprintf("http://%s.lan", hostname),
+				// Add development server ports for hostname
+				fmt.Sprintf("http://%s:5173", hostname),
+				fmt.Sprintf("http://%s:5174", hostname),
+				fmt.Sprintf("http://%s:3000", hostname),
 			)
 			log.Printf("Added hostname-based CORS origins for: %s", hostname)
 		}

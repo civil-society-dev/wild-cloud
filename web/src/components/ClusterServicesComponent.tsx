@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Container, AlertCircle, BookOpen, ExternalLink, Loader2, Activity, FileText, Settings, Trash2, Download } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useServices } from '../hooks/useServices';
-import type { Service } from '../services/api';
+import { ServiceStatus, type Service } from '../services/api';
 import { ServiceStatusDialog } from './services/ServiceStatusDialog';
 import { ServiceLogsDialog } from './services/ServiceLogsDialog';
 import { ServiceConfigEditor } from './services/ServiceConfigEditor';
@@ -60,34 +60,32 @@ export function ClusterServicesComponent() {
   });
 
   const getStatusBadge = (service: Service) => {
-    // Handle both old format (status as string) and new format (status as object)
-    const status = typeof service.status === 'string' ? service.status :
-                   service.status?.status || (service.deployed ? 'deployed' : 'available');
+    const status = service.status || (service.deployed ? ServiceStatus.Deployed : ServiceStatus.Available);
 
     const variants: Record<string, 'secondary' | 'default' | 'success' | 'destructive' | 'outline'> = {
-      'not-deployed': 'secondary',
-      available: 'secondary',
-      deploying: 'default',
-      installing: 'default',
-      progressing: 'default',
-      running: 'success',
-      ready: 'success',
-      deployed: 'success',
-      degraded: 'destructive',
-      error: 'destructive',
+      [ServiceStatus.NotDeployed]: 'secondary',
+      [ServiceStatus.Available]: 'secondary',
+      [ServiceStatus.Deploying]: 'default',
+      [ServiceStatus.Installing]: 'default',
+      [ServiceStatus.Progressing]: 'default',
+      [ServiceStatus.Running]: 'success',
+      [ServiceStatus.Ready]: 'success',
+      [ServiceStatus.Deployed]: 'success',
+      [ServiceStatus.Degraded]: 'destructive',
+      [ServiceStatus.Error]: 'destructive',
     };
 
     const labels: Record<string, string> = {
-      'not-deployed': 'Not Deployed',
-      available: 'Available',
-      deploying: 'Deploying',
-      installing: 'Installing',
-      progressing: 'Progressing',
-      running: 'Running',
-      ready: 'Ready',
-      degraded: 'Degraded',
-      error: 'Error',
-      deployed: 'Deployed',
+      [ServiceStatus.NotDeployed]: 'Not Deployed',
+      [ServiceStatus.Available]: 'Available',
+      [ServiceStatus.Deploying]: 'Deploying',
+      [ServiceStatus.Installing]: 'Installing',
+      [ServiceStatus.Progressing]: 'Progressing',
+      [ServiceStatus.Running]: 'Running',
+      [ServiceStatus.Ready]: 'Ready',
+      [ServiceStatus.Degraded]: 'Degraded',
+      [ServiceStatus.Error]: 'Error',
+      [ServiceStatus.Deployed]: 'Deployed',
     };
 
     return (
@@ -185,18 +183,11 @@ export function ClusterServicesComponent() {
                   {getStatusBadge(service)}
                 </div>
                 <p className="text-sm text-muted-foreground mb-2">{service.description}</p>
-                {typeof service.status === 'object' && service.status?.message && (
-                  <p className="text-xs text-muted-foreground">{service.status.message}</p>
-                )}
               </div>
 
               {/* Action buttons */}
               <div className="flex flex-col gap-2 mt-auto pt-2 border-t">
-                {(
-                  (typeof service.status === 'string' && service.status === 'not-deployed') ||
-                  (typeof service.status === 'object' && String(service.status?.status) === 'not-deployed') ||
-                  service.deployed === false
-                ) && (
+                {(service.status === ServiceStatus.NotDeployed || service.deployed === false) && (
                   <Button
                     size="sm"
                     onClick={() => handleInstallService(service.name)}
@@ -207,8 +198,7 @@ export function ClusterServicesComponent() {
                     Install
                   </Button>
                 )}
-                {((typeof service.status === 'string' && ['deployed', 'degraded', 'progressing'].includes(service.status)) ||
-                  (typeof service.status === 'object' && ['deployed', 'degraded', 'progressing'].includes(service.status?.status || ''))) && (
+                {(service.status === ServiceStatus.Deployed || service.status === ServiceStatus.Degraded || service.status === ServiceStatus.Progressing) && (
                   <>
                     <div className="flex gap-2">
                       <Button

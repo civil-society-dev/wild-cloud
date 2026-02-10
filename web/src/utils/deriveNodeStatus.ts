@@ -21,7 +21,7 @@ export function deriveNodeStatus(node: Node): NodeStatus {
   }
 
   // Priority 3: Error states
-  if (node.isReachable === false) {
+  if (node.isReachable !== true && node.isReachable !== undefined) {
     return NodeStatus.UNREACHABLE;
   }
 
@@ -56,7 +56,7 @@ export function deriveNodeStatus(node: Node): NodeStatus {
     }
 
     // Applied but not reachable at all
-    if (node.isReachable === false) {
+    if (node.isReachable !== true && node.isReachable !== undefined) {
       return NodeStatus.UNREACHABLE;
     }
   }

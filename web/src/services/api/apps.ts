@@ -8,8 +8,9 @@ import type {
   AppStatus,
   OperationResponse,
   EnhancedApp,
+  Config,
   RuntimeStatus,
-  LogEntry,
+  LogResponse,
   KubernetesEvent,
 } from './types';
 
@@ -40,7 +41,7 @@ export const appsApi = {
     return apiClient.delete(`/api/v1/instances/${instanceName}/apps/${appName}`);
   },
 
-  async getConfig(instanceName: string, appName: string): Promise<Record<string, unknown>> {
+  async getConfig(instanceName: string, appName: string): Promise<Config> {
     return apiClient.get(`/api/v1/instances/${instanceName}/apps/${appName}/config`);
   },
 
@@ -61,7 +62,7 @@ export const appsApi = {
     instanceName: string,
     appName: string,
     params?: { tail?: number; sinceSeconds?: number; pod?: string; container?: string }
-  ): Promise<LogEntry> {
+  ): Promise<LogResponse> {
     const queryParams = new URLSearchParams();
     if (params?.tail) queryParams.append('tail', params.tail.toString());
     if (params?.sinceSeconds) queryParams.append('sinceSeconds', params.sinceSeconds.toString());

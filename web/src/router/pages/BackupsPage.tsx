@@ -156,6 +156,11 @@ export function BackupsPage() {
     }
 
     try {
+      if (!instanceId) {
+        alert('No instance selected');
+        return;
+      }
+
       if (backup.type === 'cluster') {
         await backupsApi.deleteClusterBackup(instanceId, backup.timestamp);
       } else {

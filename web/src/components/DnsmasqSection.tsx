@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent, Button } from './ui';
 
 export const DnsmasqSection = () => {
   const { 
-    dnsmasqConfig, 
+    config: dnsmasqConfig, 
     generateConfig, 
     isGenerating, 
     generateError,
@@ -35,7 +35,7 @@ export const DnsmasqSection = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex gap-2">
-          <Button onClick={() => generateConfig()} disabled={isGenerating} variant="outline">
+          <Button onClick={() => generateConfig(false)} disabled={isGenerating} variant="outline">
             <Settings className="mr-2 h-4 w-4" />
             {isGenerating ? 'Generating...' : 'Generate Dnsmasq Config'}
           </Button>
@@ -77,7 +77,7 @@ export const DnsmasqSection = () => {
         
         {dnsmasqConfig && (
           <pre className="p-4 bg-muted rounded-md text-sm overflow-auto max-h-96">
-            {dnsmasqConfig}
+            {dnsmasqConfig.content || JSON.stringify(dnsmasqConfig, null, 2)}
           </pre>
         )}
       </CardContent>

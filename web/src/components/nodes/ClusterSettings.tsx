@@ -7,6 +7,7 @@ import { Settings, Edit2, Check, X, Loader2, AlertCircle } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { Controller, useForm } from 'react-hook-form';
 import { useInstanceConfig } from '../../hooks';
+import type { InstanceConfig } from '../../types';
 
 interface ClusterSettingsProps {
   instanceId: string;
@@ -18,7 +19,8 @@ interface ClusterSettingsForm {
 }
 
 export function ClusterSettings({ instanceId }: ClusterSettingsProps) {
-  const { config: fullConfig, isLoading, error, updateConfig, isUpdating } = useInstanceConfig(instanceId);
+  const { config, isLoading, error, updateConfig, isUpdating } = useInstanceConfig(instanceId);
+  const fullConfig = config as InstanceConfig | undefined;
   const [editing, setEditing] = useState(false);
 
   const { register, handleSubmit, control, formState: { errors }, reset } = useForm<ClusterSettingsForm>({
@@ -30,12 +32,10 @@ export function ClusterSettings({ instanceId }: ClusterSettingsProps) {
 
   // Sync form with config
   useEffect(() => {
-    if (fullConfig?.cluster) {
-      reset({
-        talosVersion: fullConfig.cluster.nodes?.talos?.version || '1.12.0',
-        vip: fullConfig.cluster.nodes?.control?.vip || '',
-      });
-    }
+    reset({
+      talosVersion: fullConfig?.cluster?.nodes?.talos?.version || '1.12.0',
+      vip: fullConfig?.cluster?.nodes?.control?.vip || '',
+    });
   }, [fullConfig, reset]);
 
   const onSubmit = async (data: ClusterSettingsForm) => {
@@ -45,15 +45,15 @@ export function ClusterSettings({ instanceId }: ClusterSettingsProps) {
       await updateConfig({
         ...fullConfig,
         cluster: {
-          ...fullConfig.cluster,
+          ...(fullConfig?.cluster || {}),
           nodes: {
-            ...fullConfig.cluster.nodes,
+            ...(fullConfig?.cluster?.nodes || {}),
             talos: {
-              ...fullConfig.cluster.nodes?.talos,
+              ...(fullConfig?.cluster?.nodes?.talos || {}),
               version: data.talosVersion,
             },
             control: {
-              ...fullConfig.cluster.nodes?.control,
+              ...(fullConfig?.cluster?.nodes?.control || {}),
               vip: data.vip,
             },
           },
@@ -66,12 +66,10 @@ export function ClusterSettings({ instanceId }: ClusterSettingsProps) {
   };
 
   const handleCancel = () => {
-    if (fullConfig?.cluster) {
-      reset({
-        talosVersion: fullConfig.cluster.nodes?.talos?.version || '1.12.0',
-        vip: fullConfig.cluster.nodes?.control?.vip || '',
-      });
-    }
+    reset({
+      talosVersion: fullConfig?.cluster?.nodes?.talos?.version || '1.12.0',
+      vip: fullConfig?.cluster?.nodes?.control?.vip || '',
+    });
     setEditing(false);
   };
 

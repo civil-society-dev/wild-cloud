@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import type { Config } from '@/services/api/types/app';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -324,7 +325,7 @@ export function AppsComponent() {
     }
   };
 
-  const handleConfigSave = (appName: string, config: Record<string, unknown>, requiredAppMappings?: Record<string, string>) => {
+  const handleConfigSave = (appName: string, config: Config, requiredAppMappings?: Record<string, string>) => {
     if (!selectedAppForConfig) return;
 
     addApp({

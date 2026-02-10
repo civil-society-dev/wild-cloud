@@ -35,10 +35,10 @@ export function AppLogsDialog({
 }: AppLogsDialogProps) {
   const [logParams, setLogParams] = useState<{
     tail: number;
-    sinceSeconds: number;
+    sinceSeconds?: number;
     pod?: string;
     container?: string;
-  }>({ tail: 100, sinceSeconds: 3600 });
+  }>({ tail: 100 });
 
   const { data: appDetails } = useAppEnhanced(instanceName, appName);
   const { data: logs, refetch: refetchLogs } = useAppLogs(
@@ -161,36 +161,21 @@ export function AppLogsDialog({
           <Card>
             <CardContent className="p-4">
               <div className="bg-black text-green-400 font-mono text-xs p-4 rounded-lg max-h-96 overflow-y-auto">
-                {logs && logs.logs && Array.isArray(logs.logs) && logs.logs.length > 0 ? (
-                  logs.logs.map((line, idx) => {
-                    if (typeof line === 'string') {
-                      return (
-                        <div key={idx} className="whitespace-pre-wrap break-all">
-                          {line}
-                        </div>
-                      );
-                    } else if (line && typeof line === 'object' && 'message' in line) {
-                      const timestamp = line.timestamp ? new Date(line.timestamp).toLocaleTimeString() : '';
-                      return (
-                        <div key={idx} className="whitespace-pre-wrap break-all">
-                          {timestamp && <span className="text-gray-500">[{timestamp}] </span>}
-                          {line.message}
-                        </div>
-                      );
-                    } else {
-                      return (
-                        <div key={idx} className="whitespace-pre-wrap break-all">
-                          {JSON.stringify(line)}
-                        </div>
-                      );
-                    }
-                  })
-                ) : logs && typeof logs === 'object' && !Array.isArray(logs) ? (
-                  <div className="whitespace-pre-wrap break-all">
-                    {JSON.stringify(logs, null, 2)}
-                  </div>
+                {!logs ? (
+                  <p className="text-gray-500">Loading logs...</p>
+                ) : logs.logs && Array.isArray(logs.logs) && logs.logs.length > 0 ? (
+                  logs.logs.map((logLine: { message: string }, idx: number) => (
+                    <div key={idx} className="whitespace-pre-wrap break-all">
+                      {logLine.message}
+                    </div>
+                  ))
                 ) : (
-                  <p className="text-gray-500">No logs available</p>
+                  <div className="text-gray-500">
+                    <p>No logs available for pod: {logs.pod || 'unknown'}</p>
+                    <p className="text-xs mt-2">
+                      Try adjusting the time range or check if the pod has recently started.
+                    </p>
+                  </div>
                 )}
               </div>
             </CardContent>

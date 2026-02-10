@@ -24,7 +24,6 @@ export interface GlobalConfig {
       ip?: string;
       interface?: string;
     };
-    baseDomain?: string;
   };
 }
 
@@ -48,60 +47,60 @@ export interface NodeConfig {
 }
 
 export interface InstanceConfig {
-  operator: {
-    email: string;
+  operator?: {
+    email?: string;
   };
-  cloud: {
-    baseDomain: string;
-    domain: string;
-    internalDomain: string;
-    dhcpRange: string;
-    nfs: {
-      host: string;
-      mediaPath: string;
-      storageCapacity: string;
+  cloud?: {
+    baseDomain?: string;
+    domain?: string;
+    internalDomain?: string;
+    dhcpRange?: string;
+    nfs?: {
+      host?: string;
+      mediaPath?: string;
+      storageCapacity?: string;
     };
-    dockerRegistryHost: string;
-    smtp: {
-      host: string;
-      port: string;
-      user: string;
-      from: string;
-      tls: string;
-      startTls: string;
-    };
-  };
-  cluster: {
-    name: string;
-    loadBalancerIp: string;
-    ipAddressPool: string;
-    hostnamePrefix: string;
-    certManager: {
-      cloudflare: {
-        domain: string;
-      };
-    };
-    externalDns: {
-      ownerId: string;
-    };
-    internalDns: {
-      externalResolver: string;
-    };
-    dockerRegistry: {
-      storage: string;
-    };
-    nodes: {
-      talos: {
-        version: string;
-        schematicId: string;
-      };
-      control: {
-        vip: string;
-      };
-      active: Record<string, NodeConfig>;
+    dockerRegistryHost?: string;
+    smtp?: {
+      host?: string;
+      port?: string;
+      user?: string;
+      from?: string;
+      tls?: string;
+      startTls?: string;
     };
   };
-  apps: Record<string, unknown>;
+  cluster?: {
+    name?: string;
+    loadBalancerIp?: string;
+    ipAddressPool?: string;
+    hostnamePrefix?: string;
+    certManager?: {
+      cloudflare?: {
+        domain?: string;
+      };
+    };
+    externalDns?: {
+      ownerId?: string;
+    };
+    internalDns?: {
+      externalResolver?: string;
+    };
+    dockerRegistry?: {
+      storage?: string;
+    };
+    nodes?: {
+      talos?: {
+        version?: string;
+        schematicId?: string;
+      };
+      control?: {
+        vip?: string;
+      };
+      active?: Record<string, NodeConfig>;
+    };
+  };
+  apps?: Record<string, Record<string, unknown>>; // Each app has its own dynamic config
 }
 
 export interface InstanceConfigResponse {

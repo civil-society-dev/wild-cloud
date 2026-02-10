@@ -24,12 +24,12 @@ export function AssetsPxePage() {
   const [selectedVersion, setSelectedVersion] = useState('v1.8.0');
 
   // Select the first schematic by default if available
-  const schematic = data?.schematics?.[0] || null;
+  const schematic = data?.assets?.[0] || null;
   const schematicId = schematic?.schematic_id || null;
-  const { data: statusData } = useAssetStatus(schematicId);
+  const { data: statusData } = useAssetStatus(schematicId, selectedVersion);
 
   // Get PXE assets (kernel and initramfs)
-  const pxeAssets = schematic?.assets.filter((asset) => asset.type !== 'iso') || [];
+  const pxeAssets = schematic?.assets.filter((asset: { type: string }) => asset.type !== 'iso') || [];
 
   const handleDownload = async (assetType: AssetType) => {
     if (!schematicId) return;
@@ -37,7 +37,8 @@ export function AssetsPxePage() {
     try {
       await downloadAsset.mutateAsync({
         schematicId,
-        request: { version: selectedVersion, assets: [assetType] },
+        version: selectedVersion,
+        request: { assets: [assetType] },
       });
     } catch (err) {
       console.error('Download failed:', err);
@@ -50,7 +51,8 @@ export function AssetsPxePage() {
     try {
       await downloadAsset.mutateAsync({
         schematicId,
-        request: { version: selectedVersion, assets: ['kernel', 'initramfs'] },
+        version: selectedVersion,
+        request: { assets: ['kernel', 'initramfs'] },
       });
     } catch (err) {
       console.error('Download failed:', err);
@@ -233,7 +235,7 @@ export function AssetsPxePage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {pxeAssets.map((asset) => (
+                    {pxeAssets.map((asset: { type: string; downloaded: boolean; size?: number; path?: string }) => (
                       <Card key={asset.type} className="p-4">
                         <div className="flex items-center gap-4">
                           <div className="p-2 bg-muted rounded-lg">{getAssetIcon(asset.type)}</div>
@@ -277,7 +279,7 @@ export function AssetsPxePage() {
               </div>
 
               {/* Download All Button */}
-              {pxeAssets.length > 0 && pxeAssets.some((a) => !a.downloaded) && (
+              {pxeAssets.length > 0 && pxeAssets.some((a: { downloaded: boolean }) => !a.downloaded) && (
                 <div className="flex justify-end">
                   <Button
                     onClick={handleDownloadAll}

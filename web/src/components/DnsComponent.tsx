@@ -42,7 +42,6 @@ export function DnsComponent() {
   const dnsIp = globalConfig?.cloud?.dnsmasq?.ip;
   const routerIp = globalConfig?.cloud?.router?.ip;
   const dynamicDns = globalConfig?.cloud?.router?.dynamicDns || '';
-  const baseDomain = globalConfig?.cloud?.baseDomain;
 
   const { instances, isLoading: isLoadingInstances } = useInstances();
 
@@ -118,7 +117,7 @@ export function DnsComponent() {
       await Promise.all(
         instances.map(async (instanceName) => {
           try {
-            const config = await instancesApi.getConfig(instanceName) as InstanceConfig;
+            const config = await instancesApi.getConfig(instanceName);
             configs[instanceName] = config;
           } catch (error) {
             console.error(`Failed to fetch config for instance ${instanceName}:`, error);
@@ -486,10 +485,13 @@ export function DnsComponent() {
                     <ExternalLink className="h-3 w-3" />
                     Cloudflare Dashboard
                   </Button>
-                  {dynamicDns && baseDomain && (
+                  {dynamicDns && (
                     <div className="p-3 bg-muted rounded-md border">
                       <p className="text-xs font-mono">
-                        CNAME: *.{baseDomain} → {dynamicDns}
+                        Example CNAME: *.yourdomain.com → {dynamicDns}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Replace yourdomain.com with your actual base domain
                       </p>
                     </div>
                   )}

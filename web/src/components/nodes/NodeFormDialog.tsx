@@ -33,7 +33,7 @@ export function NodeFormDialog({
   instanceName,
 }: NodeFormDialogProps) {
   const title = mode === 'add' ? 'Add Node to Cluster' : `${node?.hostname}`;
-  const currentIp = node?.current_ip || detection?.current_ip;
+  const currentIp = node?.current_ip || detection?.ip;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>

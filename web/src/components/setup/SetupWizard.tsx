@@ -53,7 +53,7 @@ const PHASE_INFO = {
 
 export function SetupWizard() {
   const { currentInstance } = useInstanceContext();
-  const { data: setupStatus } = useSetupStatus(currentInstance);
+  const { data: setupStatus } = useSetupStatus(currentInstance || '', { enabled: !!currentInstance });
 
   console.log('SetupWizard render:', { currentInstance, setupStatus });
 

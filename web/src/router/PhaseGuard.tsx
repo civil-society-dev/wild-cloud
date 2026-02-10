@@ -12,7 +12,7 @@ interface PhaseGuardProps {
 export function PhaseGuard({ requiredPhase, children }: PhaseGuardProps) {
   const { currentInstance } = useInstanceContext();
   const location = useLocation();
-  const { data: setupStatus, isLoading } = useSetupStatus(currentInstance);
+  const { data: setupStatus, isLoading } = useSetupStatus(currentInstance || '', { enabled: !!currentInstance });
 
   // Show loading spinner while checking setup status
   if (isLoading || !setupStatus) {

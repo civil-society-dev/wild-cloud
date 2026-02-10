@@ -13,7 +13,7 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Loader2, Info, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
-import type { App } from '../../services/api';
+import type { App, Config } from '../../services/api';
 import { useDeployedApps } from '../../hooks/useApps';
 import { useInstanceContext } from '../../hooks/useInstanceContext';
 
@@ -21,14 +21,14 @@ interface AppConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   app: App | null;
-  existingConfig?: Record<string, unknown>;
+  existingConfig?: Config;
   existingAppName?: string; // The current name if editing an existing app
-  onSave: (appName: string, config: Record<string, unknown>, requiredAppMappings?: Record<string, string>) => void;
+  onSave: (appName: string, config: Config, requiredAppMappings?: Record<string, string>) => void;
   isSaving?: boolean;
 }
 
 // Utility function to flatten nested objects with dot notation
-function flattenObject(obj: Record<string, unknown>, prefix = ''): Record<string, string> {
+function flattenObject(obj: Config, prefix = ''): Record<string, string> {
   const flattened: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(obj)) {
@@ -36,7 +36,7 @@ function flattenObject(obj: Record<string, unknown>, prefix = ''): Record<string
 
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       // Recursively flatten nested objects
-      Object.assign(flattened, flattenObject(value as Record<string, unknown>, newKey));
+      Object.assign(flattened, flattenObject(value as Config, newKey));
     } else {
       // Convert primitive values to strings
       flattened[newKey] = String(value ?? '');
@@ -47,8 +47,8 @@ function flattenObject(obj: Record<string, unknown>, prefix = ''): Record<string
 }
 
 // Utility function to unflatten dot notation back to nested objects
-function unflattenObject(obj: Record<string, string>): Record<string, unknown> {
-  const unflattened: Record<string, unknown> = {};
+function unflattenObject(obj: Config): Config {
+  const unflattened: Config = {};
 
   for (const [key, value] of Object.entries(obj)) {
     const keys = key.split('.');
@@ -57,13 +57,13 @@ function unflattenObject(obj: Record<string, string>): Record<string, unknown> {
     for (let i = 0; i < keys.length - 1; i++) {
       const k = keys[i];
       if (!(k in current)) {
-        (current as Record<string, unknown>)[k] = {};
+        (current as Config)[k] = {};
       }
-      current = (current as Record<string, unknown>)[k] as Record<string, unknown>;
+      current = (current as Config)[k] as Config;
     }
 
     // Set the final value
-    (current as Record<string, unknown>)[keys[keys.length - 1]] = value;
+    (current as Config)[keys[keys.length - 1]] = value;
   }
 
   return unflattened;
@@ -82,7 +82,7 @@ export function AppConfigDialog({
   const { apps: deployedApps } = useDeployedApps(currentInstance || '');
   const [appName, setAppName] = useState<string>('');
   const [nameError, setNameError] = useState<string>('');
-  const [config, setConfig] = useState<Record<string, string>>({});
+  const [config, setConfig] = useState<Config>({});
   const [requiredAppMappings, setRequiredAppMappings] = useState<Record<string, string>>({});
 
   // Check if name is unique (excluding the current app name if editing)
@@ -283,7 +283,7 @@ export function AppConfigDialog({
                       <span className="text-red-500">*</span>
                     </Label>
                     {hasNoMatches && (
-                      <Alert variant="destructive" className="mb-2">
+                      <Alert variant="error" className="mb-2">
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
                           No deployed apps found matching "{req.name}". You must deploy {req.name} before adding this app.
@@ -323,7 +323,7 @@ export function AppConfigDialog({
               </div>
               {configKeys.map((key) => {
                 const isRequired = app.defaultSecrets?.some(secret =>
-                  secret.toLowerCase().includes(key.toLowerCase())
+                  secret.key.toLowerCase().includes(key.toLowerCase())
                 );
 
                 return (
@@ -341,9 +341,9 @@ export function AppConfigDialog({
                     </div>
                     <Input
                       id={key}
-                      value={config[key] || ''}
+                      value={String(config[key] ?? '')}
                       onChange={(e) => handleChange(key, e.target.value)}
-                      placeholder={config[key] || ''}
+                      placeholder={String(config[key] ?? '')}
                       required={isRequired}
                     />
                     {isRequired && (

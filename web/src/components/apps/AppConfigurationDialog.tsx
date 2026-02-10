@@ -36,7 +36,8 @@ export function AppConfigurationDialog({
     if (showSecrets && Object.keys(secrets).length === 0) {
       setLoadingSecrets(true);
       apiClient.get(`/api/v1/instances/${instanceName}/secrets?raw=true`)
-        .then((data: { apps?: Record<string, Record<string, string>> }) => {
+        .then((d) => {
+          const data = d as { apps?: Record<string, Record<string, string>> };
           if (data.apps && data.apps[appName]) {
             setSecrets(data.apps[appName]);
           }
@@ -152,8 +153,8 @@ export function AppConfigurationDialog({
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {appDetails.manifest.defaultSecrets.map((secret) => {
-                        const secretKey = typeof secret === 'object' && secret.key ? secret.key : secret;
+                      {appDetails.manifest.defaultSecrets?.map((secret) => {
+                        const secretKey = secret.key;
                         const secretValue = secrets[secretKey];
                         return (
                           <div key={secretKey} className="flex justify-between text-sm border-b pb-2">

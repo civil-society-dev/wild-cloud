@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Loader2 } from 'lucide-react';
-import type { Service } from '@/services/api/types';
+import { ServiceStatus, type Service } from '@/services/api/types';
 
 interface ServiceCardProps {
   service: Service;
@@ -13,20 +13,20 @@ interface ServiceCardProps {
 export function ServiceCard({ service, onInstall, isInstalling = false }: ServiceCardProps) {
   const getStatusColor = (status?: string) => {
     switch (status) {
-      case 'running':
+      case ServiceStatus.Running:
         return 'default';
-      case 'deploying':
+      case ServiceStatus.Deploying:
         return 'secondary';
-      case 'error':
+      case ServiceStatus.Error:
         return 'destructive';
-      case 'stopped':
+      case ServiceStatus.Stopped:
         return 'outline';
       default:
         return 'outline';
     }
   };
 
-  const isInstalled = service.deployed || service.status?.status === 'running';
+  const isInstalled = service.deployed || service.status === ServiceStatus.Running;
   const canInstall = !isInstalled && !isInstalling;
 
   return (
@@ -40,18 +40,14 @@ export function ServiceCard({ service, onInstall, isInstalling = false }: Servic
             )}
           </div>
           {service.status && (
-            <Badge variant={getStatusColor(service.status.status)}>
-              {service.status.status}
+            <Badge variant={getStatusColor(service.status)}>
+              {service.status}
             </Badge>
           )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">{service.description}</p>
-
-        {service.status?.message && (
-          <p className="text-xs text-muted-foreground italic">{service.status.message}</p>
-        )}
 
         <div className="flex gap-2">
           {canInstall && (

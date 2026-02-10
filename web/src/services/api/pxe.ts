@@ -2,7 +2,7 @@ import { apiClient } from './client';
 import type {
   PxeAssetsResponse,
   PxeAsset,
-  DownloadAssetRequest,
+  PxeDownloadAssetRequest,
   OperationResponse,
   PxeAssetType,
 } from './types';
@@ -18,7 +18,7 @@ export const pxeApi = {
 
   async downloadAsset(
     instanceName: string,
-    request: DownloadAssetRequest
+    request: PxeDownloadAssetRequest
   ): Promise<OperationResponse> {
     return apiClient.post(`/api/v1/instances/${instanceName}/pxe/assets/download`, request);
   },

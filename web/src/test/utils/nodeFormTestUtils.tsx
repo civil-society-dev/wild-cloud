@@ -82,7 +82,7 @@ export function createMockHardwareInfo(overrides: Partial<HardwareInfo> = {}): H
   };
 }
 
-export function mockUseInstanceConfig(config: Record<string, unknown> | null = null) {
+export function mockUseInstanceConfig(config: Record<string, unknown> | undefined = undefined) {
   return {
     config,
     isLoading: false,
@@ -125,5 +125,9 @@ export function mockUseNodes(nodes: Node[] = []) {
     isFetchingTemplates: false,
     cancelDiscovery: vi.fn(),
     isCancellingDiscovery: false,
+    // reset helpers present on the real hook
+    resetNode: vi.fn(),
+    isResetting: false,
+    resetError: null,
   };
 }

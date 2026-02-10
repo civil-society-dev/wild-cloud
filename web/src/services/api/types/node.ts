@@ -70,5 +70,11 @@ export interface NodeAddRequest {
 
 export interface NodeUpdateRequest {
   role?: 'controlplane' | 'worker';
+  target_ip?: string;
+  current_ip?: string;
+  interface?: string;
+  disk?: string;
+  schematic_id?: string;
+  maintenance?: boolean;
   config?: Record<string, unknown>;
 }

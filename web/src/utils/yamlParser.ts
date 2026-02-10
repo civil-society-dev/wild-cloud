@@ -1,61 +1,13 @@
-import type { Config } from '../types';
+import yaml from 'js-yaml';
 
-// Simple YAML to JSON parser for basic configuration
-export const parseSimpleYaml = (yamlText: string): Config => {
-  const config: Config = {
-    cloud: { 
-      domain: '',
-      internalDomain: '',
-      dhcpRange: '',
-      dns: { ip: '' }, 
-      router: { ip: '' }, 
-      dnsmasq: { interface: '' } 
-    },
-    cluster: { 
-      endpointIp: '',
-      nodes: { talos: { version: '' } } 
-    },
-    server: { host: '', port: 0 }
-  };
-
-  const lines = yamlText.split('\n');
-  let currentSection: 'cloud' | 'cluster' | 'server' | null = null;
-  let currentSubsection: string | null = null;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-
-    if (trimmed.startsWith('cloud:')) currentSection = 'cloud';
-    else if (trimmed.startsWith('cluster:')) currentSection = 'cluster';
-    else if (trimmed.startsWith('server:')) currentSection = 'server';
-    else if (trimmed.startsWith('dns:')) currentSubsection = 'dns';
-    else if (trimmed.startsWith('router:')) currentSubsection = 'router';
-    else if (trimmed.startsWith('dnsmasq:')) currentSubsection = 'dnsmasq';
-    else if (trimmed.startsWith('nodes:')) currentSubsection = 'nodes';
-    else if (trimmed.startsWith('talos:')) currentSubsection = 'talos';
-    else if (trimmed.includes(':')) {
-      const [key, value] = trimmed.split(':').map(s => s.trim());
-      const cleanValue = value.replace(/"/g, '');
-
-      if (currentSection === 'cloud') {
-        if (currentSubsection === 'dns') (config.cloud.dns as Record<string, string>)[key] = cleanValue;
-        else if (currentSubsection === 'router') (config.cloud.router as Record<string, string>)[key] = cleanValue;
-        else if (currentSubsection === 'dnsmasq') (config.cloud.dnsmasq as Record<string, string>)[key] = cleanValue;
-        else (config.cloud as Record<string, string>)[key] = cleanValue;
-      } else if (currentSection === 'cluster') {
-        if (currentSubsection === 'nodes') {
-          // Skip nodes level
-        } else if (currentSubsection === 'talos') {
-          (config.cluster.nodes.talos as Record<string, string>)[key] = cleanValue;
-        } else {
-          (config.cluster as Record<string, string | number>)[key] = cleanValue;
-        }
-      } else if (currentSection === 'server') {
-        (config.server as Record<string, string | number>)[key] = key === 'port' ? parseInt(cleanValue) : cleanValue;
-      }
-    }
+// YAML parser using standard js-yaml library
+// Returns untyped structure since YAML content is dynamic and not validated
+export const parseSimpleYaml = (yamlText: string): Record<string, unknown> => {
+  try {
+    const parsed = yaml.load(yamlText);
+    return (parsed || {}) as Record<string, unknown>;
+  } catch (error) {
+    console.error('YAML parsing error:', error);
+    return {};
   }
-
-  return config;
 };

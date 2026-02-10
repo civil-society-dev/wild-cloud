@@ -1,8 +1,24 @@
+export const ServiceStatus = {
+  NotDeployed: 'not-deployed',
+  Available: 'available',
+  Deploying: 'deploying',
+  Installing: 'installing',
+  Progressing: 'progressing',
+  Running: 'running',
+  Ready: 'ready',
+  Deployed: 'deployed',
+  Degraded: 'degraded',
+  Error: 'error',
+  Stopped: 'stopped',
+} as const;
+
+export type ServiceStatusType = typeof ServiceStatus[keyof typeof ServiceStatus];
+
 export interface Service {
   name: string;
   description: string;
   version?: string;
-  status?: ServiceStatus | string; // Can be either an object or a string like 'deployed', 'not-deployed'
+  status?: ServiceStatusType | string; // ServiceStatus values or other strings
   deployed?: boolean;
   namespace?: string;
   hasConfig?: boolean; // Whether service has configurable fields
@@ -23,6 +39,7 @@ export interface PodStatus {
   age: string;
   node?: string;
   ip?: string;
+  containers?: string[];
 }
 
 export interface ReplicaStatus {

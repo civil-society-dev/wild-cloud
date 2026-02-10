@@ -84,7 +84,7 @@ export function useServiceConfig(instanceName: string | null | undefined, servic
   });
 
   const updateConfigMutation = useMutation({
-    mutationFn: (request: { config: Record<string, unknown>; redeploy?: boolean }) =>
+    mutationFn: (request: { config: Record<string, unknown>; redeploy?: boolean; fetch?: boolean }) =>
       servicesApi.updateConfig(instanceName!, serviceName!, request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services', serviceName, 'config'] });

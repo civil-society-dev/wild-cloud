@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useInstanceConfig } from '../../hooks/useInstances';
 import { useNodes } from '../../hooks/useNodes';
 import type { HardwareInfo } from '../../services/api/types';
+import type { InstanceConfig } from '../../types';
 import { Input, Label, Button } from '../ui';
 import { Trash2 } from 'lucide-react';
 import {
@@ -18,6 +19,7 @@ export interface NodeFormData {
   role: 'controlplane' | 'worker';
   disk: string;
   targetIp: string;
+  currentIp: string;
   interface?: string;
   schematicId?: string;
   maintenance: boolean;
@@ -113,7 +115,8 @@ function getInitialValues(
     hostname: initial?.hostname || defaultHostname,
     role,
     disk: defaultDisk,
-    targetIp: initial?.targetIp || detection?.ip || '', // Auto-fill from detection
+    targetIp: initial?.targetIp || detection?.ip || '',
+    currentIp: initial?.currentIp || detection?.ip || '',
     interface: defaultInterface,
     schematicId: initial?.schematicId || '',
     maintenance: initial?.maintenance ?? true,
@@ -134,7 +137,8 @@ export function NodeForm({
 }: NodeFormProps) {
   // Track if we're editing an existing node (has initial hostname from backend)
   const isExistingNode = Boolean(initialValues?.hostname);
-  const { config: instanceConfig } = useInstanceConfig(instanceName);
+  const { config } = useInstanceConfig(instanceName);
+  const instanceConfig = config as InstanceConfig | undefined;
   const { nodes } = useNodes(instanceName);
 
   const hostnamePrefix = instanceConfig?.cluster?.hostnamePrefix || '';
@@ -197,7 +201,7 @@ export function NodeForm({
   // Pre-populate schematic ID from cluster config if available
   useEffect(() => {
     if (!schematicId && instanceConfig?.cluster?.nodes?.talos?.schematicId) {
-      setValue('schematicId', instanceConfig.cluster.nodes.talos.schematicId);
+      setValue('schematicId', instanceConfig.cluster?.nodes?.talos?.schematicId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instanceConfig, schematicId]);

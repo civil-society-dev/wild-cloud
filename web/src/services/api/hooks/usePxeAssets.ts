@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pxeApi } from '../pxe';
-import type { DownloadAssetRequest, PxeAssetType } from '../types';
+import type { PxeDownloadAssetRequest, PxeAssetType } from '../types';
 
 export function usePxeAssets(instanceName: string | null | undefined) {
   return useQuery({
@@ -31,7 +31,7 @@ export function useDownloadPxeAsset() {
       request,
     }: {
       instanceName: string;
-      request: DownloadAssetRequest;
+      request: PxeDownloadAssetRequest;
     }) => pxeApi.downloadAsset(instanceName, request),
     onSuccess: (_data, variables) => {
       // Invalidate assets list to show downloading status

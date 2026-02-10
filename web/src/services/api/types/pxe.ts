@@ -15,13 +15,9 @@ export interface PxeAssetsResponse {
   assets: PxeAsset[];
 }
 
-export interface DownloadAssetRequest {
+// Pxe-specific download request shape
+export interface PxeDownloadAssetRequest {
   type: PxeAssetType;
   version?: string;
   url: string;
-}
-
-export interface OperationResponse {
-  operation_id: string;
-  message: string;
 }

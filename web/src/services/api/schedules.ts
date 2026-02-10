@@ -61,7 +61,7 @@ export async function listSchedules(instanceName: string): Promise<BackupSchedul
   const response = await apiClient.get<ScheduleListResponse>(
     `/api/v1/instances/${instanceName}/backup-schedules`
   );
-  return response.data.schedules;
+  return response.schedules;
 }
 
 // Create a new backup schedule
@@ -73,7 +73,7 @@ export async function createSchedule(
     `/api/v1/instances/${instanceName}/backup-schedules`,
     request
   );
-  return response.data.schedule;
+  return response.schedule;
 }
 
 // Get a specific backup schedule
@@ -84,7 +84,7 @@ export async function getSchedule(
   const response = await apiClient.get<ScheduleResponse>(
     `/api/v1/instances/${instanceName}/backup-schedules/${scheduleId}`
   );
-  return response.data.schedule;
+  return response.schedule;
 }
 
 // Update a backup schedule
@@ -97,7 +97,7 @@ export async function updateSchedule(
     `/api/v1/instances/${instanceName}/backup-schedules/${scheduleId}`,
     request
   );
-  return response.data.schedule;
+  return response.schedule;
 }
 
 // Delete a backup schedule
@@ -126,11 +126,11 @@ export async function getScheduleHistory(
   const response = await apiClient.get<ScheduleHistoryResponse>(
     `/api/v1/instances/${instanceName}/backup-schedules/${scheduleId}/history`
   );
-  return response.data.history;
+  return response.history;
 }
 
 // Get scheduler status
 export async function getSchedulerStatus(): Promise<SchedulerStatusResponse> {
   const response = await apiClient.get<SchedulerStatusResponse>('/api/v1/scheduler/status');
-  return response.data;
+  return response;
 }
