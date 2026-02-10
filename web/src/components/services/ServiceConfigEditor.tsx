@@ -31,7 +31,6 @@ export function ServiceConfigEditor({
   const manifest = statusData?.manifest;
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [redeploy, setRedeploy] = useState(true);
-  const [fetch, setFetch] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -48,7 +47,7 @@ export function ServiceConfigEditor({
     setSuccess(false);
 
     try {
-      await updateConfig({ config: formData, redeploy, fetch });
+      await updateConfig({ config: formData, redeploy });
       setSuccess(true);
       if (onSuccess) {
         setTimeout(() => {
@@ -162,20 +161,6 @@ export function ServiceConfigEditor({
                 Redeploy service after updating configuration
               </Label>
             </div>
-            {redeploy && (
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="fetch-checkbox"
-                  checked={fetch}
-                  onChange={(e) => setFetch(e.target.checked)}
-                  className="rounded"
-                />
-                <Label htmlFor="fetch-checkbox" className="cursor-pointer">
-                  Fetch fresh templates from directory before redeploying
-                </Label>
-              </div>
-            )}
           </div>
 
           {error && (
