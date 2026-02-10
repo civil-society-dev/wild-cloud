@@ -110,11 +110,6 @@ func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 		return "not-deployed"
 	}
 
-	// Special case: SMTP is configuration-only, no deployment to check
-	if serviceName == "smtp" {
-		return "not-deployed"
-	}
-
 	manifest, ok := m.manifests[serviceName]
 	if !ok {
 		return "not-deployed"
@@ -155,6 +150,10 @@ func (m *Manager) List(instanceName string) ([]Service, error) {
 	}
 
 	for _, name := range serviceNames {
+		// Skip SMTP - it's now managed as cloud configuration, not a deployable service
+		if name == "smtp" {
+			continue
+		}
 
 		// Get service info from manifest if available
 		var namespace, description, version string
