@@ -118,13 +118,24 @@ func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 	namespace := manifest.Namespace
 	deploymentName := manifest.GetDeploymentName()
 
-	// Get deployment info to check health status
+	// Try to get deployment first, then try daemonset
 	deploymentInfo, err := kubectl.GetDeployment(deploymentName, namespace)
 	if err != nil {
-		return "not-deployed"
+		// If deployment not found, try daemonset
+		deploymentInfo, err = kubectl.GetDaemonSet(deploymentName, namespace)
+		if err != nil {
+			return "not-deployed"
+		}
 	}
 
-	// Determine deployment status based on replica counts
+	// Determine status based on replica/pod counts
+	// For DaemonSets: Desired=0 is valid when no nodes match the selector
+	if deploymentInfo.Desired == 0 {
+		// Check if there are any current pods - if yes, it's deployed but scaled to zero
+		// If no current pods and no desired pods, still considered "deployed" (waiting for matching nodes)
+		return "deployed"
+	}
+
 	if deploymentInfo.Ready == deploymentInfo.Desired && deploymentInfo.Desired > 0 {
 		return "deployed"
 	} else if deploymentInfo.Ready < deploymentInfo.Desired {
@@ -132,8 +143,6 @@ func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 			return "progressing"
 		}
 		return "degraded"
-	} else if deploymentInfo.Desired == 0 {
-		return "deployed" // Scaled to zero is still "deployed"
 	}
 
 	return "deployed"
@@ -254,15 +263,17 @@ func (m *Manager) Delete(instanceName, serviceName string) error {
 		return fmt.Errorf("service %s not found", serviceName)
 	}
 
-	// Get manifests file from embedded setup or instance directory
+	// Get kustomize directory from instance
 	instanceServiceDir := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName), "setup", "cluster-services", serviceName)
-	manifestsFile := filepath.Join(instanceServiceDir, "manifests.yaml")
+	kustomizeDir := filepath.Join(instanceServiceDir, "kustomize")
 
-	if !storage.FileExists(manifestsFile) {
-		return fmt.Errorf("service manifests not found - service may not be installed")
+	// Check if kustomize directory exists (service is installed)
+	if !storage.FileExists(kustomizeDir) {
+		return fmt.Errorf("service not installed - kustomize directory not found")
 	}
 
-	cmd := exec.Command("kubectl", "delete", "-f", manifestsFile)
+	// Use kubectl delete with kustomize directory
+	cmd := exec.Command("kubectl", "delete", "-k", kustomizeDir)
 	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

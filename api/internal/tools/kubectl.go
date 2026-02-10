@@ -370,6 +370,45 @@ func (k *Kubectl) GetDeployment(name, namespace string) (*DeploymentInfo, error)
 	}, nil
 }
 
+// GetDaemonSet retrieves daemonset information
+func (k *Kubectl) GetDaemonSet(name, namespace string) (*DeploymentInfo, error) {
+	args := []string{
+		"get", "daemonset", name,
+		"-n", namespace,
+		"-o", "json",
+	}
+
+	if k.kubeconfigPath != "" {
+		args = append([]string{"--kubeconfig", k.kubeconfigPath}, args...)
+	}
+
+	cmd := exec.Command("kubectl", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get daemonset: %w", err)
+	}
+
+	var daemonset struct {
+		Status struct {
+			CurrentNumberScheduled int32 `json:"currentNumberScheduled"`
+			NumberReady            int32 `json:"numberReady"`
+			DesiredNumberScheduled int32 `json:"desiredNumberScheduled"`
+			NumberAvailable        int32 `json:"numberAvailable"`
+		} `json:"status"`
+	}
+
+	if err := json.Unmarshal(output, &daemonset); err != nil {
+		return nil, fmt.Errorf("failed to parse daemonset: %w", err)
+	}
+
+	return &DeploymentInfo{
+		Desired:   daemonset.Status.DesiredNumberScheduled,
+		Current:   daemonset.Status.CurrentNumberScheduled,
+		Ready:     daemonset.Status.NumberReady,
+		Available: daemonset.Status.NumberAvailable,
+	}, nil
+}
+
 // GetReplicas retrieves aggregated replica information for a namespace
 func (k *Kubectl) GetReplicas(namespace string) (*ReplicaInfo, error) {
 	info := &ReplicaInfo{}
