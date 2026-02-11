@@ -35,10 +35,10 @@ if [ ! -d "${COREDNS_DIR}/kustomize" ]; then
     exit 1
 fi
 
-# Apply the custom DNS override
+# Apply the custom DNS override using kustomize
 # TODO: Is this needed now that we are no longer on k3s?
 echo "🚀 Applying CoreDNS custom override configuration..."
-kubectl apply -f "${COREDNS_DIR}/kustomize/coredns-custom-config.yaml"
+kubectl apply -k "${COREDNS_DIR}/kustomize/"
 
 echo "🔄 Restarting CoreDNS pods to apply changes..."
 kubectl rollout restart deployment/coredns -n kube-system

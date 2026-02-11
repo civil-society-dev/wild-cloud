@@ -36,7 +36,7 @@ if [ ! -d "${UTILS_DIR}/kustomize" ]; then
 fi
 
 echo "🚀 Applying utility manifests..."
-kubectl apply -f ${UTILS_DIR}/kustomize/
+kubectl apply -k ${UTILS_DIR}/kustomize/
 
 echo ""
 echo "✅ Cluster utilities installed successfully"

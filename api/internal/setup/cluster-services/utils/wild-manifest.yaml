@@ -1,6 +1,6 @@
 name: utils
 description: Utility tools and scripts for cluster administration
-version: v1.0.0
+version: v1.0.1
 namespace: debug
 deploymentName: netdebug
 category: infrastructure
