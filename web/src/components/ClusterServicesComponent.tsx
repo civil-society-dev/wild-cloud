@@ -1,17 +1,12 @@
 import { useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Container, AlertCircle, BookOpen, ExternalLink, Loader2, Activity, FileText, Settings, Trash2, Download, RefreshCw, Upload } from 'lucide-react';
+import { Container, AlertCircle, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useServices } from '../hooks/useServices';
-import { ServiceStatus, type Service } from '../services/api';
-import { ServiceStatusDialog } from './services/ServiceStatusDialog';
-import { ServiceLogsDialog } from './services/ServiceLogsDialog';
-import { ServiceConfigEditor } from './services/ServiceConfigEditor';
-import { ServiceLifecycleBadges } from './services/ServiceLifecycleBadges';
-import { Dialog, DialogContent } from './ui/dialog';
+import { ServiceDetailDialog } from './services/ServiceDetailDialog';
 import { usePageHelp } from '../hooks/usePageHelp';
+import type { Service } from '../services/api';
 
 export function ClusterServicesComponent() {
   const { currentInstance } = useInstanceContext();
@@ -19,8 +14,6 @@ export function ClusterServicesComponent() {
     services,
     isLoading,
     error,
-    installService,
-    isInstalling,
     installAll,
     isInstallingAll,
     deleteService,
@@ -31,11 +24,11 @@ export function ClusterServicesComponent() {
     isCompiling,
     deploy,
     isDeploying,
+    cleanFiles,
+    isCleaningFiles,
   } = useServices(currentInstance);
 
-  const [statusService, setStatusService] = useState<string | null>(null);
-  const [logsService, setLogsService] = useState<string | null>(null);
-  const [configService, setConfigService] = useState<string | null>(null);
+  const [selectedServiceName, setSelectedServiceName] = useState<string | null>(null);
   const [operatingServices, setOperatingServices] = useState<Set<string>>(new Set());
 
   usePageHelp({
@@ -67,57 +60,26 @@ export function ClusterServicesComponent() {
     ),
   });
 
-  const getStatusBadge = (service: Service) => {
-    const status = service.status || (service.deployed ? ServiceStatus.Deployed : ServiceStatus.Available);
-
-    const variants: Record<string, 'secondary' | 'default' | 'success' | 'destructive' | 'outline'> = {
-      [ServiceStatus.NotDeployed]: 'secondary',
-      [ServiceStatus.Available]: 'secondary',
-      [ServiceStatus.Deploying]: 'default',
-      [ServiceStatus.Installing]: 'default',
-      [ServiceStatus.Progressing]: 'default',
-      [ServiceStatus.Running]: 'success',
-      [ServiceStatus.Ready]: 'success',
-      [ServiceStatus.Deployed]: 'success',
-      [ServiceStatus.Degraded]: 'destructive',
-      [ServiceStatus.Error]: 'destructive',
-    };
-
-    const labels: Record<string, string> = {
-      [ServiceStatus.NotDeployed]: 'Not Deployed',
-      [ServiceStatus.Available]: 'Available',
-      [ServiceStatus.Deploying]: 'Deploying',
-      [ServiceStatus.Installing]: 'Installing',
-      [ServiceStatus.Progressing]: 'Progressing',
-      [ServiceStatus.Running]: 'Running',
-      [ServiceStatus.Ready]: 'Ready',
-      [ServiceStatus.Degraded]: 'Degraded',
-      [ServiceStatus.Error]: 'Error',
-      [ServiceStatus.Deployed]: 'Deployed',
-    };
-
-    return (
-      <Badge variant={variants[status] || 'secondary'}>
-        {labels[status] || status}
-      </Badge>
-    );
-  };
-
-  const handleInstallService = (serviceName: string) => {
-    if (!currentInstance) return;
-    installService({ name: serviceName });
-  };
-
-  const handleDeleteService = (serviceName: string) => {
-    if (!currentInstance) return;
-    if (confirm(`Are you sure you want to delete service ${serviceName}?`)) {
-      deleteService(serviceName);
+  const getStatusColor = (service: Service): string => {
+    // Not deployed or error: red (highest priority)
+    if (service.lifecycle?.deployment?.state === 'not_deployed' || service.lifecycle?.deployment?.state === 'degraded') {
+      return 'bg-red-500';
     }
-  };
-
-  const handleInstallAll = () => {
-    if (!currentInstance) return;
-    installAll();
+    // Needs action: yellow/amber (second priority - even if deployed and healthy)
+    if (
+      (service.lifecycle?.deployment?.state === 'deployed' && !service.lifecycle.deployment.healthy) ||
+      service.lifecycle?.templates?.state === 'update_available' ||
+      service.lifecycle?.configuration?.state === 'needs_recompile' ||
+      service.lifecycle?.deployment?.state === 'needs_redeploy'
+    ) {
+      return 'bg-amber-500';
+    }
+    // Deployed and healthy with no pending actions: green
+    if (service.lifecycle?.deployment?.state === 'deployed' && service.lifecycle.deployment.healthy) {
+      return 'bg-green-500';
+    }
+    // Default/unknown: gray
+    return 'bg-gray-400';
   };
 
   const handleFetch = (serviceName: string) => {
@@ -183,6 +145,37 @@ export function ClusterServicesComponent() {
     });
   };
 
+  const handleDelete = (serviceName: string) => {
+    if (!currentInstance) return;
+    deleteService(serviceName);
+  };
+
+  const handleCleanFiles = (serviceName: string) => {
+    if (!currentInstance) return;
+    setOperatingServices(prev => new Set(prev).add(serviceName));
+    cleanFiles(serviceName, {
+      onSuccess: () => setOperatingServices(prev => {
+        const next = new Set(prev);
+        next.delete(serviceName);
+        return next;
+      }),
+      onError: (error) => {
+        console.error('Clean files failed:', error);
+        alert(`Failed to clean files for ${serviceName}: ${error}`);
+        setOperatingServices(prev => {
+          const next = new Set(prev);
+          next.delete(serviceName);
+          return next;
+        });
+      },
+    });
+  };
+
+  const handleInstallAll = () => {
+    if (!currentInstance) return;
+    installAll();
+  };
+
   // Show message if no instance is selected
   if (!currentInstance) {
     return (
@@ -238,141 +231,8 @@ export function ClusterServicesComponent() {
           <p className="text-muted-foreground">Loading services...</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {services.map((service) => (
-            <Card key={service.name} className="p-4 hover:shadow-lg hover:border-primary/50 transition-all flex flex-col">
-              <div className="mb-3">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <h3 className="font-medium truncate">{service.name}</h3>
-                  {service.version && (
-                    <Badge variant="outline" className="text-xs flex-shrink-0">
-                      {service.version}
-                    </Badge>
-                  )}
-                </div>
-                <div className="mb-2">
-                  {service.lifecycle ? (
-                    <ServiceLifecycleBadges lifecycle={service.lifecycle} />
-                  ) : (
-                    getStatusBadge(service)
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground mb-2">{service.description}</p>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-col gap-2 mt-auto pt-2 border-t">
-                {/* Lifecycle action buttons: Fetch, Compile, Deploy */}
-                {service.lifecycle && (
-                  <div className="flex gap-2">
-                    {/* Fetch button: Show when templates need updating */}
-                    {service.lifecycle.templates?.state === 'update_available' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleFetch(service.name)}
-                        disabled={operatingServices.has(service.name) && isFetching}
-                        title="Fetch latest templates from Wild Directory"
-                        className="flex-1"
-                      >
-                        {operatingServices.has(service.name) && isFetching ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
-                        Fetch
-                      </Button>
-                    )}
-
-                    {/* Compile button: Show when configuration needs recompiling */}
-                    {service.lifecycle.configuration?.state === 'needs_recompile' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCompile(service.name)}
-                        disabled={operatingServices.has(service.name) && isCompiling}
-                        title="Recompile templates with current configuration"
-                        className="flex-1"
-                      >
-                        {operatingServices.has(service.name) && isCompiling ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-                        Compile
-                      </Button>
-                    )}
-
-                    {/* Deploy button: Show when compiled but not deployed, or needs redeploy */}
-                    {service.lifecycle.configuration?.state === 'compiled' &&
-                     (service.lifecycle.deployment?.state === 'not_deployed' ||
-                      service.lifecycle.deployment?.state === 'needs_redeploy') && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleDeploy(service.name)}
-                        disabled={operatingServices.has(service.name) && isDeploying}
-                        title={service.lifecycle.deployment?.state === 'needs_redeploy' ?
-                               "Redeploy service with updated configuration" :
-                               "Deploy service to cluster"}
-                        className="flex-1"
-                      >
-                        {operatingServices.has(service.name) && isDeploying ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-                        {service.lifecycle.deployment?.state === 'needs_redeploy' ? 'Redeploy' : 'Deploy'}
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {/* Legacy install button for services without lifecycle */}
-                {!service.lifecycle && (service.status === ServiceStatus.NotDeployed || service.deployed === false) && (
-                  <Button
-                    size="sm"
-                    onClick={() => handleInstallService(service.name)}
-                    disabled={isInstalling}
-                    className="w-full"
-                  >
-                    {isInstalling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                    Install
-                  </Button>
-                )}
-
-                {/* Management buttons for deployed services */}
-                {(service.status === ServiceStatus.Deployed || service.status === ServiceStatus.Degraded || service.status === ServiceStatus.Progressing) && (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setStatusService(service.name)}
-                      className="aspect-square p-0"
-                    >
-                      <Activity className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setLogsService(service.name)}
-                      className="aspect-square p-0"
-                    >
-                      <FileText className="h-4 w-4" />
-                    </Button>
-                    {service.hasConfig && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setConfigService(service.name)}
-                        className="aspect-square p-0"
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteService(service.name)}
-                      disabled={isDeleting}
-                      className="aspect-square p-0"
-                    >
-                      {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </Card>
-          ))}
-
-          {services.length === 0 && (
+        <>
+          {services.length === 0 ? (
             <Card className="p-8 text-center">
               <Container className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">No Services Available</h3>
@@ -380,42 +240,55 @@ export function ClusterServicesComponent() {
                 No cluster services are configured for this instance.
               </p>
             </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {services.map((service) => (
+                <Card
+                  key={service.name}
+                  className="p-4 hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer flex flex-col"
+                  onClick={() => setSelectedServiceName(service.name)}
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    {/* Status indicator circle */}
+                    <div className={`h-3 w-3 rounded-full flex-shrink-0 mt-1 ${getStatusColor(service)}`} />
+
+                    <div className="flex-1 min-w-0">
+                      {/* Service name */}
+                      <h4 className="font-medium truncate">{service.name}</h4>
+
+                      {/* Version badge */}
+                      {service.version && (
+                        <span className="text-xs text-muted-foreground">
+                          {service.version}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
           )}
-        </div>
+        </>
       )}
 
-      {statusService && (
-        <ServiceStatusDialog
+      {selectedServiceName && (
+        <ServiceDetailDialog
           instanceName={currentInstance}
-          serviceName={statusService}
-          open={!!statusService}
-          onClose={() => setStatusService(null)}
+          serviceName={selectedServiceName}
+          open={!!selectedServiceName}
+          onClose={() => setSelectedServiceName(null)}
+          onFetch={handleFetch}
+          onCompile={handleCompile}
+          onDeploy={handleDeploy}
+          onDelete={handleDelete}
+          onCleanFiles={handleCleanFiles}
+          isFetching={isFetching}
+          isCompiling={isCompiling}
+          isDeploying={isDeploying}
+          isDeleting={isDeleting}
+          isCleaningFiles={isCleaningFiles}
+          isOperating={operatingServices.has(selectedServiceName)}
         />
-      )}
-
-      {logsService && (
-        <ServiceLogsDialog
-          instanceName={currentInstance}
-          serviceName={logsService}
-          open={!!logsService}
-          onClose={() => setLogsService(null)}
-        />
-      )}
-
-      {configService && (
-        <Dialog open={!!configService} onOpenChange={(open) => !open && setConfigService(null)}>
-          <DialogContent className="sm:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-y-auto w-full">
-            <ServiceConfigEditor
-              instanceName={currentInstance}
-              serviceName={configService}
-              manifest={services.find(s => s.name === configService)}
-              onClose={() => setConfigService(null)}
-              onSuccess={() => {
-                setConfigService(null);
-              }}
-            />
-          </DialogContent>
-        </Dialog>
       )}
     </div>
   );

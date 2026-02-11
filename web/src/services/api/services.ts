@@ -70,6 +70,10 @@ export const servicesApi = {
     return apiClient.post(`/api/v1/instances/${instanceName}/services/${serviceName}/deploy`);
   },
 
+  async cleanFiles(instanceName: string, serviceName: string): Promise<OperationResponse> {
+    return apiClient.post(`/api/v1/instances/${instanceName}/services/${serviceName}/clean-files`);
+  },
+
   // Global service info (not instance-specific)
   async getManifest(serviceName: string): Promise<ServiceManifest> {
     return apiClient.get(`/api/v1/services/${serviceName}/manifest`);

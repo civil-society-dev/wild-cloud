@@ -27,50 +27,68 @@ export function useServices(instanceName: string | null | undefined) {
 
   const deleteMutation = useMutation({
     mutationFn: (serviceName: string) => servicesApi.delete(instanceName!, serviceName),
-    onSuccess: () => {
+    onSettled: () => {
+      // Always invalidate queries after mutation completes (success or error)
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services'] });
     },
   });
 
   const fetchMutation = useMutation({
     mutationFn: (serviceName: string) => servicesApi.fetch(instanceName!, serviceName),
-    onSuccess: () => {
+    onSettled: () => {
+      // Always invalidate queries after mutation completes (success or error)
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services'] });
     },
   });
 
   const compileMutation = useMutation({
     mutationFn: (serviceName: string) => servicesApi.compile(instanceName!, serviceName),
-    onSuccess: () => {
+    onSettled: () => {
+      // Always invalidate queries after mutation completes (success or error)
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services'] });
     },
   });
 
   const deployMutation = useMutation({
     mutationFn: (serviceName: string) => servicesApi.deploy(instanceName!, serviceName),
-    onSuccess: () => {
+    onSettled: () => {
+      // Always invalidate queries after mutation completes (success or error)
       queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services'] });
     },
   });
 
+  const cleanFilesMutation = useMutation({
+    mutationFn: (serviceName: string) => servicesApi.cleanFiles(instanceName!, serviceName),
+    onSettled: () => {
+      // Always invalidate queries after mutation completes (success or error)
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'services'] });
+    },
+  });
+
+  // Combined loading states: include both mutation pending and query refetching
+  const isRefetching = servicesQuery.isFetching && !servicesQuery.isLoading;
+
   return {
     services: servicesQuery.data?.services || [],
     isLoading: servicesQuery.isLoading,
+    isRefetching,
     error: servicesQuery.error,
     refetch: servicesQuery.refetch,
     installService: installMutation.mutate,
-    isInstalling: installMutation.isPending,
+    isInstalling: installMutation.isPending || isRefetching,
     installResult: installMutation.data,
     installAll: installAllMutation.mutate,
-    isInstallingAll: installAllMutation.isPending,
+    isInstallingAll: installAllMutation.isPending || isRefetching,
     deleteService: deleteMutation.mutate,
-    isDeleting: deleteMutation.isPending,
+    isDeleting: deleteMutation.isPending || isRefetching,
     fetch: fetchMutation.mutate,
-    isFetching: fetchMutation.isPending,
+    isFetching: fetchMutation.isPending || isRefetching,
     compile: compileMutation.mutate,
-    isCompiling: compileMutation.isPending,
+    isCompiling: compileMutation.isPending || isRefetching,
     deploy: deployMutation.mutate,
-    isDeploying: deployMutation.isPending,
+    isDeploying: deployMutation.isPending || isRefetching,
+    cleanFiles: cleanFilesMutation.mutate,
+    isCleaningFiles: cleanFilesMutation.isPending || isRefetching,
   };
 }
 
@@ -116,5 +134,16 @@ export function useServiceManifest(serviceName: string | null | undefined) {
     queryKey: ['services', serviceName, 'manifest'],
     queryFn: () => servicesApi.getManifest(serviceName!),
     enabled: !!serviceName,
+  });
+}
+
+export function useService(instanceName: string | null | undefined, serviceName: string | null | undefined) {
+  return useQuery({
+    queryKey: ['instances', instanceName, 'services', serviceName],
+    queryFn: async () => {
+      const response = await servicesApi.list(instanceName!);
+      return response.services.find(s => s.name === serviceName);
+    },
+    enabled: !!instanceName && !!serviceName,
   });
 }
