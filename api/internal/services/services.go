@@ -209,6 +209,16 @@ func (m *Manager) checkTemplateState(instanceName, serviceName string) TemplateS
 
 	// Read instance manifest to get installed version
 	instanceManifestPath := filepath.Join(instanceServiceDir, "wild-manifest.yaml")
+
+	// If manifest file doesn't exist, service needs update to get latest version
+	if !storage.FileExists(instanceManifestPath) {
+		return TemplateState{
+			State:          "update_available",
+			LatestVersion:  manifest.Version,
+			UpdateAvailable: true,
+		}
+	}
+
 	var instanceManifest ServiceManifest
 	if data, err := os.ReadFile(instanceManifestPath); err == nil {
 		if err := yaml.Unmarshal(data, &instanceManifest); err == nil {
@@ -563,13 +573,19 @@ func (m *Manager) Delete(instanceName, serviceName string) error {
 	// Get kustomize directory from instance
 	instanceServiceDir := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName), "setup", "cluster-services", serviceName)
 	kustomizeDir := filepath.Join(instanceServiceDir, "kustomize")
+	kustomizationFile := filepath.Join(kustomizeDir, "kustomization.yaml")
 
 	// Check if kustomize directory exists (service is installed)
 	if !storage.FileExists(kustomizeDir) {
 		return fmt.Errorf("service not installed - kustomize directory not found")
 	}
 
-	// Use kubectl delete with kustomize directory
+	// Verify kustomization.yaml exists
+	if !storage.FileExists(kustomizationFile) {
+		return fmt.Errorf("kustomization.yaml not found - cannot delete service")
+	}
+
+	// Delete using kustomize
 	cmd := exec.Command("kubectl", "delete", "-k", kustomizeDir)
 	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.CombinedOutput()
@@ -661,7 +677,9 @@ func (m *Manager) Fetch(instanceName, serviceName string) error {
 
 	// Extract wild-manifest.yaml
 	if manifestData, err := setup.GetServiceFile(serviceName, "wild-manifest.yaml"); err == nil {
-		_ = os.WriteFile(filepath.Join(instanceDir, "wild-manifest.yaml"), manifestData, 0644)
+		if err := os.WriteFile(filepath.Join(instanceDir, "wild-manifest.yaml"), manifestData, 0644); err != nil {
+			return fmt.Errorf("failed to write wild-manifest.yaml: %w", err)
+		}
 	}
 
 	// Extract kustomize.template directory
@@ -967,6 +985,25 @@ func getNestedValue(data map[string]interface{}, path string) interface{} {
 		} else {
 			return nil
 		}
+	}
+
+	return nil
+}
+
+// CleanFiles removes cached and compiled service files from the instance directory
+func (m *Manager) CleanFiles(instanceName, serviceName string) error {
+	// Construct service path: {dataDir}/instances/{instance}/setup/cluster-services/{service}
+	servicePath := filepath.Join(m.dataDir, "instances", instanceName, "setup", "cluster-services", serviceName)
+
+	// Check if service directory exists
+	if _, err := os.Stat(servicePath); os.IsNotExist(err) {
+		// Service doesn't exist, nothing to clean
+		return nil
+	}
+
+	// Remove the entire service directory
+	if err := os.RemoveAll(servicePath); err != nil {
+		return fmt.Errorf("failed to remove service files: %w", err)
 	}
 
 	return nil
