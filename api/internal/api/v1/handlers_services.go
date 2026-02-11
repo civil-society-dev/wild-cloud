@@ -315,3 +315,27 @@ func (api *API) ServicesUpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, response)
 }
+
+// ServicesCleanFiles removes compiled and cached service files
+func (api *API) ServicesCleanFiles(w http.ResponseWriter, r *http.Request) {
+	instanceName := GetInstanceName(r)
+	serviceName := GetServiceName(r)
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Clean service files
+	servicesMgr := services.NewManager(api.dataDir)
+	if err := servicesMgr.CleanFiles(instanceName, serviceName); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to clean service files: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Service files for %s cleaned successfully", serviceName),
+	})
+}
