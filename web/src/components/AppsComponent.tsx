@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation } from 'react-router';
 import type { Config } from '@/services/api/types/app';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
@@ -16,24 +16,15 @@ import {
   CheckCircle,
   AlertCircle,
   Download,
-  Trash2,
   BookOpen,
   Loader2,
-  Archive,
-  RotateCcw,
   Settings,
-  Eye,
-  Activity,
-  FileText,
 } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useAvailableApps, useDeployedApps, useAppBackups } from '../hooks/useApps';
 import { BackupRestoreModal } from './BackupRestoreModal';
 import { AppConfigDialog } from './apps/AppConfigDialog';
-import { AppOverviewDialog } from './apps/AppOverviewDialog';
-import { AppConfigurationDialog } from './apps/AppConfigurationDialog';
-import { AppStatusDialog } from './apps/AppStatusDialog';
-import { AppLogsDialog } from './apps/AppLogsDialog';
+import { AppDetailPanel } from './apps/AppDetailPanel';
 import type { App } from '../services/api';
 import { appsApi } from '../services/api';
 import { usePageHelp } from '../hooks/usePageHelp';
@@ -47,7 +38,6 @@ type TabView = 'available' | 'installed';
 
 export function AppsComponent() {
   const location = useLocation();
-  const navigate = useNavigate();
   const { currentInstance } = useInstanceContext();
   const { data: availableAppsData, isLoading: loadingAvailable, error: availableError } = useAvailableApps();
   const {
@@ -72,11 +62,7 @@ export function AppsComponent() {
   const [backupModalOpen, setBackupModalOpen] = useState(false);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [selectedAppForBackup, setSelectedAppForBackup] = useState<string | null>(null);
-  const [overviewDialogOpen, setOverviewDialogOpen] = useState(false);
-  const [configurationDialogOpen, setConfigurationDialogOpen] = useState(false);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
-  const [selectedAppForDialog, setSelectedAppForDialog] = useState<string | null>(null);
+  const [selectedAppForDetail, setSelectedAppForDetail] = useState<string | null>(null);
 
   usePageHelp({
     title: 'What are Apps in your Personal Cloud?',
@@ -252,7 +238,7 @@ export function AppsComponent() {
     );
   };
 
-  const handleAppAction = async (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore' | 'overview' | 'configuration' | 'status' | 'logs' | 'viewBackups') => {
+  const handleAppAction = async (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore') => {
     if (!currentInstance) return;
 
     switch (action) {
@@ -302,25 +288,6 @@ export function AppsComponent() {
       case 'restore':
         setSelectedAppForBackup(app.name);
         setRestoreModalOpen(true);
-        break;
-      case 'overview':
-        setSelectedAppForDialog(app.name);
-        setOverviewDialogOpen(true);
-        break;
-      case 'configuration':
-        setSelectedAppForDialog(app.name);
-        setConfigurationDialogOpen(true);
-        break;
-      case 'status':
-        setSelectedAppForDialog(app.name);
-        setStatusDialogOpen(true);
-        break;
-      case 'logs':
-        setSelectedAppForDialog(app.name);
-        setLogsDialogOpen(true);
-        break;
-      case 'viewBackups':
-        navigate(`/instances/${currentInstance}/backups?app=${app.name}`);
         break;
     }
   };
@@ -448,13 +415,28 @@ export function AppsComponent() {
         // Available Apps Grid
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredApps.map((app) => (
-            <Card key={app.name} className="p-4 hover:shadow-lg transition-shadow">
+            <Card
+              key={app.name}
+              className="p-4 hover:shadow-lg transition-all cursor-pointer hover:border-primary/50"
+              onClick={() => !addingAppNames.includes(app.name) && handleAppAction(app, 'configure')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && !addingAppNames.includes(app.name)) {
+                  e.preventDefault();
+                  handleAppAction(app, 'configure');
+                }
+              }}
+            >
               <div className="flex flex-col gap-3">
                 <div className="flex items-start gap-3">
                   <AppIcon app={app} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium truncate">{app.name}</h3>
+                      {addingAppNames.includes(app.name) && (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      )}
                     </div>
                     {app.version && (
                       <Badge variant="outline" className="text-xs mb-2">
@@ -464,181 +446,43 @@ export function AppsComponent() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground line-clamp-2">{app.description}</p>
-                <Button
-                  size="sm"
-                  onClick={() => handleAppAction(app, 'configure')}
-                  disabled={addingAppNames.includes(app.name)}
-                  className="w-full"
-                >
-                  {addingAppNames.includes(app.name) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Configure & Add'}
-                </Button>
               </div>
             </Card>
           ))}
         </div>
       ) : (
-        // Installed Apps List
-        <div className="space-y-3">
+        // Installed Apps Grid
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredApps.map((app) => (
-            <Card key={app.name} className="p-4">
-              <div className="flex items-start gap-3">
-                <AppIcon app={app} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium truncate">{app.name}</h3>
+            <Card
+              key={app.name}
+              className="p-4 hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
+              onClick={() => setSelectedAppForDetail(app.name)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedAppForDetail(app.name);
+                }
+              }}
+            >
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <AppIcon app={app} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-medium truncate">{app.name}</h3>
+                      {getStatusIcon(app.status?.status || app.deploymentStatus)}
+                    </div>
                     {app.version && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs mb-2">
                         {app.version}
                       </Badge>
                     )}
-                    {getStatusIcon(app.status?.status || app.deploymentStatus)}
-                    {getStatusBadge(app)}
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">{app.description}</p>
-
-                  {/* Show ingress URL if available */}
-                  {app.url && (
-                    <a
-                      href={app.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline mb-2"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      {app.url}
-                    </a>
-                  )}
-
-                  {app.status?.status === 'running' && (
-                    <div className="space-y-1 text-xs text-muted-foreground mb-2">
-                      {app.status.namespace && (
-                        <div>Namespace: {app.status.namespace}</div>
-                      )}
-                      {app.status.replicas && (
-                        <div>Replicas: {app.status.replicas}</div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Action buttons - horizontal layout */}
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {/* Added: in config but not deployed */}
-                    {app.deploymentStatus === 'added' && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAppAction(app, 'configure')}
-                          title="Edit configuration"
-                        >
-                          <Settings className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Configure</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleAppAction(app, 'deploy')}
-                          disabled={deployingAppNames.includes(app.name)}
-                        >
-                          {deployingAppNames.includes(app.name) && <Loader2 className="h-4 w-4 animate-spin sm:mr-1" />}
-                          <span className="hidden sm:inline">Deploy</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleAppAction(app, 'delete')}
-                          disabled={deletingAppNames.includes(app.name)}
-                          title="Delete"
-                        >
-                          {deletingAppNames.includes(app.name) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        </Button>
-                      </>
-                    )}
-
-                    {/* Deployed: running in Kubernetes */}
-                    {app.deploymentStatus === 'deployed' && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAppAction(app, 'overview')}
-                          title="Overview"
-                        >
-                          <Eye className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Overview</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAppAction(app, 'configuration')}
-                          title="Configuration"
-                        >
-                          <Settings className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Config</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAppAction(app, 'status')}
-                          title="Status"
-                        >
-                          <Activity className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Status</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAppAction(app, 'logs')}
-                          title="Logs"
-                        >
-                          <FileText className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Logs</span>
-                        </Button>
-                        {app.status?.status === 'running' && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleAppAction(app, 'viewBackups')}
-                              title="View all backups"
-                            >
-                              <Archive className="h-4 w-4 sm:mr-1" />
-                              <span className="hidden sm:inline">Backups</span>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleAppAction(app, 'backup')}
-                              disabled={isBackingUp}
-                              title="Create backup now"
-                            >
-                              {isBackingUp ? <Loader2 className="h-4 w-4 animate-spin sm:mr-1" /> : <Archive className="h-4 w-4 sm:mr-1" />}
-                              <span className="hidden sm:inline">Backup Now</span>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleAppAction(app, 'restore')}
-                              disabled={isRestoring}
-                              title="Restore from backup"
-                            >
-                              <RotateCcw className="h-4 w-4 sm:mr-1" />
-                              <span className="hidden sm:inline">Restore</span>
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleAppAction(app, 'delete')}
-                          disabled={deletingAppNames.includes(app.name)}
-                          title="Delete"
-                        >
-                          {deletingAppNames.includes(app.name) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        </Button>
-                      </>
-                    )}
                   </div>
                 </div>
+                <p className="text-sm text-muted-foreground line-clamp-2">{app.description}</p>
               </div>
             </Card>
           ))}
@@ -699,46 +543,46 @@ export function AppsComponent() {
         isSaving={isAdding}
       />
 
-      {/* App Dialog Modals */}
-      {selectedAppForDialog && currentInstance && (
-        <>
-          <AppOverviewDialog
-            instanceName={currentInstance}
-            appName={selectedAppForDialog}
-            open={overviewDialogOpen}
-            onClose={() => {
-              setOverviewDialogOpen(false);
-              setSelectedAppForDialog(null);
-            }}
-          />
-          <AppConfigurationDialog
-            instanceName={currentInstance}
-            appName={selectedAppForDialog}
-            open={configurationDialogOpen}
-            onClose={() => {
-              setConfigurationDialogOpen(false);
-              setSelectedAppForDialog(null);
-            }}
-          />
-          <AppStatusDialog
-            instanceName={currentInstance}
-            appName={selectedAppForDialog}
-            open={statusDialogOpen}
-            onClose={() => {
-              setStatusDialogOpen(false);
-              setSelectedAppForDialog(null);
-            }}
-          />
-          <AppLogsDialog
-            instanceName={currentInstance}
-            appName={selectedAppForDialog}
-            open={logsDialogOpen}
-            onClose={() => {
-              setLogsDialogOpen(false);
-              setSelectedAppForDialog(null);
-            }}
-          />
-        </>
+      {/* App Detail Panel */}
+      {selectedAppForDetail && currentInstance && (
+        <AppDetailPanel
+          instanceName={currentInstance}
+          appName={selectedAppForDetail}
+          open={!!selectedAppForDetail}
+          onClose={() => setSelectedAppForDetail(null)}
+          onDeploy={(appName) => deployApp(appName)}
+          onDelete={(appName) => {
+            if (confirm(`Are you sure you want to delete ${appName}?`)) {
+              deleteApp(appName);
+            }
+          }}
+          onBackup={(appName) => {
+            setSelectedAppForBackup(appName);
+            setBackupModalOpen(true);
+          }}
+          onRestore={(appName) => {
+            setSelectedAppForBackup(appName);
+            setRestoreModalOpen(true);
+          }}
+          onConfigure={async (appName) => {
+            const app = installedApps.find(a => a.name === appName);
+            if (app) {
+              try {
+                const instanceConfig = await appsApi.getConfig(currentInstance, appName);
+                setSelectedAppForConfig({
+                  ...app,
+                  config: instanceConfig,
+                });
+              } catch (error) {
+                console.error('[AppsComponent] Failed to fetch instance config:', error);
+                setSelectedAppForConfig(app);
+              }
+              setConfigDialogOpen(true);
+            }
+          }}
+          isDeploying={deployingAppNames.includes(selectedAppForDetail)}
+          isDeleting={deletingAppNames.includes(selectedAppForDetail)}
+        />
       )}
     </div>
   );
