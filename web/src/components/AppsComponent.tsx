@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useLocation } from 'react-router';
 import type { Config } from '@/services/api/types/app';
 import { Card } from './ui/card';
+import { EntityTile } from './ui/entity-tile';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
 import {
   AppWindow,
   Database,
@@ -13,15 +13,13 @@ import {
   MessageSquare,
   Search,
   ExternalLink,
-  CheckCircle,
   AlertCircle,
-  Download,
   BookOpen,
   Loader2,
   Settings,
 } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
-import { useAvailableApps, useDeployedApps, useAppBackups } from '../hooks/useApps';
+import { useAvailableApps, useDeployedApps, useAppBackups, useAppStatuses } from '../hooks/useApps';
 import { BackupRestoreModal } from './BackupRestoreModal';
 import { AppConfigDialog } from './apps/AppConfigDialog';
 import { AppDetailPanel } from './apps/AppDetailPanel';
@@ -142,59 +140,30 @@ export function AppsComponent() {
   // Filter for installed apps (added or deployed)
   const installedApps = applications.filter(app => app.deploymentStatus).sort((a, b) => a.name.localeCompare(b.name));
 
-  // Count running apps - apps that are deployed (not just added)
-  const runningApps = installedApps.filter(app => app.deploymentStatus === 'deployed').length;
+  // Fetch live status for all deployed apps
+  const deployedAppNames = installedApps.filter(app => app.deploymentStatus === 'deployed').map(app => app.name);
+  const liveStatuses = useAppStatuses(currentInstance, deployedAppNames);
 
-  const getStatusIcon = (status?: string) => {
+  // Count running apps based on live status
+  const runningApps = deployedAppNames.filter(name => liveStatuses[name] === 'running').length;
+
+  const getStatusColor = (status?: string): string | null => {
     switch (status) {
-      case 'running':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      case 'deploying':
-        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
-      case 'stopped':
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />;
       case 'added':
-        return <Settings className="h-5 w-5 text-blue-500" />;
+      case 'deploying':
       case 'deployed':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'available':
-        return <Download className="h-5 w-5 text-muted-foreground" />;
+      case 'starting':
+      case 'no-pods':
+      case 'stopped':
+        return 'bg-amber-500';
+      case 'running':
+        return null;
+      case 'error':
+      case 'unhealthy':
+        return 'bg-red-500';
       default:
         return null;
     }
-  };
-
-  const getStatusBadge = (app: MergedApp) => {
-    // Determine status: runtime status > deployment status > available
-    const status = app.status?.status || app.deploymentStatus || 'available';
-
-    const variants: Record<string, 'secondary' | 'default' | 'success' | 'destructive' | 'warning' | 'outline'> = {
-      available: 'secondary',
-      added: 'outline',
-      deploying: 'default',
-      running: 'success',
-      error: 'destructive',
-      stopped: 'warning',
-      deployed: 'outline',
-    };
-
-    const labels: Record<string, string> = {
-      available: 'Available',
-      added: 'Added',
-      deploying: 'Deploying',
-      running: 'Running',
-      error: 'Error',
-      stopped: 'Stopped',
-      deployed: 'Deployed',
-    };
-
-    return (
-      <Badge variant={variants[status]}>
-        {labels[status] || status}
-      </Badge>
-    );
   };
 
   const getCategoryIcon = (category?: string) => {
@@ -222,20 +191,17 @@ export function AppsComponent() {
   const AppIcon = ({ app }: { app: MergedApp }) => {
     const [imageError, setImageError] = useState(false);
 
-    return (
-      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-        {app.icon && !imageError ? (
-          <img
-            src={app.icon}
-            alt={app.name}
-            className="h-full w-full object-contain p-1"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          getCategoryIcon(app.category)
-        )}
-      </div>
-    );
+    if (app.icon && !imageError) {
+      return (
+        <img
+          src={app.icon}
+          alt={app.name}
+          className="h-full w-full object-contain p-1"
+          onError={() => setImageError(true)}
+        />
+      );
+    }
+    return <>{getCategoryIcon(app.category)}</>;
   };
 
   const handleAppAction = async (app: MergedApp, action: 'configure' | 'deploy' | 'delete' | 'backup' | 'restore') => {
@@ -413,78 +379,35 @@ export function AppsComponent() {
         </Card>
       ) : activeTab === 'available' ? (
         // Available Apps Grid
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {filteredApps.map((app) => (
-            <Card
+            <EntityTile
               key={app.name}
-              className="p-4 hover:shadow-lg transition-all cursor-pointer hover:border-primary/50"
-              onClick={() => !addingAppNames.includes(app.name) && handleAppAction(app, 'configure')}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if ((e.key === 'Enter' || e.key === ' ') && !addingAppNames.includes(app.name)) {
-                  e.preventDefault();
-                  handleAppAction(app, 'configure');
-                }
-              }}
-            >
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start gap-3">
-                  <AppIcon app={app} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium truncate">{app.name}</h3>
-                      {addingAppNames.includes(app.name) && (
-                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      )}
-                    </div>
-                    {app.version && (
-                      <Badge variant="outline" className="text-xs mb-2">
-                        {app.version}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground line-clamp-2">{app.description}</p>
-              </div>
-            </Card>
+              icon={<AppIcon app={app} />}
+              title={app.name}
+              version={app.version}
+              description={app.description}
+              statusIndicator={addingAppNames.includes(app.name) ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : undefined}
+              onClick={() => handleAppAction(app, 'configure')}
+              disabled={addingAppNames.includes(app.name)}
+              tint="#fd9631"
+            />
           ))}
         </div>
       ) : (
         // Installed Apps Grid
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {filteredApps.map((app) => (
-            <Card
+            <EntityTile
               key={app.name}
-              className="p-4 hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
+              icon={<AppIcon app={app} />}
+              title={app.name}
+              version={app.version}
+              description={app.description}
+              statusIndicator={(() => { const color = getStatusColor(liveStatuses[app.name] || app.deploymentStatus); return color ? <div className={`h-3 w-3 rounded-full ${color}`} /> : undefined; })()}
               onClick={() => setSelectedAppForDetail(app.name)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setSelectedAppForDetail(app.name);
-                }
-              }}
-            >
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start gap-3">
-                  <AppIcon app={app} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium truncate">{app.name}</h3>
-                      {getStatusIcon(app.status?.status || app.deploymentStatus)}
-                    </div>
-                    {app.version && (
-                      <Badge variant="outline" className="text-xs mb-2">
-                        {app.version}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground line-clamp-2">{app.description}</p>
-              </div>
-            </Card>
+              tint="#fd9631"
+            />
           ))}
         </div>
       )}

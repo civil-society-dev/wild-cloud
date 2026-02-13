@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card } from './ui/card';
+import { EntityTile } from './ui/entity-tile';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
 import { Alert } from './ui/alert';
 import { Input } from './ui/input';
-import { Cpu, HardDrive, Network, Monitor, CheckCircle, AlertCircle, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
+import { Network, CheckCircle, AlertCircle, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
 import { useNodes, useDiscoveryStatus } from '../hooks/useNodes';
 import { useCluster } from '../hooks/useCluster';
 import { useClusterStatus } from '../services/api/hooks/useCluster';
 import { BootstrapModal } from './cluster/BootstrapModal';
-import { NodeStatusBadge } from './nodes/NodeStatusBadge';
+import { deriveNodeStatus } from '../utils/deriveNodeStatus';
+import { NodeStatus } from '../types/nodeStatus';
 import { NodeFormDialog } from './nodes/NodeFormDialog';
 import { ClusterSettings } from './nodes/ClusterSettings';
 import type { NodeFormData } from './nodes/NodeForm';
@@ -180,6 +181,31 @@ export function ClusterNodesComponent({
     } catch (err) {
       console.error('Failed to detect hardware:', err);
       setDetectError(err instanceof Error ? err.message : 'Failed to detect hardware');
+    }
+  };
+
+  const getNodeStatusColor = (node: Node): string | null => {
+    const status = deriveNodeStatus(node);
+    switch (status) {
+      case NodeStatus.DISCOVERED:
+      case NodeStatus.PENDING:
+      case NodeStatus.MAINTENANCE:
+        return 'bg-white border border-black/20';
+      case NodeStatus.CONFIGURING:
+      case NodeStatus.CONFIGURED:
+      case NodeStatus.APPLYING:
+      case NodeStatus.PROVISIONING:
+      case NodeStatus.REPROVISIONING:
+      case NodeStatus.UNKNOWN:
+        return 'bg-amber-500';
+      case NodeStatus.READY:
+      case NodeStatus.HEALTHY:
+        return null;
+      case NodeStatus.UNREACHABLE:
+      case NodeStatus.DEGRADED:
+      case NodeStatus.FAILED:
+      case NodeStatus.ORPHANED:
+        return 'bg-red-500';
     }
   };
 
@@ -566,68 +592,16 @@ export function ClusterNodesComponent({
               </p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {assignedNodes.map((node) => (
-                <Card
+                <EntityTile
                   key={node.hostname}
-                  className="p-4 hover:shadow-lg hover:border-primary/50 transition-all flex flex-col cursor-pointer"
+                  title={node.hostname}
+                  description={node.target_ip}
+                  statusIndicator={(() => { const color = getNodeStatusColor(node); return color ? <div className={`h-3 w-3 rounded-full ${color}`} /> : undefined; })()}
                   onClick={() => handleConfigureNode(node)}
+                  tint="#ca95c8"
                 >
-                  <div className="mb-3">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <h4 className="font-medium truncate">{node.hostname}</h4>
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {node.role}
-                      </Badge>
-                    </div>
-                    <div className="mb-2">
-                      <NodeStatusBadge node={node} compact />
-                    </div>
-                    <div className="text-sm text-muted-foreground font-mono truncate">
-                      {node.target_ip}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 text-xs text-muted-foreground mb-3 flex-1">
-                    {node.disk && (
-                      <div className="flex items-center gap-1">
-                        <HardDrive className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{node.disk}</span>
-                      </div>
-                    )}
-                    {node.hardware && (
-                      <>
-                        {node.hardware.cpu && (
-                          <div className="flex items-center gap-1">
-                            <Cpu className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{node.hardware.cpu}</span>
-                          </div>
-                        )}
-                        {node.hardware.memory && (
-                          <div className="flex items-center gap-1">
-                            <Monitor className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{node.hardware.memory}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {node.version && (
-                      <div className="truncate">Talos: {node.version}</div>
-                    )}
-                    {node.schematic_id && (
-                      <div
-                        title={node.schematic_id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigator.clipboard.writeText(node.schematic_id!);
-                        }}
-                        className="cursor-pointer hover:text-primary hover:underline truncate"
-                      >
-                        Schema: {node.schematic_id.substring(0, 12)}...
-                      </div>
-                    )}
-                  </div>
-
                   {node.configured && !node.applied && (
                     <div className="pt-2 border-t" onClick={(e) => e.stopPropagation()}>
                       <Button
@@ -641,7 +615,7 @@ export function ClusterNodesComponent({
                       </Button>
                     </div>
                   )}
-                </Card>
+                </EntityTile>
               ))}
             </div>
           )}

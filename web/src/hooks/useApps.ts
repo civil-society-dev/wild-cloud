@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, useMutationState } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient, useMutationState } from '@tanstack/react-query';
 import { appsApi, operationsApi } from '../services/api';
 import type { AppAddRequest } from '../services/api';
 import { toast } from 'sonner';
@@ -137,6 +137,26 @@ export function useAppStatus(instanceName: string | null | undefined, appName: s
     enabled: !!instanceName && !!appName,
     refetchInterval: 5000, // Poll every 5 seconds
   });
+}
+
+export function useAppStatuses(instanceName: string | null | undefined, appNames: string[]) {
+  const results = useQueries({
+    queries: appNames.map(name => ({
+      queryKey: ['instances', instanceName, 'apps', name, 'status'],
+      queryFn: () => appsApi.getStatus(instanceName!, name),
+      enabled: !!instanceName,
+      refetchInterval: 10000,
+    })),
+  });
+
+  const statuses: Record<string, string> = {};
+  appNames.forEach((name, i) => {
+    if (results[i]?.data?.status) {
+      statuses[name] = results[i].data.status;
+    }
+  });
+
+  return statuses;
 }
 
 export function useAppBackups(instanceName: string | null | undefined, appName: string | null | undefined) {

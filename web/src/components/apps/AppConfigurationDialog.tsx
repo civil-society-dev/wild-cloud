@@ -154,7 +154,7 @@ export function AppConfigurationDialog({
                   <CardContent>
                     <div className="space-y-2">
                       {appDetails.manifest.defaultSecrets?.map((secret) => {
-                        const secretKey = secret.key;
+                        const secretKey = typeof secret === 'string' ? secret : secret.key;
                         const secretValue = secrets[secretKey];
                         return (
                           <div key={secretKey} className="flex justify-between text-sm border-b pb-2">

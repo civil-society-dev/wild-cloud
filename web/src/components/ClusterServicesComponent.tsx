@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Card } from './ui/card';
+import { EntityTile } from './ui/entity-tile';
 import { Button } from './ui/button';
 import { Container, AlertCircle, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
 import { useInstanceContext } from '../hooks/useInstanceContext';
@@ -74,9 +75,9 @@ export function ClusterServicesComponent() {
     ) {
       return 'bg-amber-500';
     }
-    // Deployed and healthy with no pending actions: green
+    // Deployed and healthy with no pending actions: no indicator needed
     if (service.lifecycle?.deployment?.state === 'deployed' && service.lifecycle.deployment.healthy) {
-      return 'bg-green-500';
+      return null;
     }
     // Default/unknown: gray
     return 'bg-gray-400';
@@ -241,30 +242,17 @@ export function ClusterServicesComponent() {
               </p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {services.map((service) => (
-                <Card
+                <EntityTile
                   key={service.name}
-                  className="p-4 hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer flex flex-col"
+                  title={service.name}
+                  version={service.version}
+                  description={service.description}
+                  statusIndicator={(() => { const color = getStatusColor(service); return color ? <div className={`h-3 w-3 rounded-full ${color}`} /> : undefined; })()}
                   onClick={() => setSelectedServiceName(service.name)}
-                >
-                  <div className="flex items-start gap-3 mb-3">
-                    {/* Status indicator circle */}
-                    <div className={`h-3 w-3 rounded-full flex-shrink-0 mt-1 ${getStatusColor(service)}`} />
-
-                    <div className="flex-1 min-w-0">
-                      {/* Service name */}
-                      <h4 className="font-medium truncate">{service.name}</h4>
-
-                      {/* Version badge */}
-                      {service.version && (
-                        <span className="text-xs text-muted-foreground">
-                          {service.version}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Card>
+                  tint="#a49ffa"
+                />
               ))}
             </div>
           )}

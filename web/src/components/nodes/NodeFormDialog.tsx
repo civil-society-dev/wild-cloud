@@ -51,8 +51,47 @@ export function NodeFormDialog({
         </DialogHeader>
 
         {mode === 'configure' && node && (
-          <div className="mb-4">
+          <div className="space-y-4 mb-4">
             <NodeStatusBadge node={node} showAction />
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              {node.disk && (
+                <>
+                  <span className="text-muted-foreground">Disk</span>
+                  <span className="font-mono">{node.disk}</span>
+                </>
+              )}
+              {node.hardware?.cpu && (
+                <>
+                  <span className="text-muted-foreground">CPU</span>
+                  <span>{node.hardware.cpu}</span>
+                </>
+              )}
+              {node.hardware?.memory && (
+                <>
+                  <span className="text-muted-foreground">Memory</span>
+                  <span>{node.hardware.memory}</span>
+                </>
+              )}
+              {node.version && (
+                <>
+                  <span className="text-muted-foreground">Talos</span>
+                  <span className="font-mono">{node.version}</span>
+                </>
+              )}
+              {node.schematic_id && (
+                <>
+                  <span className="text-muted-foreground">Schematic</span>
+                  <span
+                    className="font-mono truncate cursor-pointer hover:text-primary"
+                    title={node.schematic_id}
+                    onClick={() => navigator.clipboard.writeText(node.schematic_id!)}
+                  >
+                    {node.schematic_id.substring(0, 16)}...
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         )}
 

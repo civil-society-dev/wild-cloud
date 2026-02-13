@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -216,7 +216,7 @@ export function AppDetailPanel({
               <h3 className="text-sm font-semibold">Actions</h3>
               <div className="flex flex-wrap gap-2">
                 {/* Added: configure and deploy */}
-                {appDetails.deploymentStatus === 'added' && (
+                {appDetails.status === 'added' && (
                   <>
                     <Button
                       size="sm"
@@ -242,7 +242,7 @@ export function AppDetailPanel({
                 )}
 
                 {/* Deployed: backup and restore */}
-                {appDetails.deploymentStatus === 'deployed' && appDetails.status === 'running' && (
+                {(appDetails.status === 'deployed' || appDetails.status === 'running') && (
                   <>
                     <Button
                       size="sm"
@@ -445,7 +445,7 @@ export function AppDetailPanel({
                 <CardContent>
                   <div className="space-y-2">
                     {appDetails.manifest.defaultSecrets?.map((secret) => {
-                      const secretKey = secret.key;
+                      const secretKey = typeof secret === 'string' ? secret : secret.key;
                       const secretValue = secrets[secretKey];
                       return (
                         <div key={secretKey} className="flex justify-between text-sm border-b pb-2">

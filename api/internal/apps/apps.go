@@ -924,7 +924,7 @@ func (m *Manager) GetStatus(instanceName, appName string) (*DeployedApp, error) 
 		return app, nil
 	}
 
-	app.Status = "not-deployed"
+	app.Status = "added"
 
 	// Get version from manifest
 	manifestPath := filepath.Join(appDir, "manifest.yaml")
@@ -987,10 +987,15 @@ func (m *Manager) GetStatus(instanceName, appName string) (*DeployedApp, error) 
 		return app, nil
 	}
 
-	// Check pod status
+	// Check pod status (skip completed Job pods)
 	allRunning := true
 	allReady := true
+	activePods := 0
 	for _, pod := range podList.Items {
+		if pod.Status.Phase == "Succeeded" {
+			continue
+		}
+		activePods++
 		if pod.Status.Phase != "Running" {
 			allRunning = false
 		}
@@ -999,6 +1004,11 @@ func (m *Manager) GetStatus(instanceName, appName string) (*DeployedApp, error) 
 				allReady = false
 			}
 		}
+	}
+
+	if activePods == 0 {
+		app.Status = "no-pods"
+		return app, nil
 	}
 
 	if allRunning && allReady {
@@ -1030,7 +1040,7 @@ func (m *Manager) GetEnhanced(instanceName, appName string) (*EnhancedApp, error
 		return enhanced, nil
 	}
 
-	enhanced.Status = "not-deployed"
+	enhanced.Status = "added"
 
 	// Load manifest
 	manifestPath := filepath.Join(appDir, "manifest.yaml")

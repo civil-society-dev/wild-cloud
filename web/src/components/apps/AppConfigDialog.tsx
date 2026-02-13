@@ -322,8 +322,9 @@ export function AppConfigDialog({
                 <h4 className="text-sm font-medium mb-3">Configuration</h4>
               </div>
               {configKeys.map((key) => {
-                const isRequired = app.defaultSecrets?.some(secret =>
-                  secret.key.toLowerCase().includes(key.toLowerCase())
+                const isRequired = app.defaultSecrets?.some(secret => {
+                  const secretKey = typeof secret === 'string' ? secret : secret.key;
+                  return secretKey.toLowerCase().includes(key.toLowerCase());}
                 );
 
                 return (
