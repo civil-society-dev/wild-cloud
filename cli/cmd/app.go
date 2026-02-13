@@ -122,6 +122,29 @@ var appDeployCmd = &cobra.Command{
 	},
 }
 
+var appUpdateCmd = &cobra.Command{
+	Use:   "update <app>",
+	Short: "Update an app from the Wild Directory",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		resp, err := apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/apps/%s/update", inst, args[0]), nil)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("App update started: %s\n", args[0])
+		if opID := resp.GetString("operation_id"); opID != "" {
+			fmt.Printf("Operation ID: %s\n", opID)
+		}
+		return nil
+	},
+}
+
 var appDeleteCmd = &cobra.Command{
 	Use:   "delete <app>",
 	Short: "Delete an app",
@@ -180,6 +203,7 @@ func init() {
 	appCmd.AddCommand(appListDeployedCmd)
 	appCmd.AddCommand(appAddCmd)
 	appCmd.AddCommand(appDeployCmd)
+	appCmd.AddCommand(appUpdateCmd)
 	appCmd.AddCommand(appDeleteCmd)
 	appCmd.AddCommand(appStatusCmd)
 }

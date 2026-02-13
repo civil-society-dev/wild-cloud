@@ -78,6 +78,23 @@ export function useDeployedApps(instanceName: string | null | undefined) {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationKey: ['updateApp', instanceName],
+    mutationFn: async (appName: string) => {
+      toast.loading(`Updating ${appName}...`, { id: `update-${appName}` });
+      const response = await appsApi.update(instanceName!, appName);
+      await pollOperation(instanceName!, response.operation_id);
+      return response;
+    },
+    onSuccess: (_, appName) => {
+      toast.success(`${appName} updated successfully. Deploy to apply changes.`, { id: `update-${appName}` });
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'apps'] });
+    },
+    onError: (error, appName) => {
+      toast.error(`Failed to update ${appName}: ${error.message}`, { id: `update-${appName}` });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationKey: ['deleteApp', instanceName],
     mutationFn: async (appName: string) => {
@@ -106,6 +123,11 @@ export function useDeployedApps(instanceName: string | null | undefined) {
     select: (mutation) => mutation.state.variables as string,
   });
 
+  const pendingUpdates = useMutationState({
+    filters: { mutationKey: ['updateApp', instanceName], status: 'pending' },
+    select: (mutation) => mutation.state.variables as string,
+  });
+
   const pendingAdds = useMutationState({
     filters: { mutationKey: ['addApp', instanceName], status: 'pending' },
     select: (mutation) => (mutation.state.variables as AppAddRequest)?.name,
@@ -120,6 +142,9 @@ export function useDeployedApps(instanceName: string | null | undefined) {
     isAdding: addMutation.isPending,
     addingAppNames: pendingAdds,
     addResult: addMutation.data,
+    updateApp: updateMutation.mutate,
+    isUpdating: updateMutation.isPending,
+    updatingAppNames: pendingUpdates,
     deployApp: deployMutation.mutate,
     isDeploying: deployMutation.isPending,
     deployingAppNames: pendingDeploys,

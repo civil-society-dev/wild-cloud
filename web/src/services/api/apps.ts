@@ -37,6 +37,10 @@ export const appsApi = {
     return apiClient.post(`/api/v1/instances/${instanceName}/apps/${appName}/deploy`);
   },
 
+  async update(instanceName: string, appName: string): Promise<OperationResponse> {
+    return apiClient.post(`/api/v1/instances/${instanceName}/apps/${appName}/update`);
+  },
+
   async delete(instanceName: string, appName: string): Promise<OperationResponse> {
     return apiClient.delete(`/api/v1/instances/${instanceName}/apps/${appName}`);
   },

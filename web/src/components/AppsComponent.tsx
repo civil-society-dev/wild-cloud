@@ -30,6 +30,7 @@ import { usePageHelp } from '../hooks/usePageHelp';
 interface MergedApp extends App {
   deploymentStatus?: 'added' | 'deployed';
   url?: string;
+  updateAvailable?: boolean;
 }
 
 type TabView = 'available' | 'installed';
@@ -45,6 +46,8 @@ export function AppsComponent() {
     addApp,
     isAdding,
     addingAppNames,
+    updateApp,
+    updatingAppNames,
     deployApp,
     deployingAppNames,
     deleteApp,
@@ -111,8 +114,10 @@ export function AppsComponent() {
       ...app,
       deploymentStatus: deployedApp?.status,
       url: deployedApp?.url,
-      // Prefer deployed app icon if it exists (allows custom icons in local manifests)
+      // Prefer deployed app's version and icon when installed
+      version: deployedApp?.version || app.version,
       icon: deployedApp?.icon || app.icon,
+      updateAvailable: deployedApp?.version ? deployedApp.version !== app.version : false,
     } as MergedApp;
   });
 
@@ -404,7 +409,7 @@ export function AppsComponent() {
               title={app.name}
               version={app.version}
               description={app.description}
-              statusIndicator={(() => { const color = getStatusColor(liveStatuses[app.name] || app.deploymentStatus); return color ? <div className={`h-3 w-3 rounded-full ${color}`} /> : undefined; })()}
+              statusIndicator={(() => { const color = getStatusColor(liveStatuses[app.name] || app.deploymentStatus); if (color) return <div className={`h-3 w-3 rounded-full ${color}`} />; if (app.updateAvailable) return <div className="h-3 w-3 rounded-full bg-amber-500" />; return undefined; })()}
               onClick={() => setSelectedAppForDetail(app.name)}
               tint="#fd9631"
             />
@@ -474,6 +479,7 @@ export function AppsComponent() {
           open={!!selectedAppForDetail}
           onClose={() => setSelectedAppForDetail(null)}
           onDeploy={(appName) => deployApp(appName)}
+          onUpdate={(appName) => updateApp(appName)}
           onDelete={(appName) => {
             if (confirm(`Are you sure you want to delete ${appName}?`)) {
               deleteApp(appName);
@@ -504,7 +510,10 @@ export function AppsComponent() {
             }
           }}
           isDeploying={deployingAppNames.includes(selectedAppForDetail)}
+          isUpdating={updatingAppNames.includes(selectedAppForDetail)}
           isDeleting={deletingAppNames.includes(selectedAppForDetail)}
+          updateAvailable={installedApps.find(a => a.name === selectedAppForDetail)?.updateAvailable || false}
+          availableVersion={availableAppsMap.get(selectedAppForDetail)?.version}
         />
       )}
     </div>

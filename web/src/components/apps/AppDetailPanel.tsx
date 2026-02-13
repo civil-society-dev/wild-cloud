@@ -37,12 +37,16 @@ interface AppDetailPanelProps {
   open: boolean;
   onClose: () => void;
   onDeploy: (appName: string) => void;
+  onUpdate: (appName: string) => void;
   onDelete: (appName: string) => void;
   onBackup: (appName: string) => void;
   onRestore: (appName: string) => void;
   onConfigure: (appName: string) => void;
   isDeploying: boolean;
+  isUpdating: boolean;
   isDeleting: boolean;
+  updateAvailable: boolean;
+  availableVersion?: string;
 }
 
 export function AppDetailPanel({
@@ -51,12 +55,16 @@ export function AppDetailPanel({
   open,
   onClose,
   onDeploy,
+  onUpdate,
   onDelete,
   onBackup,
   onRestore,
   onConfigure,
   isDeploying,
+  isUpdating,
   isDeleting,
+  updateAvailable,
+  availableVersion,
 }: AppDetailPanelProps) {
   const [showSecrets, setShowSecrets] = useState(false);
   const [secrets, setSecrets] = useState<Record<string, string>>({});
@@ -241,6 +249,24 @@ export function AppDetailPanel({
                   </>
                 )}
 
+                {/* Update available */}
+                {updateAvailable && (appDetails.status === 'deployed' || appDetails.status === 'running') && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-amber-500 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/20"
+                    onClick={() => onUpdate(appName)}
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Update to {availableVersion}
+                  </Button>
+                )}
+
                 {/* Deployed: backup and restore */}
                 {(appDetails.status === 'deployed' || appDetails.status === 'running') && (
                   <>
@@ -297,7 +323,12 @@ export function AppDetailPanel({
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Version</p>
-                    <p className="text-sm">{appDetails.version || 'N/A'}</p>
+                    <p className="text-sm">
+                      {appDetails.version || 'N/A'}
+                      {updateAvailable && availableVersion && (
+                        <span className="text-amber-600 dark:text-amber-400 ml-2">({availableVersion} available)</span>
+                      )}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Namespace</p>
