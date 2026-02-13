@@ -576,16 +576,16 @@ func (k *Kubectl) GetResources(namespace string) (*ResourceUsage, error) {
 	for _, pod := range podList.Items {
 		for _, container := range pod.Spec.Containers {
 			if req, ok := container.Resources.Requests["cpu"]; ok {
-				cpuRequests += parseResourceQuantity(req)
+				cpuRequests += parseCPUQuantity(req)
 			}
 			if lim, ok := container.Resources.Limits["cpu"]; ok {
-				cpuLimits += parseResourceQuantity(lim)
+				cpuLimits += parseCPUQuantity(lim)
 			}
 			if req, ok := container.Resources.Requests["memory"]; ok {
-				memRequests += parseResourceQuantity(req)
+				memRequests += parseMemoryQuantity(req)
 			}
 			if lim, ok := container.Resources.Limits["memory"]; ok {
-				memLimits += parseResourceQuantity(lim)
+				memLimits += parseMemoryQuantity(lim)
 			}
 		}
 	}
@@ -772,20 +772,38 @@ func formatAge(d time.Duration) string {
 	return fmt.Sprintf("%dd", int(d.Hours()/24))
 }
 
-// parseResourceQuantity converts kubernetes resource quantities to millicores/bytes
-func parseResourceQuantity(quantity string) int64 {
+// parseCPUQuantity converts kubernetes CPU quantities to millicores
+func parseCPUQuantity(quantity string) int64 {
 	quantity = strings.TrimSpace(quantity)
 	if quantity == "" {
 		return 0
 	}
 
-	// Handle CPU (cores)
+	// Handle millicores (e.g., "500m")
 	if strings.HasSuffix(quantity, "m") {
 		val, _ := strconv.ParseInt(strings.TrimSuffix(quantity, "m"), 10, 64)
 		return val
 	}
 
-	// Handle memory (bytes)
+	// Handle cores (e.g., "1", "2", "0.5")
+	// Try to parse as float first for fractional cores
+	if floatVal, err := strconv.ParseFloat(quantity, 64); err == nil {
+		return int64(floatVal * 1000) // Convert cores to millicores
+	}
+
+	// Fallback to int parsing
+	val, _ := strconv.ParseInt(quantity, 10, 64)
+	return val * 1000 // Convert cores to millicores
+}
+
+// parseMemoryQuantity converts kubernetes memory quantities to bytes
+func parseMemoryQuantity(quantity string) int64 {
+	quantity = strings.TrimSpace(quantity)
+	if quantity == "" {
+		return 0
+	}
+
+	// Handle memory suffixes
 	multipliers := map[string]int64{
 		"Ki": 1024,
 		"Mi": 1024 * 1024,
@@ -804,7 +822,7 @@ func parseResourceQuantity(quantity string) int64 {
 		}
 	}
 
-	// Plain number
+	// Plain number (bytes)
 	val, _ := strconv.ParseInt(quantity, 10, 64)
 	return val
 }
