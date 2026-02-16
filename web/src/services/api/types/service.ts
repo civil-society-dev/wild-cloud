@@ -49,6 +49,7 @@ export interface Service {
   namespace?: string;
   hasConfig?: boolean; // Whether service has configurable fields
   lifecycle?: ServiceLifecycleStatus; // Enhanced lifecycle state
+  dependencies?: string[]; // Optional list of service dependencies
 }
 
 export interface ServiceStatus {

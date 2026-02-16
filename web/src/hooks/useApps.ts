@@ -49,8 +49,11 @@ export function useDeployedApps(instanceName: string | null | undefined) {
     queryKey: ['instances', instanceName, 'apps'],
     queryFn: () => appsApi.listDeployed(instanceName!),
     enabled: !!instanceName,
-    // Poll every 3 seconds to catch deployment status changes
-    refetchInterval: 3000,
+    // Poll every 10 seconds to catch deployment status changes
+    // (API can be slow with many apps)
+    refetchInterval: 10000,
+    staleTime: 5000, // Consider data fresh for 5 seconds
+    retry: 1, // Only retry once on failure
   });
 
   const addMutation = useMutation({
@@ -170,7 +173,9 @@ export function useAppStatuses(instanceName: string | null | undefined, appNames
       queryKey: ['instances', instanceName, 'apps', name, 'status'],
       queryFn: () => appsApi.getStatus(instanceName!, name),
       enabled: !!instanceName,
-      refetchInterval: 10000,
+      refetchInterval: 30000, // Poll every 30 seconds instead of 10
+      staleTime: 15000, // Consider data fresh for 15 seconds
+      retry: 0, // Don't retry status checks
     })),
   });
 
@@ -219,12 +224,12 @@ export function useAppBackups(instanceName: string | null | undefined, appName: 
 }
 
 // Enhanced hooks for app details and runtime status
-export function useAppEnhanced(instanceName: string | null | undefined, appName: string | null | undefined) {
+export function useAppEnhanced(instanceName: string | null | undefined, appName: string | null | undefined, options?: { enablePolling?: boolean }) {
   return useQuery({
     queryKey: ['instances', instanceName, 'apps', appName, 'enhanced'],
     queryFn: () => appsApi.getEnhanced(instanceName!, appName!),
     enabled: !!instanceName && !!appName,
-    refetchInterval: 10000, // Poll every 10 seconds
+    refetchInterval: options?.enablePolling !== false ? 10000 : false, // Poll every 10 seconds unless disabled
   });
 }
 
@@ -253,13 +258,14 @@ export function useAppLogs(
 export function useAppEvents(
   instanceName: string | null | undefined,
   appName: string | null | undefined,
-  limit?: number
+  limit?: number,
+  options?: { enablePolling?: boolean }
 ) {
   return useQuery({
     queryKey: ['instances', instanceName, 'apps', appName, 'events', limit],
     queryFn: () => appsApi.getEvents(instanceName!, appName!, limit),
     enabled: !!instanceName && !!appName,
-    refetchInterval: 10000, // Poll every 10 seconds
+    refetchInterval: options?.enablePolling !== false ? 10000 : false, // Poll every 10 seconds unless disabled
   });
 }
 

@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Archive,
   RotateCcw,
+  Database,
 } from 'lucide-react';
 import {
   Select,
@@ -75,11 +76,18 @@ export function AppDetailPanel({
     pod?: string;
     container?: string;
   }>({ tail: 100 });
+  const [backupResources, setBackupResources] = useState<any[]>([]);
+  const [loadingBackupResources, setLoadingBackupResources] = useState(false);
+  const [hasLoadedBackupResources, setHasLoadedBackupResources] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Disable polling when on the Data tab to prevent network loops
+  const enablePolling = activeTab !== 'data';
 
   // Fetch app data
-  const { data: appDetails, isLoading } = useAppEnhanced(instanceName, appName);
+  const { data: appDetails, isLoading } = useAppEnhanced(instanceName, appName, { enablePolling });
   const { data: readmeContent, isLoading: readmeLoading } = useAppReadme(instanceName, appName);
-  const { data: eventsData } = useAppEvents(instanceName, appName, 20);
+  const { data: eventsData } = useAppEvents(instanceName, appName, 20, { enablePolling });
   const { data: logs, refetch: refetchLogs } = useAppLogs(
     instanceName,
     appName,
@@ -136,6 +144,35 @@ export function AppDetailPanel({
         });
     }
   }, [showSecrets, instanceName, appName, secrets]);
+
+  // Reset backup resources when app changes or tab changes
+  useEffect(() => {
+    setBackupResources([]);
+    setHasLoadedBackupResources(false);
+  }, [appName, activeTab]);
+
+  // Fetch backup resources when Data tab is selected
+  useEffect(() => {
+    if (open && activeTab === 'data' && !hasLoadedBackupResources && !loadingBackupResources) {
+      setLoadingBackupResources(true);
+      apiClient.get(`/api/v1/instances/${instanceName}/apps/${appName}/backup/discover`)
+        .then((response) => {
+          const data = response as { data?: { resources?: any[] } };
+          // Handle both empty array and actual resources
+          const resources = data.data?.resources || [];
+          setBackupResources(resources);
+          setHasLoadedBackupResources(true);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch backup resources:', error);
+          setBackupResources([]);
+          setHasLoadedBackupResources(true);
+        })
+        .finally(() => {
+          setLoadingBackupResources(false);
+        });
+    }
+  }, [open, activeTab, instanceName, appName, hasLoadedBackupResources, loadingBackupResources]);
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'success' | 'destructive' | 'warning' | 'outline'> = {
@@ -197,8 +234,8 @@ export function AppDetailPanel({
           )}
         </DialogHeader>
 
-        <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">
               <Info className="h-4 w-4 mr-2" />
               Overview
@@ -210,6 +247,10 @@ export function AppDetailPanel({
             <TabsTrigger value="status">
               <Activity className="h-4 w-4 mr-2" />
               Status
+            </TabsTrigger>
+            <TabsTrigger value="data">
+              <Database className="h-4 w-4 mr-2" />
+              Data
             </TabsTrigger>
             <TabsTrigger value="logs">
               <FileText className="h-4 w-4 mr-2" />
@@ -680,6 +721,65 @@ export function AppDetailPanel({
             ) : (
               <p className="text-center text-muted-foreground py-8">No status information available</p>
             )}
+          </TabsContent>
+
+          {/* Data Tab */}
+          <TabsContent value="data" className="flex-1 overflow-y-auto space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Backup Resources</h3>
+
+              {loadingBackupResources ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : backupResources.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <p className="text-muted-foreground">No backup resources discovered for this app.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {backupResources.map((resource, idx) => (
+                    <Card key={idx}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            {resource.type === 'database' ? (
+                              <Database className="h-4 w-4" />
+                            ) : resource.type === 'pvc' ? (
+                              <Archive className="h-4 w-4" />
+                            ) : (
+                              <FileText className="h-4 w-4" />
+                            )}
+                            {resource.name}
+                          </CardTitle>
+                          <Badge variant={resource.shouldBackup ? 'success' : 'secondary'}>
+                            {resource.shouldBackup ? 'Backed Up' : 'Excluded'}
+                          </Badge>
+                        </div>
+                        <CardDescription>
+                          Type: {resource.type} | Plugin: {resource.plugin}
+                          {resource.reason && ` | ${resource.reason}`}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          {resource.source && Object.entries(resource.source).map(([key, value]) => (
+                            <div key={key} className="space-y-1">
+                              <p className="text-muted-foreground capitalize">
+                                {key.replace(/([A-Z])/g, ' $1').trim()}:
+                              </p>
+                              <p className="font-mono text-xs">{String(value)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Logs Tab */}

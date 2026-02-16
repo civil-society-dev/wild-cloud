@@ -75,7 +75,7 @@ export function ServiceLifecycleBadges({ lifecycle }: ServiceLifecycleBadgesProp
             ? 'default'
             : deployment.state === 'deployed'
             ? 'secondary'
-            : deployment.state === 'needs_redeploy'
+            : deployment.state === 'out_of_sync'
             ? 'secondary'
             : deployment.state === 'not_deployed'
             ? 'outline'
@@ -85,7 +85,7 @@ export function ServiceLifecycleBadges({ lifecycle }: ServiceLifecycleBadgesProp
       >
         {deployment.state === 'deployed' && deployment.healthy && <Rocket className="h-3 w-3" />}
         {deployment.state === 'deployed' && !deployment.healthy && <AlertCircle className="h-3 w-3" />}
-        {deployment.state === 'needs_redeploy' && <Settings className="h-3 w-3" />}
+        {deployment.state === 'out_of_sync' && <Settings className="h-3 w-3" />}
         {deployment.state === 'degraded' && <AlertCircle className="h-3 w-3" />}
         {deployment.state === 'not_deployed' && <Clock className="h-3 w-3" />}
         <span>
@@ -94,12 +94,10 @@ export function ServiceLifecycleBadges({ lifecycle }: ServiceLifecycleBadgesProp
             ? 'Healthy'
             : deployment.state === 'deployed'
             ? 'Unhealthy'
-            : deployment.state === 'needs_redeploy'
-            ? 'Needs Redeploy'
-            : deployment.state === 'degraded'
-            ? 'Degraded'
             : deployment.state === 'out_of_sync'
             ? 'Out of Sync'
+            : deployment.state === 'degraded'
+            ? 'Degraded'
             : 'Not Deployed'}
         </span>
       </Badge>

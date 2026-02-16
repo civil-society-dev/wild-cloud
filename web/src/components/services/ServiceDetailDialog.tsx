@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Service } from '@/services/api/types';
 import { ServiceLifecycleBadges } from './ServiceLifecycleBadges';
 import { ServiceConfigEditor } from './ServiceConfigEditor';
 import { useServiceStatus, useService } from '@/hooks/useServices';
@@ -322,10 +321,10 @@ export function ServiceDetailDialog({
                   </Button>
                 )}
 
-                {/* Deploy button - only show when configuration is compiled and not deployed or needs redeploy */}
+                {/* Deploy button - only show when configuration is compiled and not deployed or out of sync */}
                 {service.lifecycle?.configuration?.state === 'compiled' &&
                  (service.lifecycle?.deployment?.state === 'not_deployed' ||
-                  service.lifecycle?.deployment?.state === 'needs_redeploy') && (
+                  service.lifecycle?.deployment?.state === 'out_of_sync') && (
                   <Button
                     size="sm"
                     onClick={() => onDeploy(serviceName)}
@@ -336,7 +335,7 @@ export function ServiceDetailDialog({
                     ) : (
                       <Upload className="h-4 w-4 mr-2" />
                     )}
-                    {service.lifecycle?.deployment?.state === 'needs_redeploy' ? 'Redeploy' : 'Deploy'}
+                    {service.lifecycle?.deployment?.state === 'out_of_sync' ? 'Redeploy' : 'Deploy'}
                   </Button>
                 )}
 

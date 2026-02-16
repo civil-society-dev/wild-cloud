@@ -71,13 +71,13 @@ export function ClusterServicesComponent() {
       (service.lifecycle?.deployment?.state === 'deployed' && !service.lifecycle.deployment.healthy) ||
       service.lifecycle?.templates?.state === 'update_available' ||
       service.lifecycle?.configuration?.state === 'needs_recompile' ||
-      service.lifecycle?.deployment?.state === 'needs_redeploy'
+      service.lifecycle?.deployment?.state === 'out_of_sync'
     ) {
       return 'bg-amber-500';
     }
     // Deployed and healthy with no pending actions: no indicator needed
     if (service.lifecycle?.deployment?.state === 'deployed' && service.lifecycle.deployment.healthy) {
-      return null;
+      return '';
     }
     // Default/unknown: gray
     return 'bg-gray-400';

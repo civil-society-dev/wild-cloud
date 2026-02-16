@@ -30,10 +30,10 @@ describe('ServiceDetailDialog Button Visibility', () => {
   });
 
   const mockProps = {
+    instanceName: 'test-instance',
     serviceName: 'test-service',
     open: true,
     onClose: vi.fn(),
-    onInstall: vi.fn(),
     onFetch: vi.fn(),
     onCompile: vi.fn(),
     onDeploy: vi.fn(),
@@ -44,7 +44,6 @@ describe('ServiceDetailDialog Button Visibility', () => {
     isCompiling: false,
     isDeploying: false,
     isDeleting: false,
-    isInstallingAll: false,
     isCleaningFiles: false,
   };
 
@@ -68,7 +67,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.getByText('Fetch Templates')).toBeInTheDocument();
       expect(screen.queryByText('Compile Manifests')).not.toBeInTheDocument();
@@ -85,7 +84,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.getByText('Fetch Templates')).toBeInTheDocument();
       expect(screen.queryByText('Compile Manifests')).not.toBeInTheDocument();
@@ -107,7 +106,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.queryByText('Fetch Templates')).not.toBeInTheDocument();
       expect(screen.getByText('Compile Manifests')).toBeInTheDocument();
@@ -126,7 +125,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.queryByText('Fetch Templates')).not.toBeInTheDocument();
       expect(screen.getByText('Compile Manifests')).toBeInTheDocument();
@@ -149,7 +148,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.queryByText('Fetch Templates')).not.toBeInTheDocument();
       expect(screen.queryByText('Compile Manifests')).not.toBeInTheDocument();
@@ -172,7 +171,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.queryByText('Fetch Templates')).not.toBeInTheDocument();
       expect(screen.queryByText('Compile Manifests')).not.toBeInTheDocument();
@@ -195,7 +194,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.queryByText('Fetch Templates')).not.toBeInTheDocument();
       expect(screen.getByText('Compile Manifests')).toBeInTheDocument();
@@ -218,7 +217,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.queryByText('Fetch Templates')).not.toBeInTheDocument();
       expect(screen.queryByText('Compile Manifests')).not.toBeInTheDocument();
@@ -241,7 +240,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.getByText('Update Templates')).toBeInTheDocument();
       expect(screen.queryByText('Compile Manifests')).not.toBeInTheDocument();
@@ -264,7 +263,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.getByText('Compile Manifests')).toBeInTheDocument();
       expect(screen.queryByText('Deploy')).not.toBeInTheDocument(); // Can't deploy until compiled
@@ -283,7 +282,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
         isLoading: false
       });
 
-      render(<ServiceDetailDialog {...mockProps} service={service} />);
+      render(<ServiceDetailDialog {...mockProps} />);
 
       expect(screen.getByText('Fetch Templates')).toBeInTheDocument();
       expect(screen.queryByText('Compile Manifests')).not.toBeInTheDocument();
