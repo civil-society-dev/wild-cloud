@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
-import { Cloud, HelpCircle, Edit2, Check, X, Loader2, AlertCircle, Mail, TestTube2, CheckCircle, XCircle, Globe, ExternalLink } from "lucide-react";
+import { Cloud, HelpCircle, Edit2, Check, X, Loader2, AlertCircle, Mail, TestTube2, CheckCircle, Globe, ExternalLink } from "lucide-react";
 import { Input, Label } from "./ui";
 import { useInstanceConfig, useConfig } from "../hooks";
 import { useParams } from "react-router";
@@ -307,16 +307,6 @@ export function CloudComponent() {
               </div>
             </div>
 
-            {/* Note about DNS regeneration */}
-            {!editingDomains && (
-              <Alert className="mb-3 border-blue-200 bg-blue-50 dark:bg-blue-950/30">
-                <AlertCircle className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-700 dark:text-blue-300 text-xs">
-                  <span className="font-medium">Note:</span> After changing domains, regenerate the DNS configuration on the DNS page to apply changes.
-                </AlertDescription>
-              </Alert>
-            )}
-
             {editingDomains ? (
               <div className="space-y-3">
                 <div>
@@ -438,23 +428,23 @@ export function CloudComponent() {
                     </div>
                     {testResults[formValues.domain]?.external && (
                       <Alert className={`${
-                        testResults[formValues.domain].external.success
+                        testResults[formValues.domain]?.external?.success
                           ? 'border-green-500 bg-green-50 dark:bg-green-950'
                           : 'border-amber-500 bg-amber-50 dark:bg-amber-950'
                       }`}>
-                        {testResults[formValues.domain].external.success ? (
+                        {testResults[formValues.domain]?.external?.success ? (
                           <CheckCircle className="h-4 w-4 text-green-600" />
                         ) : (
                           <AlertCircle className="h-4 w-4 text-amber-600" />
                         )}
                         <AlertDescription className={
-                          testResults[formValues.domain].external.success
+                          testResults[formValues.domain]?.external?.success
                             ? 'text-green-800 dark:text-green-200'
                             : 'text-amber-800 dark:text-amber-200'
                         }>
                           <span className="font-medium">External: </span>
-                          {testResults[formValues.domain].external.message}
-                          {!testResults[formValues.domain].external.success && (
+                          {testResults[formValues.domain]?.external?.message}
+                          {!testResults[formValues.domain]?.external?.success && (
                             <div className="text-xs mt-1">
                               Set up a CNAME record pointing to your dynamic DNS hostname to enable external access
                             </div>
@@ -464,23 +454,23 @@ export function CloudComponent() {
                     )}
                     {testResults[formValues.domain]?.internal && (
                       <Alert className={`${
-                        testResults[formValues.domain].internal.success
+                        testResults[formValues.domain]?.internal?.success
                           ? 'border-green-500 bg-green-50 dark:bg-green-950'
                           : 'border-amber-500 bg-amber-50 dark:bg-amber-950'
                       }`}>
-                        {testResults[formValues.domain].internal.success ? (
+                        {testResults[formValues.domain]?.internal?.success ? (
                           <CheckCircle className="h-4 w-4 text-green-600" />
                         ) : (
                           <AlertCircle className="h-4 w-4 text-amber-600" />
                         )}
                         <AlertDescription className={
-                          testResults[formValues.domain].internal.success
+                          testResults[formValues.domain]?.internal?.success
                             ? 'text-green-800 dark:text-green-200'
                             : 'text-amber-800 dark:text-amber-200'
                         }>
                           <span className="font-medium">LAN: </span>
-                          {testResults[formValues.domain].internal.message}
-                          {!testResults[formValues.domain].internal.success && (
+                          {testResults[formValues.domain]?.internal?.message}
+                          {!testResults[formValues.domain]?.internal?.success && (
                             <div className="text-xs mt-1">
                               Ensure DNS service is configured and cluster has a load balancer IP
                             </div>
@@ -504,10 +494,6 @@ export function CloudComponent() {
                       </p>
                       <p>• Only accessible from your local network</p>
                       <p>• Requires DNS service to be running</p>
-                      <p>• Configure router to use Wild Central as DNS server</p>
-                      {clusterLbIp && (
-                        <p className="font-mono text-[11px] mt-1">Resolves to: {clusterLbIp}</p>
-                      )}
                     </div>
                   </div>
 
@@ -530,23 +516,23 @@ export function CloudComponent() {
                     </div>
                     {testResults[formValues.internalDomain]?.internal && (
                       <Alert className={`mt-2 ${
-                        testResults[formValues.internalDomain].internal.success
+                        testResults[formValues.internalDomain]?.internal?.success
                           ? 'border-green-500 bg-green-50 dark:bg-green-950'
                           : 'border-amber-500 bg-amber-50 dark:bg-amber-950'
                       }`}>
-                        {testResults[formValues.internalDomain].internal.success ? (
+                        {testResults[formValues.internalDomain]?.internal?.success ? (
                           <CheckCircle className="h-4 w-4 text-green-600" />
                         ) : (
                           <AlertCircle className="h-4 w-4 text-amber-600" />
                         )}
                         <AlertDescription className={
-                          testResults[formValues.internalDomain].internal.success
+                          testResults[formValues.internalDomain]?.internal?.success
                             ? 'text-green-800 dark:text-green-200'
                             : 'text-amber-800 dark:text-amber-200'
                         }>
                           <span className="font-medium">LAN: </span>
-                          {testResults[formValues.internalDomain].internal.message}
-                          {!testResults[formValues.internalDomain].internal.success && (
+                          {testResults[formValues.internalDomain]?.internal?.message}
+                          {!testResults[formValues.internalDomain]?.internal?.success && (
                             <div className="text-xs mt-1">
                               Ensure the DNS service is running and configured properly. Internal domains only resolve on your LAN.
                             </div>
