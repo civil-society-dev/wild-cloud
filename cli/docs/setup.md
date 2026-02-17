@@ -34,7 +34,6 @@ wild config set cluster.name "wild-cluster"
 wild config set cloud.router.ip "192.168.8.1"
 wild config set cloud.dnsmasq.ip "192.168.8.50"
 wild config set cloud.dhcpRange "192.168.8.34,192.168.8.79"
-wild config set cloud.dnsmasq.interface "eth0"
 
 # Configure MetalLB IP pool
 wild config set cluster.ipAddressPool "192.168.8.80-192.168.8.89"

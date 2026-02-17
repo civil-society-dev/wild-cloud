@@ -115,16 +115,6 @@ export function AppSidebar() {
                 </NavLink>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <NavLink to={`/instances/${instanceId}/dns`}>
-                  {({ isActive }) => (
-                    <SidebarMenuButton isActive={isActive} tooltip="DNS">
-                      <Globe className="h-4 w-4" />
-                      <span>DNS</span>
-                    </SidebarMenuButton>
-                  )}
-                </NavLink>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
                 <NavLink to={`/instances/${instanceId}/iso`}>
                   {({ isActive }) => (
                     <SidebarMenuButton isActive={isActive} tooltip="Node USB Installer">
@@ -251,17 +241,6 @@ export function AppSidebar() {
                           <Server className="h-4 w-4" />
                         </div>
                         <span className="truncate">Central</span>
-                      </NavLink>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <NavLink to={`/instances/${instanceId}/dns`}>
-                        <div className="p-1 rounded-md">
-                          <Globe className="h-4 w-4" />
-                        </div>
-                        <span className="truncate">DNS</span>
                       </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>

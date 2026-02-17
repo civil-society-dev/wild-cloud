@@ -32,14 +32,12 @@ func (g *ConfigGenerator) GenerateMainConfig(cfg *config.GlobalConfig) string {
 
 	// Use detected network info (this ensures dnsmasq works even if config is outdated)
 	dnsIP := netInfo.PrimaryIP
-	iface := netInfo.PrimaryInterface
 
 	template := `# Wild Cloud DNS Configuration (Main)
 # This file contains global settings. Instance-specific DNS entries are in:
 # /etc/dnsmasq.d/wild-cloud-instances/*.conf
 
 # Basic Settings
-interface=%s
 listen-address=%s
 bind-interfaces
 domain-needed
@@ -59,7 +57,6 @@ log-dhcp
 `
 
 	return fmt.Sprintf(template,
-		iface,
 		dnsIP,
 		instanceConfigDir,
 	)

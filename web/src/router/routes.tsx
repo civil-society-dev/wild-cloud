@@ -12,7 +12,6 @@ import { SecretsPage } from './pages/SecretsPage';
 import { UtilitiesPage } from './pages/UtilitiesPage';
 import { CloudPage } from './pages/CloudPage';
 import { CentralPage } from './pages/CentralPage';
-import { DnsPage } from './pages/DnsPage';
 import { DhcpPage } from './pages/DhcpPage';
 import { PxePage } from './pages/PxePage';
 import { IsoPage } from './pages/IsoPage';
@@ -79,10 +78,6 @@ export const routes: RouteObject[] = [
       {
         path: 'central',
         element: <CentralPage />,
-      },
-      {
-        path: 'dns',
-        element: <DnsPage />,
       },
       {
         path: 'dhcp',

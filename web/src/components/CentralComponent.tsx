@@ -1,12 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Card } from './ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input, Label } from './ui';
-import { HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X, Network } from 'lucide-react';
+import { Textarea } from './ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X, Network, Globe, Play, RotateCw, Copy, ChevronDown, ChevronUp, Edit } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useCentralStatus } from '../hooks/useCentralStatus';
 import { useInstanceConfig, useInstanceContext, useConfig } from '../hooks';
 import { usePageHelp } from '../hooks/usePageHelp';
+import { useDnsmasq } from '../hooks/useDnsmasq';
+import { apiService } from '../services/api-legacy';
 
 interface GlobalConfigForm {
   operator?: {
@@ -34,6 +45,30 @@ export function CentralComponent() {
   const [editingRouter, setEditingRouter] = useState(false);
   const [editingDnsmasq, setEditingDnsmasq] = useState(false);
   const [formValues, setFormValues] = useState<GlobalConfigForm>({});
+
+  // DNS Service state
+  const {
+    status: dnsStatus,
+    isLoadingStatus: isDnsStatusLoading,
+    config: dnsConfig,
+    fetchConfig: fetchDnsConfig,
+    generateConfig: generateDnsConfig,
+    isGenerating: isDnsGenerating,
+    generateData: dnsGenerateData,
+    restart: restartDns,
+    isRestarting: isDnsRestarting,
+    restartData: dnsRestartData,
+    generateError: dnsGenerateError,
+    restartError: dnsRestartError
+  } = useDnsmasq();
+
+  const [showDnsAdvanced, setShowDnsAdvanced] = useState(false);
+  const [showDnsEditDialog, setShowDnsEditDialog] = useState(false);
+  const [editedDnsConfig, setEditedDnsConfig] = useState('');
+  const [copiedDnsIp, setCopiedDnsIp] = useState(false);
+
+  const isDnsRunning = dnsStatus?.status === 'active';
+  const dnsIp = globalConfig?.cloud?.dnsmasq?.ip;
 
   // Sync form values when globalConfig loads
   useEffect(() => {
@@ -182,6 +217,58 @@ export function CentralComponent() {
       }
       return prev;
     });
+  };
+
+  // DNS Service handlers
+  const handleCopyDnsIp = () => {
+    if (dnsIp) {
+      navigator.clipboard.writeText(dnsIp);
+      setCopiedDnsIp(true);
+      setTimeout(() => setCopiedDnsIp(false), 2000);
+    }
+  };
+
+  const handleDnsStart = () => {
+    generateDnsConfig(true);
+  };
+
+  const handleShowDnsAdvanced = () => {
+    if (!showDnsAdvanced && !dnsConfig) {
+      fetchDnsConfig();
+    }
+    setShowDnsAdvanced(!showDnsAdvanced);
+  };
+
+  const handleEditDnsConfig = () => {
+    if (dnsConfig?.content) {
+      setEditedDnsConfig(dnsConfig.content);
+    } else if (dnsGenerateData?.config || dnsGenerateData?.content) {
+      setEditedDnsConfig(dnsGenerateData.config || dnsGenerateData.content || '');
+    } else {
+      setEditedDnsConfig('');
+    }
+    setShowDnsEditDialog(true);
+  };
+
+  const handleSaveDnsConfig = async () => {
+    try {
+      await apiService.writeDnsmasqConfig(editedDnsConfig);
+      setShowDnsEditDialog(false);
+      fetchDnsConfig();
+    } catch (error) {
+      console.error('Failed to save config:', error);
+    }
+  };
+
+  const handleSaveAndRestartDns = async () => {
+    try {
+      await apiService.writeDnsmasqConfig(editedDnsConfig);
+      await apiService.restartDnsmasq();
+      setShowDnsEditDialog(false);
+      fetchDnsConfig();
+    } catch (error) {
+      console.error('Failed to save config and restart:', error);
+    }
   };
 
   usePageHelp({
@@ -476,31 +563,119 @@ export function CentralComponent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-1 ml-7">
-                    {globalConfig?.cloud?.router?.ip && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-16">IP:</span>
-                        <span className="font-medium font-mono text-sm"><a href={`http://${globalConfig.cloud.router.ip}`} target="_blank" rel="noopener noreferrer">{globalConfig.cloud.router.ip}</a></span>
+                  <div className="space-y-3 ml-7">
+                    <div className="space-y-1">
+                      {globalConfig?.cloud?.router?.ip && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-16">IP:</span>
+                          <span className="font-medium font-mono text-sm">
+                            <a
+                              href={`http://${globalConfig.cloud.router.ip}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-500 hover:text-blue-600 underline inline-flex items-center gap-1"
+                            >
+                              {globalConfig.cloud.router.ip}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </span>
+                        </div>
+                      )}
+                      {globalConfig?.cloud?.router?.dynamicDns && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-16">DDNS:</span>
+                          <span className="font-medium font-mono text-sm">{globalConfig.cloud.router.dynamicDns}</span>
+                        </div>
+                      )}
+                      {!globalConfig?.cloud?.router?.ip && !globalConfig?.cloud?.router?.dynamicDns && (
+                        <div className="text-sm text-muted-foreground italic">Not configured</div>
+                      )}
+                    </div>
+
+                    {globalConfig?.cloud?.router?.ip && !globalConfig?.cloud?.router?.dynamicDns && (
+                      <div className="mt-2 p-2 bg-muted/50 rounded-md text-xs text-muted-foreground">
+                        <p className="mb-1">To find your DDNS hostname:</p>
+                        <ol className="list-decimal list-inside space-y-0.5 ml-2">
+                          <li>Open your router admin panel</li>
+                          <li>Look for "Dynamic DNS" or "DDNS" settings</li>
+                          <li>Find your hostname (e.g., example.ddns.net)</li>
+                        </ol>
                       </div>
-                    )}
-                    {globalConfig?.cloud?.router?.dynamicDns && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-16">DDNS:</span>
-                        <span className="font-medium font-mono text-sm">{globalConfig.cloud.router.dynamicDns}</span>
-                      </div>
-                    )}
-                    {!globalConfig?.cloud?.router?.ip && !globalConfig?.cloud?.router?.dynamicDns && (
-                      <div className="text-sm text-muted-foreground italic">Not configured</div>
                     )}
                   </div>
                 )}
               </Card>
+            </div>
+          </Card>
 
+          {/* DNS Service Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Globe className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>DNS Service</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Local domain name resolution for your Wild Cloud
+                    </p>
+                  </div>
+                </div>
+                <Badge
+                  variant={isDnsRunning ? 'default' : 'secondary'}
+                  className="gap-2"
+                >
+                  {isDnsStatusLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isDnsRunning ? (
+                    <CheckCircle className="h-4 w-4" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
+                  {isDnsStatusLoading ? 'Checking...' : isDnsRunning ? 'Running' : 'Stopped'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* DNS IP Address Display */}
+              {dnsIp && (
+                <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                          DNS Server IP Address
+                        </p>
+                      </div>
+                      <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                        Configure your router to use this IP as the primary DNS server
+                      </p>
+                      <code className="text-2xl font-mono font-bold bg-white dark:bg-gray-900 px-4 py-2 rounded border border-blue-300 dark:border-blue-700 inline-block">
+                        {dnsIp}
+                      </code>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={handleCopyDnsIp}
+                      className="ml-4 border-blue-300 hover:bg-blue-100 dark:border-blue-700 dark:hover:bg-blue-900/20"
+                    >
+                      <Copy className="h-5 w-5 mr-2" />
+                      {copiedDnsIp ? 'Copied!' : 'Copy IP'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* DNS Configuration */}
               <Card className="p-4 border-l-4 border-l-green-500">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Network className="h-5 w-5 text-green-500" />
-                    <div className="text-sm text-muted-foreground">Dnsmasq</div>
+                    <div className="text-sm text-muted-foreground">DNS Configuration</div>
                   </div>
                   {!editingDnsmasq && (
                     <Button
@@ -522,16 +697,6 @@ export function CentralComponent() {
                         value={formValues.cloud?.dnsmasq?.ip || ''}
                         onChange={(e) => updateFormValue('cloud.dnsmasq.ip', e.target.value)}
                         placeholder="192.168.1.1"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="dnsmasq-interface">Network Interface</Label>
-                      <Input
-                        id="dnsmasq-interface"
-                        value={formValues.cloud?.dnsmasq?.interface || ''}
-                        onChange={(e) => updateFormValue('cloud.dnsmasq.interface', e.target.value)}
-                        placeholder="eth0"
                         className="mt-1"
                       />
                     </div>
@@ -559,34 +724,163 @@ export function CentralComponent() {
                       </Button>
                     </div>
                   </div>
-                ) : (<>
-                  <div className="space-y-1 ml-7">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-16">IP:</span>
-                      {globalConfig?.cloud?.dnsmasq?.ip ? (
-                        <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.ip}</span>
-                      ) : (
-                        <div className="text-sm text-muted-foreground italic">Not configured</div>
-                      )}
-                    </div>
+                ) : (
+                  <div className="ml-7">
+                    {globalConfig?.cloud?.dnsmasq?.ip ? (
+                      <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.ip}</span>
+                    ) : (
+                      <div className="text-sm text-muted-foreground italic">Not configured</div>
+                    )}
                   </div>
-                  <div className="font-medium font-mono text-sm ml-7">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-16">Interface:</span>
-                      {globalConfig?.cloud?.dnsmasq?.interface ? (
-                        <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.interface}</span>
-                      ) : (
-                        <div className="text-sm text-muted-foreground italic">Not configured</div>
-                      )}
-                    </div>
-                  </div>
-                  </>
                 )}
               </Card>
-            </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                {!isDnsRunning ? (
+                  <Button
+                    onClick={handleDnsStart}
+                    disabled={isDnsGenerating}
+                    className="gap-2"
+                    size="lg"
+                  >
+                    {isDnsGenerating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                    Start DNS
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => restartDns()}
+                    disabled={isDnsRestarting}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    {isDnsRestarting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RotateCw className="h-4 w-4" />
+                    )}
+                    Restart DNS
+                  </Button>
+                )}
+                <Button
+                  onClick={handleShowDnsAdvanced}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  {showDnsAdvanced ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                  Advanced Configuration
+                </Button>
+              </div>
+
+              {/* Success/Error Messages */}
+              {(dnsGenerateData || dnsRestartData) && (
+                <Alert className="mt-4">
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {dnsGenerateData?.message || dnsRestartData?.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {(dnsGenerateError || dnsRestartError) && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {dnsGenerateError || dnsRestartError}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
           </Card>
+
+          {/* Advanced DNS Configuration */}
+          {showDnsAdvanced && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Advanced DNS Configuration</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditDnsConfig}
+                    className="gap-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit Config
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono">
+                  {isDnsGenerating && !dnsConfig && !dnsGenerateData && (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  {(dnsConfig?.content || dnsGenerateData?.config || dnsGenerateData?.content) && (
+                    dnsConfig?.content || dnsGenerateData?.config || dnsGenerateData?.content
+                  )}
+                  {!isDnsGenerating && !dnsGenerateData && !dnsConfig && (
+                    <div className="text-center p-8 text-sm text-muted-foreground">
+                      <p>Configuration preview will appear here</p>
+                    </div>
+                  )}
+                </pre>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
+
+      {/* Edit DNS Config Dialog */}
+      <Dialog open={showDnsEditDialog} onOpenChange={setShowDnsEditDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Edit DNS Configuration</DialogTitle>
+            <DialogDescription>
+              Modify the dnsmasq configuration. Changes will take effect after saving and restarting.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              value={editedDnsConfig}
+              onChange={(e) => setEditedDnsConfig(e.target.value)}
+              className="font-mono text-xs min-h-[400px]"
+              placeholder="# dnsmasq configuration"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowDnsEditDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleSaveDnsConfig}
+            >
+              Save
+            </Button>
+            <Button
+              onClick={handleSaveAndRestartDns}
+            >
+              Save & Restart
+            </Button>
+          </DialogFooter>
+          <p className="text-xs text-muted-foreground text-center">
+            Save: Write config without restarting | Save & Restart: Write config and restart service
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
