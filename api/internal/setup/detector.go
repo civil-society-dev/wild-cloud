@@ -236,8 +236,8 @@ func fileExists(path string) bool {
 }
 
 func checkDNSConfigured(instanceConfig *config.InstanceConfig, globalConfig *config.GlobalConfig) bool {
-	// DNS is configured if we have DNS IP (from global config) and DHCP range (from instance config)
-	return globalConfig.Cloud.Dnsmasq.IP != ""
+	// DNS is always available using auto-detected IP
+	return true
 }
 
 func checkServicesInstalled(dataDir, instanceName, kubeconfigPath string) bool {

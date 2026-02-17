@@ -139,6 +139,7 @@ export interface StatusResponse {
 export interface DnsmasqStatus {
   status: string;
   pid: number;
+  ip: string;
   config_file: string;
   instances_configured: number;
   last_restart: string;

@@ -19,19 +19,13 @@ const (
 // GenerateMainConfig creates the main dnsmasq configuration with global settings
 // and a conf-dir directive to include per-instance configs
 func (g *ConfigGenerator) GenerateMainConfig(cfg *config.GlobalConfig) string {
-	// Auto-detect network info to ensure we use the correct interface and IP
-	netInfo, err := network.DetectNetworkInfo()
+	// Get the Wild Central IP address
+	dnsIP, err := network.GetWildCentralIP()
 	if err != nil {
-		log.Printf("Warning: Failed to auto-detect network info, using config values: %v", err)
-		// Fall back to config values if detection fails
-		netInfo = &network.NetworkInfo{
-			PrimaryIP:        cfg.Cloud.Dnsmasq.IP,
-			PrimaryInterface: cfg.Cloud.Dnsmasq.Interface,
-		}
+		log.Printf("Warning: Failed to detect Wild Central IP: %v", err)
+		// Fall back to empty string if detection fails
+		dnsIP = ""
 	}
-
-	// Use detected network info (this ensures dnsmasq works even if config is outdated)
-	dnsIP := netInfo.PrimaryIP
 
 	template := `# Wild Cloud DNS Configuration (Main)
 # This file contains global settings. Instance-specific DNS entries are in:

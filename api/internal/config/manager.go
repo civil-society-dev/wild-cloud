@@ -44,11 +44,9 @@ func (m *Manager) EnsureGlobalConfig(dataDir string) error {
 		log.Printf("Warning: Could not detect network info, using empty defaults: %v", err)
 	} else {
 		// Set detected values
-		initialConfig.Cloud.Dnsmasq.IP = netInfo.PrimaryIP
 		initialConfig.Cloud.Router.IP = netInfo.Gateway
-		initialConfig.Cloud.Dnsmasq.Interface = netInfo.PrimaryInterface
-		log.Printf("Detected network: IP=%s, Gateway=%s, Interface=%s",
-			netInfo.PrimaryIP, netInfo.Gateway, netInfo.PrimaryInterface)
+		log.Printf("Detected network: Gateway=%s, Interface=%s",
+			netInfo.Gateway, netInfo.PrimaryInterface)
 	}
 
 	// Ensure data directory exists

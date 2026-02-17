@@ -34,23 +34,15 @@ func (g *ConfigGenerator) GetConfigPath() string {
 }
 
 // Generate creates a dnsmasq configuration from the app config
-// If the DNS IP or interface in the config don't match the current network,
-// it will auto-detect and use the current values
+// It auto-detects the Wild Central server's IP address
 func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.InstanceConfig) string {
-	// Auto-detect network info to ensure we use the correct interface and IP
-	netInfo, err := network.DetectNetworkInfo()
+	// Get the Wild Central IP address
+	dnsIP, err := network.GetWildCentralIP()
 	if err != nil {
-		log.Printf("Warning: Failed to auto-detect network info, using config values: %v", err)
-		// Fall back to config values if detection fails
-		netInfo = &network.NetworkInfo{
-			PrimaryIP:        cfg.Cloud.Dnsmasq.IP,
-			PrimaryInterface: cfg.Cloud.Dnsmasq.Interface,
-		}
+		log.Printf("Warning: Failed to detect Wild Central IP: %v", err)
+		// Fall back to empty string if detection fails
+		dnsIP = ""
 	}
-
-	// Use detected network info (this ensures dnsmasq works even if config is outdated)
-	dnsIP := netInfo.PrimaryIP
-	iface := netInfo.PrimaryInterface
 
 	resolution_section := ""
 	for _, cloud := range clouds {
@@ -75,7 +67,6 @@ func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.Ins
 	template := `# Configuration file for dnsmasq.
 
 # Basic Settings
-interface=%s
 listen-address=%s
 bind-interfaces
 domain-needed
@@ -92,7 +83,6 @@ log-dhcp
 `
 
 	return fmt.Sprintf(template,
-		iface,
 		dnsIP,
 		resolution_section,
 	)
@@ -126,6 +116,7 @@ func (g *ConfigGenerator) RestartService() error {
 type ServiceStatus struct {
 	Status              string    `json:"status"`
 	PID                 int       `json:"pid"`
+	IP                  string    `json:"ip"`
 	ConfigFile          string    `json:"config_file"`
 	InstancesConfigured int       `json:"instances_configured"`
 	LastRestart         time.Time `json:"last_restart"`
@@ -133,8 +124,16 @@ type ServiceStatus struct {
 
 // GetStatus checks the status of the dnsmasq service
 func (g *ConfigGenerator) GetStatus() (*ServiceStatus, error) {
+	// Get the Wild Central IP address
+	dnsIP, err := network.GetWildCentralIP()
+	if err != nil {
+		log.Printf("Warning: Failed to detect Wild Central IP: %v", err)
+		dnsIP = ""
+	}
+
 	status := &ServiceStatus{
 		ConfigFile: g.configPath,
+		IP:         dnsIP,
 	}
 
 	// Check if service is active

@@ -23,35 +23,25 @@ cloud:
   router:
     ip: "192.168.1.254"
     dynamicDns: "example.dyndns.org"
-  dnsmasq:
-    ip: "192.168.1.1"
-    interface: "eth0"
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {
 				if config.Operator.Email != "admin@example.com" {
 					t.Error("operator email not loaded correctly")
 				}
-				if config.Cloud.Dnsmasq.IP != "192.168.1.1" {
-					t.Error("DNS IP not loaded correctly")
-				}
 				if config.Cloud.Router.IP != "192.168.1.254" {
 					t.Error("router IP not loaded correctly")
-				}
-				if config.Cloud.Dnsmasq.Interface != "eth0" {
-					t.Error("dnsmasq interface not loaded correctly")
 				}
 			},
 			wantErr: false,
 		},
 		{
 			name: "loads minimal configuration",
-			configYAML: `cloud:
-  dnsmasq:
-    ip: "192.168.1.1"
+			configYAML: `operator:
+  email: "admin@example.com"
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {
-				if config.Cloud.Dnsmasq.IP != "192.168.1.1" {
-					t.Error("DNS IP not loaded correctly")
+				if config.Operator.Email != "admin@example.com" {
+					t.Error("operator email not loaded correctly")
 				}
 			},
 			wantErr: false,
@@ -61,8 +51,8 @@ cloud:
 			configYAML: `{}
 `,
 			verify: func(t *testing.T, config *GlobalConfig) {
-				if config.Cloud.Dnsmasq.IP != "" {
-					t.Error("expected empty DNS IP")
+				if config.Operator.Email != "" {
+					t.Error("expected empty operator email")
 				}
 			},
 			wantErr: false,
@@ -157,9 +147,8 @@ func TestSaveGlobalConfig(t *testing.T) {
 			config: func() *GlobalConfig {
 				cfg := &GlobalConfig{}
 				cfg.Operator.Email = "admin@example.com"
-				cfg.Cloud.Dnsmasq.IP = "192.168.1.1"
 				cfg.Cloud.Router.IP = "192.168.1.254"
-				cfg.Cloud.Dnsmasq.Interface = "eth0"
+				cfg.Cloud.Router.DynamicDns = "example.dyndns.org"
 				return cfg
 			}(),
 			verify: func(t *testing.T, configPath string) {
@@ -171,8 +160,8 @@ func TestSaveGlobalConfig(t *testing.T) {
 				if !strings.Contains(contentStr, "admin@example.com") {
 					t.Error("saved config missing operator email")
 				}
-				if !strings.Contains(contentStr, "192.168.1.1") {
-					t.Error("saved config missing DNS IP")
+				if !strings.Contains(contentStr, "192.168.1.254") {
+					t.Error("saved config missing router IP")
 				}
 			},
 		},
@@ -268,15 +257,6 @@ func TestGlobalConfig_IsEmpty(t *testing.T) {
 			want:   true,
 		},
 		{
-			name: "config with only DNS IP is not empty",
-			config: func() *GlobalConfig {
-				cfg := &GlobalConfig{}
-				cfg.Cloud.Dnsmasq.IP = "192.168.1.1"
-				return cfg
-			}(),
-			want: false,
-		},
-		{
 			name: "config with only router IP is not empty",
 			config: func() *GlobalConfig {
 				cfg := &GlobalConfig{}
@@ -298,7 +278,6 @@ func TestGlobalConfig_IsEmpty(t *testing.T) {
 			name: "config with all fields is not empty",
 			config: func() *GlobalConfig {
 				cfg := &GlobalConfig{}
-				cfg.Cloud.Dnsmasq.IP = "192.168.1.1"
 				cfg.Cloud.Router.IP = "192.168.1.254"
 				cfg.Operator.Email = "admin@example.com"
 				return cfg
@@ -506,10 +485,8 @@ func TestGlobalConfig_RoundTrip(t *testing.T) {
 	// Create config with all fields
 	original := &GlobalConfig{}
 	original.Operator.Email = "admin@example.com"
-	original.Cloud.Dnsmasq.IP = "192.168.1.1"
 	original.Cloud.Router.IP = "192.168.1.254"
 	original.Cloud.Router.DynamicDns = "example.dyndns.org"
-	original.Cloud.Dnsmasq.Interface = "eth0"
 
 	// Save config
 	if err := SaveGlobalConfig(original, configPath); err != nil {
@@ -526,14 +503,11 @@ func TestGlobalConfig_RoundTrip(t *testing.T) {
 	if loaded.Operator.Email != original.Operator.Email {
 		t.Errorf("email mismatch: got %q, want %q", loaded.Operator.Email, original.Operator.Email)
 	}
-	if loaded.Cloud.Dnsmasq.IP != original.Cloud.Dnsmasq.IP {
-		t.Errorf("DNS IP mismatch: got %q, want %q", loaded.Cloud.Dnsmasq.IP, original.Cloud.Dnsmasq.IP)
-	}
 	if loaded.Cloud.Router.IP != original.Cloud.Router.IP {
 		t.Errorf("router IP mismatch: got %q, want %q", loaded.Cloud.Router.IP, original.Cloud.Router.IP)
 	}
-	if loaded.Cloud.Dnsmasq.Interface != original.Cloud.Dnsmasq.Interface {
-		t.Errorf("dnsmasq interface mismatch: got %q, want %q", loaded.Cloud.Dnsmasq.Interface, original.Cloud.Dnsmasq.Interface)
+	if loaded.Cloud.Router.DynamicDns != original.Cloud.Router.DynamicDns {
+		t.Errorf("dynamic DNS mismatch: got %q, want %q", loaded.Cloud.Router.DynamicDns, original.Cloud.Router.DynamicDns)
 	}
 }
 

@@ -18,10 +18,6 @@ type GlobalConfig struct {
 			IP         string `yaml:"ip,omitempty" json:"ip,omitempty"`
 			DynamicDns string `yaml:"dynamicDns,omitempty" json:"dynamicDns,omitempty"`
 		} `yaml:"router,omitempty" json:"router,omitempty"`
-		Dnsmasq struct {
-			IP        string `yaml:"ip,omitempty" json:"ip,omitempty"`
-			Interface string `yaml:"interface,omitempty" json:"interface,omitempty"`
-		} `yaml:"dnsmasq,omitempty" json:"dnsmasq,omitempty"`
 	} `yaml:"cloud,omitempty" json:"cloud,omitempty"`
 }
 
@@ -62,7 +58,7 @@ func (c *GlobalConfig) IsEmpty() bool {
 	}
 
 	// Check if essential fields are empty
-	return c.Cloud.Dnsmasq.IP == "" && c.Cloud.Router.IP == "" && c.Operator.Email == ""
+	return c.Cloud.Router.IP == "" && c.Operator.Email == ""
 }
 
 type NodeConfig struct {

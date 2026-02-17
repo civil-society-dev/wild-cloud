@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X, Network, Globe, Play, RotateCw, Copy, ChevronDown, ChevronUp, Edit } from 'lucide-react';
+import { HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X, Globe, Play, RotateCw, Copy, ChevronDown, ChevronUp, Edit } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useCentralStatus } from '../hooks/useCentralStatus';
 import { useInstanceConfig, useInstanceContext, useConfig } from '../hooks';
@@ -42,8 +42,7 @@ export function CentralComponent() {
   const { config: globalConfig, updateConfig: updateGlobalConfig, isUpdating } = useConfig();
 
   const [editingOperator, setEditingOperator] = useState(false);
-  const [editingRouter, setEditingRouter] = useState(false);
-  const [editingDnsmasq, setEditingDnsmasq] = useState(false);
+  const [editingRouterDdns, setEditingRouterDdns] = useState(false);
   const [formValues, setFormValues] = useState<GlobalConfigForm>({});
 
   // DNS Service state
@@ -68,7 +67,7 @@ export function CentralComponent() {
   const [copiedDnsIp, setCopiedDnsIp] = useState(false);
 
   const isDnsRunning = dnsStatus?.status === 'active';
-  const dnsIp = globalConfig?.cloud?.dnsmasq?.ip;
+  const dnsIp = dnsStatus?.ip;
 
   // Sync form values when globalConfig loads
   useEffect(() => {
@@ -113,71 +112,45 @@ export function CentralComponent() {
     setEditingOperator(false);
   };
 
-  const handleRouterEdit = () => {
-    setEditingRouter(true);
+  const handleRouterDdnsEdit = () => {
+    setEditingRouterDdns(true);
   };
 
-  const handleRouterSave = async () => {
-    if (!globalConfig || !formValues.cloud?.router) return;
+  const handleRouterDdnsSave = async () => {
+    if (!globalConfig) return;
     try {
       await updateGlobalConfig({
         ...globalConfig,
         cloud: {
           ...globalConfig.cloud,
-          router: formValues.cloud.router,
+          router: {
+            ...globalConfig.cloud?.router,
+            dynamicDns: formValues.cloud?.router?.dynamicDns || '',
+          },
         },
       });
-      setEditingRouter(false);
+      setEditingRouterDdns(false);
     } catch (err) {
-      console.error('Failed to save router:', err);
+      console.error('Failed to save router DDNS:', err);
     }
   };
 
-  const handleRouterCancel = () => {
+  const handleRouterDdnsCancel = () => {
     if (globalConfig) {
       setFormValues(prev => ({
         ...prev,
         cloud: {
           ...prev.cloud,
-          router: globalConfig.cloud?.router,
+          router: {
+            ...prev.cloud?.router,
+            dynamicDns: globalConfig.cloud?.router?.dynamicDns,
+          },
         },
       }));
     }
-    setEditingRouter(false);
+    setEditingRouterDdns(false);
   };
 
-  const handleDnsmasqEdit = () => {
-    setEditingDnsmasq(true);
-  };
-
-  const handleDnsmasqSave = async () => {
-    if (!globalConfig || !formValues.cloud?.dnsmasq) return;
-    try {
-      await updateGlobalConfig({
-        ...globalConfig,
-        cloud: {
-          ...globalConfig.cloud,
-          dnsmasq: formValues.cloud.dnsmasq,
-        },
-      });
-      setEditingDnsmasq(false);
-    } catch (err) {
-      console.error('Failed to save dnsmasq:', err);
-    }
-  };
-
-  const handleDnsmasqCancel = () => {
-    if (globalConfig) {
-      setFormValues(prev => ({
-        ...prev,
-        cloud: {
-          ...prev.cloud,
-          dnsmasq: globalConfig.cloud?.dnsmasq,
-        },
-      }));
-    }
-    setEditingDnsmasq(false);
-  };
 
   const updateFormValue = (path: string, value: string) => {
     setFormValues(prev => {
@@ -498,128 +471,21 @@ export function CentralComponent() {
                   </div>
                 )}
               </Card>
-
-              <Card className="p-4 border-l-4 border-l-teal-500">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Router className="h-5 w-5 text-teal-500" />
-                    <div className="text-sm text-muted-foreground">Router</div>
-                  </div>
-                  {!editingRouter && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRouterEdit}
-                      disabled={isUpdating}
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                {editingRouter ? (
-                  <div className="space-y-3">
-                    <div>
-                      <Label htmlFor="router-ip">Router IP</Label>
-                      <Input
-                        id="router-ip"
-                        value={formValues.cloud?.router?.ip || ''}
-                        onChange={(e) => updateFormValue('cloud.router.ip', e.target.value)}
-                        placeholder="192.168.1.1"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="router-ddns">Dynamic DNS</Label>
-                      <Input
-                        id="router-ddns"
-                        value={formValues.cloud?.router?.dynamicDns || ''}
-                        onChange={(e) => updateFormValue('cloud.router.dynamicDns', e.target.value)}
-                        placeholder="example.ddns.com"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRouterCancel}
-                        disabled={isUpdating}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleRouterSave}
-                        disabled={isUpdating}
-                      >
-                        {isUpdating ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <Check className="h-4 w-4 mr-1" />
-                        )}
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3 ml-7">
-                    <div className="space-y-1">
-                      {globalConfig?.cloud?.router?.ip && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-16">IP:</span>
-                          <span className="font-medium font-mono text-sm">
-                            <a
-                              href={`http://${globalConfig.cloud.router.ip}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 hover:text-blue-600 underline inline-flex items-center gap-1"
-                            >
-                              {globalConfig.cloud.router.ip}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </span>
-                        </div>
-                      )}
-                      {globalConfig?.cloud?.router?.dynamicDns && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-16">DDNS:</span>
-                          <span className="font-medium font-mono text-sm">{globalConfig.cloud.router.dynamicDns}</span>
-                        </div>
-                      )}
-                      {!globalConfig?.cloud?.router?.ip && !globalConfig?.cloud?.router?.dynamicDns && (
-                        <div className="text-sm text-muted-foreground italic">Not configured</div>
-                      )}
-                    </div>
-
-                    {globalConfig?.cloud?.router?.ip && !globalConfig?.cloud?.router?.dynamicDns && (
-                      <div className="mt-2 p-2 bg-muted/50 rounded-md text-xs text-muted-foreground">
-                        <p className="mb-1">To find your DDNS hostname:</p>
-                        <ol className="list-decimal list-inside space-y-0.5 ml-2">
-                          <li>Open your router admin panel</li>
-                          <li>Look for "Dynamic DNS" or "DDNS" settings</li>
-                          <li>Find your hostname (e.g., example.ddns.net)</li>
-                        </ol>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Card>
             </div>
           </Card>
 
-          {/* DNS Service Card */}
+          {/* LAN Router Configuration */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-primary/10 rounded-lg">
-                    <Globe className="h-6 w-6 text-primary" />
+                    <Router className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <CardTitle>DNS Service</CardTitle>
+                    <CardTitle>LAN Router Configuration</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Local domain name resolution for your Wild Cloud
+                      Configure your router to use Wild Central for DNS and dynamic DNS
                     </p>
                   </div>
                 </div>
@@ -634,77 +500,86 @@ export function CentralComponent() {
                   ) : (
                     <XCircle className="h-4 w-4" />
                   )}
-                  {isDnsStatusLoading ? 'Checking...' : isDnsRunning ? 'Running' : 'Stopped'}
+                  DNS: {isDnsStatusLoading ? 'Checking...' : isDnsRunning ? 'Running' : 'Stopped'}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* DNS IP Address Display */}
-              {dnsIp && (
-                <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                          DNS Server IP Address
-                        </p>
-                      </div>
-                      <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
-                        Configure your router to use this IP as the primary DNS server
-                      </p>
-                      <code className="text-2xl font-mono font-bold bg-white dark:bg-gray-900 px-4 py-2 rounded border border-blue-300 dark:border-blue-700 inline-block">
-                        {dnsIp}
-                      </code>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={handleCopyDnsIp}
-                      className="ml-4 border-blue-300 hover:bg-blue-100 dark:border-blue-700 dark:hover:bg-blue-900/20"
-                    >
-                      <Copy className="h-5 w-5 mr-2" />
-                      {copiedDnsIp ? 'Copied!' : 'Copy IP'}
-                    </Button>
+              {/* Router IP Display */}
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                <div>
+                  <div className="text-sm text-muted-foreground">Router IP Address</div>
+                  <div className="font-mono text-lg font-medium mt-1">
+                    {globalConfig?.cloud?.router?.ip || 'Auto-detecting...'}
                   </div>
                 </div>
-              )}
+                {globalConfig?.cloud?.router?.ip && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`http://${globalConfig.cloud.router.ip}`, '_blank')}
+                    className="gap-2"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open Router Admin
+                  </Button>
+                )}
+              </div>
 
-              {/* DNS Configuration */}
-              <Card className="p-4 border-l-4 border-l-green-500">
+              {/* Instructions */}
+              <div className="p-4 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg border border-cyan-200 dark:border-cyan-800">
+                <div className="flex items-start gap-3">
+                  <BookOpen className="h-5 w-5 text-cyan-600 dark:text-cyan-400 mt-0.5" />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-cyan-900 dark:text-cyan-100">
+                      Configuration Steps
+                    </p>
+                    <ol className="text-xs text-cyan-700 dark:text-cyan-300 space-y-1 list-decimal list-inside">
+                      <li>Configure your router's DDNS hostname</li>
+                      <li>Set Wild Central as your router's primary DNS server</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 1: Router DDNS */}
+              <Card className="p-4 border-l-4 border-l-teal-500">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Network className="h-5 w-5 text-green-500" />
-                    <div className="text-sm text-muted-foreground">DNS Configuration</div>
+                    <span className="text-xs font-semibold bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-2 py-1 rounded">STEP 1</span>
+                    <div className="text-sm font-medium">Router Dynamic DNS</div>
                   </div>
-                  {!editingDnsmasq && (
+                  {!editingRouterDdns && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleDnsmasqEdit}
+                      onClick={handleRouterDdnsEdit}
                       disabled={isUpdating}
                     >
                       <Edit2 className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
-                {editingDnsmasq ? (
-                  <div className="space-y-3">
+                {editingRouterDdns ? (
+                  <div className="space-y-3 mt-3">
                     <div>
-                      <Label htmlFor="dns-ip">DNS IP</Label>
+                      <Label htmlFor="router-ddns">Dynamic DNS Hostname</Label>
                       <Input
-                        id="dns-ip"
-                        value={formValues.cloud?.dnsmasq?.ip || ''}
-                        onChange={(e) => updateFormValue('cloud.dnsmasq.ip', e.target.value)}
-                        placeholder="192.168.1.1"
+                        id="router-ddns"
+                        value={formValues.cloud?.router?.dynamicDns || ''}
+                        onChange={(e) => updateFormValue('cloud.router.dynamicDns', e.target.value)}
+                        placeholder="example.ddns.com"
                         className="mt-1"
                       />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Find this in your router's DDNS settings
+                      </p>
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleDnsmasqCancel}
+                        onClick={handleRouterDdnsCancel}
                         disabled={isUpdating}
                       >
                         <X className="h-4 w-4 mr-1" />
@@ -712,7 +587,7 @@ export function CentralComponent() {
                       </Button>
                       <Button
                         size="sm"
-                        onClick={handleDnsmasqSave}
+                        onClick={handleRouterDdnsSave}
                         disabled={isUpdating}
                       >
                         {isUpdating ? (
@@ -725,14 +600,53 @@ export function CentralComponent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="ml-7">
-                    {globalConfig?.cloud?.dnsmasq?.ip ? (
-                      <span className="font-medium font-mono text-sm">{globalConfig.cloud.dnsmasq.ip}</span>
+                  <div className="mt-3">
+                    {globalConfig?.cloud?.router?.dynamicDns ? (
+                      <div>
+                        <span className="font-mono text-sm">{globalConfig.cloud.router.dynamicDns}</span>
+                      </div>
                     ) : (
-                      <div className="text-sm text-muted-foreground italic">Not configured</div>
+                      <div>
+                        <div className="text-sm text-muted-foreground italic mb-2">Not configured</div>
+                        <div className="p-2 bg-muted/50 rounded-md text-xs text-muted-foreground">
+                          <p className="mb-1">To find your DDNS hostname:</p>
+                          <ol className="list-decimal list-inside space-y-0.5 ml-2">
+                            <li>Open your router admin panel</li>
+                            <li>Look for "Dynamic DNS" or "DDNS" settings</li>
+                            <li>Find your hostname (e.g., example.ddns.net)</li>
+                          </ol>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
+              </Card>
+
+              {/* Step 2: DNS Configuration */}
+              <Card className="p-4 border-l-4 border-l-green-500">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded">STEP 2</span>
+                    <div className="text-sm font-medium">Wild Central DNS IP</div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyDnsIp}
+                    disabled={!dnsIp}
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    {copiedDnsIp ? 'Copied!' : 'Copy'}
+                  </Button>
+                </div>
+                <div className="mt-3">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Configure your router to use this IP as the primary DNS server:
+                  </p>
+                  <code className="text-lg font-mono font-bold bg-muted px-3 py-1 rounded inline-block">
+                    {dnsIp || 'Auto-detecting...'}
+                  </code>
+                </div>
               </Card>
 
               {/* Action Buttons */}

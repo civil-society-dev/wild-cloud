@@ -92,3 +92,13 @@ func ResolveDomain(domain string) (string, error) {
 	// If no IPv4, return first IP
 	return ips[0].String(), nil
 }
+
+// GetWildCentralIP returns the IP address of the Wild Central server
+// This is the primary IP address that the server uses for network communication
+func GetWildCentralIP() (string, error) {
+	netInfo, err := DetectNetworkInfo()
+	if err != nil {
+		return "", fmt.Errorf("failed to detect Wild Central IP: %w", err)
+	}
+	return netInfo.PrimaryIP, nil
+}
