@@ -217,11 +217,11 @@ func (w *KubectlWatcher) parsePodEvent(data []byte, resourceType string) {
 		eventType := ""
 		switch event.Type {
 		case "ADDED":
-			eventType = "k8s:pod:added"
+			eventType = "pod:added"
 		case "MODIFIED":
-			eventType = "k8s:pod:modified"
+			eventType = "pod:modified"
 		case "DELETED":
-			eventType = "k8s:pod:deleted"
+			eventType = "pod:deleted"
 		default:
 			return
 		}
@@ -260,7 +260,7 @@ func (w *KubectlWatcher) parsePodEvent(data []byte, resourceType string) {
 
 	if err := json.Unmarshal(data, &pod); err == nil && pod.Metadata.Name != "" {
 		w.sseManager.Broadcast(&Event{
-			Type:         "k8s:pod:added",
+			Type:         "pod:added",
 			InstanceName: w.instanceName,
 			Data: map[string]interface{}{
 				"name":      pod.Metadata.Name,
@@ -312,7 +312,7 @@ func (w *KubectlWatcher) parseDeploymentEvent(data []byte, resourceType string) 
 	}
 
 	// Determine if it's a watch event or direct object
-	var name, namespace string
+	var name, namespace, eventType string
 	var labels map[string]string
 	var status struct {
 		Replicas      int32
@@ -321,13 +321,24 @@ func (w *KubectlWatcher) parseDeploymentEvent(data []byte, resourceType string) 
 
 	if deployment.Type != "" {
 		// Watch event
+		switch deployment.Type {
+		case "ADDED":
+			eventType = "deployment:added"
+		case "MODIFIED":
+			eventType = "deployment:modified"
+		case "DELETED":
+			eventType = "deployment:deleted"
+		default:
+			return
+		}
 		name = deployment.Object.Metadata.Name
 		namespace = deployment.Object.Metadata.Namespace
 		labels = deployment.Object.Metadata.Labels
 		status.Replicas = deployment.Object.Status.Replicas
 		status.ReadyReplicas = deployment.Object.Status.ReadyReplicas
 	} else if deployment.Metadata.Name != "" {
-		// Direct object
+		// Direct object (initial list)
+		eventType = "deployment:added"
 		name = deployment.Metadata.Name
 		namespace = deployment.Metadata.Namespace
 		labels = deployment.Metadata.Labels
@@ -338,7 +349,7 @@ func (w *KubectlWatcher) parseDeploymentEvent(data []byte, resourceType string) 
 	}
 
 	w.sseManager.Broadcast(&Event{
-		Type:         "k8s:deployment:status",
+		Type:         eventType,
 		InstanceName: w.instanceName,
 		Data: map[string]interface{}{
 			"name":          name,
@@ -392,17 +403,28 @@ func (w *KubectlWatcher) parseServiceEvent(data []byte, resourceType string) {
 	}
 
 	// Determine if it's a watch event or direct object
-	var name, namespace, serviceType string
+	var name, namespace, serviceType, eventType string
 	var labels map[string]string
 
 	if service.Type != "" {
 		// Watch event
+		switch service.Type {
+		case "ADDED":
+			eventType = "service:added"
+		case "MODIFIED":
+			eventType = "service:modified"
+		case "DELETED":
+			eventType = "service:deleted"
+		default:
+			return
+		}
 		name = service.Object.Metadata.Name
 		namespace = service.Object.Metadata.Namespace
 		labels = service.Object.Metadata.Labels
 		serviceType = service.Object.Spec.Type
 	} else if service.Metadata.Name != "" {
-		// Direct object
+		// Direct object (initial list)
+		eventType = "service:added"
 		name = service.Metadata.Name
 		namespace = service.Metadata.Namespace
 		labels = service.Metadata.Labels
@@ -412,7 +434,7 @@ func (w *KubectlWatcher) parseServiceEvent(data []byte, resourceType string) {
 	}
 
 	w.sseManager.Broadcast(&Event{
-		Type:         "k8s:service:changed",
+		Type:         eventType,
 		InstanceName: w.instanceName,
 		Data: map[string]interface{}{
 			"name":      name,

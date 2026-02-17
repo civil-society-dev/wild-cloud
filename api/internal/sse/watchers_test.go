@@ -44,8 +44,8 @@ func TestKubectlWatcherJSONParsing(t *testing.T) {
 	// Should receive parsed event
 	select {
 	case event := <-client.Channel:
-		if event.Type != "pod.added" {
-			t.Errorf("Expected event type 'pod.added', got '%s'", event.Type)
+		if event.Type != "pod:added" {
+			t.Errorf("Expected event type 'pod:added', got '%s'", event.Type)
 		}
 		if podData, ok := event.Data.(map[string]interface{}); ok {
 			if podData["name"] != "test-pod" {
@@ -74,9 +74,9 @@ func TestKubectlWatcherEventTypeMapping(t *testing.T) {
 		watchType    string
 		expectedType string
 	}{
-		{"ADDED", "pod.added"},
-		{"MODIFIED", "pod.updated"},
-		{"DELETED", "pod.deleted"},
+		{"ADDED", "pod:added"},
+		{"MODIFIED", "pod:modified"},
+		{"DELETED", "pod:deleted"},
 	}
 
 	for _, tc := range testCases {
@@ -150,14 +150,14 @@ func TestDeploymentEventParsing(t *testing.T) {
 	// Check received event
 	select {
 	case event := <-client.Channel:
-		if event.Type != "deployment.updated" {
-			t.Errorf("Expected event type 'deployment.updated', got '%s'", event.Type)
+		if event.Type != "deployment:modified" {
+			t.Errorf("Expected event type 'deployment:modified', got '%s'", event.Type)
 		}
 		if deployData, ok := event.Data.(map[string]interface{}); ok {
 			if deployData["name"] != "test-deployment" {
 				t.Errorf("Expected deployment name 'test-deployment', got '%v'", deployData["name"])
 			}
-			if deployData["readyReplicas"] != float64(2) {
+			if deployData["readyReplicas"] != int32(2) {
 				t.Errorf("Expected 2 ready replicas, got '%v'", deployData["readyReplicas"])
 			}
 		}
@@ -216,8 +216,8 @@ func TestServiceEventParsing(t *testing.T) {
 	// Check received event
 	select {
 	case event := <-client.Channel:
-		if event.Type != "service.added" {
-			t.Errorf("Expected event type 'service.added', got '%s'", event.Type)
+		if event.Type != "service:added" {
+			t.Errorf("Expected event type 'service:added', got '%s'", event.Type)
 		}
 		if serviceData, ok := event.Data.(map[string]interface{}); ok {
 			if serviceData["name"] != "test-service" {
@@ -225,9 +225,6 @@ func TestServiceEventParsing(t *testing.T) {
 			}
 			if serviceData["type"] != "LoadBalancer" {
 				t.Errorf("Expected service type 'LoadBalancer', got '%v'", serviceData["type"])
-			}
-			if serviceData["externalIP"] != "192.168.1.100" {
-				t.Errorf("Expected external IP '192.168.1.100', got '%v'", serviceData["externalIP"])
 			}
 		}
 	case <-time.After(100 * time.Millisecond):

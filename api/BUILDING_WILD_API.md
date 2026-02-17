@@ -76,12 +76,15 @@ events.Publish(events.Event{
 ### Event Types
 
 Standard event types follow the pattern `resource:action`:
-- `pod:added`, `pod:modified`, `pod:deleted`
-- `deployment:added`, `deployment:modified`, `deployment:deleted`
-- `service:added`, `service:modified`, `service:deleted`
-- `operation:started`, `operation:progress`, `operation:completed`, `operation:failed`
-- `central:status`, `central:health`
-- `dnsmasq:restart`, `dnsmasq:config`
+- **Kubernetes resources**: `pod:added`, `pod:modified`, `pod:deleted`
+- **Deployments**: `deployment:added`, `deployment:modified`, `deployment:deleted`
+- **Services**: `service:added`, `service:modified`, `service:deleted`
+- **Nodes**: `node:added`, `node:modified`, `node:deleted`, `node:configured`, `node:applied`
+- **Operations**: `operation:started`, `operation:progress`, `operation:completed`, `operation:failed`
+- **Central status**: `central:status`, `central:health`
+- **DNS**: `dnsmasq:restart`, `dnsmasq:config`
+- **Talos**: `talos:event`
+- **System**: `connected`, `heartbeat`
 
 ### When to Publish
 
