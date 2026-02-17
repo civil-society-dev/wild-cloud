@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
-	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // BackupSchedule represents a scheduled backup configuration
@@ -456,8 +455,3 @@ func (m *Manager) GetInstanceNameFromDataDir(dataDir string) string {
 	return filepath.Base(filepath.Dir(dataDir))
 }
 
-// Helper function to check if instance exists
-func (m *Manager) instanceExists(instanceName string) bool {
-	instanceDir := tools.GetInstancePath(m.dataDir, instanceName)
-	return storage.FileExists(instanceDir)
-}

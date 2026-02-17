@@ -23,12 +23,6 @@ func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-// respondSuccess writes a successful response with data wrapped in the standard envelope.
-// Use this for GET requests returning data or POST/PUT requests returning created/updated resources.
-func respondSuccess(w http.ResponseWriter, status int, data interface{}) {
-	respondJSON(w, status, APIResponse{Data: data})
-}
-
 // respondMessage writes a success response with only a message (no data).
 // Use this for operations that succeed but don't return meaningful data.
 func respondMessage(w http.ResponseWriter, status int, message string) {

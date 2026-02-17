@@ -208,7 +208,7 @@ func TestKubectlGetDeployment(t *testing.T) {
 
 			if err == nil {
 				if depInfo == nil {
-					t.Error("GetDeployment() returned nil without error")
+					t.Fatal("GetDeployment() returned nil without error")
 				}
 				// Desired should be non-negative
 				if depInfo.Desired < 0 {
@@ -243,7 +243,7 @@ func TestKubectlGetReplicas(t *testing.T) {
 
 			if err == nil {
 				if replicaInfo == nil {
-					t.Error("GetReplicas() returned nil without error")
+					t.Fatal("GetReplicas() returned nil without error")
 				}
 				// All values should be non-negative
 				if replicaInfo.Desired < 0 {
@@ -655,134 +655,3 @@ func TestFormatMemory(t *testing.T) {
 	}
 }
 
-func TestPodInfoStruct(t *testing.T) {
-	t.Run("PodInfo has required fields", func(t *testing.T) {
-		pod := PodInfo{
-			Name:     "test-pod",
-			Status:   "Running",
-			Ready:    "1/1",
-			Restarts: 0,
-			Age:      "5m",
-			Node:     "node-1",
-			IP:       "10.0.0.1",
-		}
-
-		if pod.Name != "test-pod" {
-			t.Errorf("Name = %q, want %q", pod.Name, "test-pod")
-		}
-		if pod.Status != "Running" {
-			t.Errorf("Status = %q, want %q", pod.Status, "Running")
-		}
-		if pod.Ready != "1/1" {
-			t.Errorf("Ready = %q, want %q", pod.Ready, "1/1")
-		}
-		if pod.Restarts != 0 {
-			t.Errorf("Restarts = %d, want %d", pod.Restarts, 0)
-		}
-	})
-}
-
-func TestContainerInfoStruct(t *testing.T) {
-	t.Run("ContainerInfo has required fields", func(t *testing.T) {
-		container := ContainerInfo{
-			Name:         "test-container",
-			Image:        "nginx:latest",
-			Ready:        true,
-			RestartCount: 0,
-			State: ContainerState{
-				Status: "running",
-				Since:  time.Now(),
-			},
-		}
-
-		if container.Name != "test-container" {
-			t.Errorf("Name = %q, want %q", container.Name, "test-container")
-		}
-		if !container.Ready {
-			t.Error("Ready should be true")
-		}
-		if container.State.Status != "running" {
-			t.Errorf("State.Status = %q, want %q", container.State.Status, "running")
-		}
-	})
-}
-
-func TestDeploymentInfoStruct(t *testing.T) {
-	t.Run("DeploymentInfo has required fields", func(t *testing.T) {
-		dep := DeploymentInfo{
-			Desired:   3,
-			Current:   3,
-			Ready:     3,
-			Available: 3,
-		}
-
-		if dep.Desired != 3 {
-			t.Errorf("Desired = %d, want %d", dep.Desired, 3)
-		}
-		if dep.Current != 3 {
-			t.Errorf("Current = %d, want %d", dep.Current, 3)
-		}
-	})
-}
-
-func TestResourceMetricStruct(t *testing.T) {
-	t.Run("ResourceMetric has required fields", func(t *testing.T) {
-		metric := ResourceMetric{
-			Used:       "1.5",
-			Requested:  "2.0",
-			Limit:      "4.0",
-			Percentage: 37.5,
-		}
-
-		if metric.Used != "1.5" {
-			t.Errorf("Used = %q, want %q", metric.Used, "1.5")
-		}
-		if metric.Percentage != 37.5 {
-			t.Errorf("Percentage = %f, want %f", metric.Percentage, 37.5)
-		}
-	})
-}
-
-func TestLogOptionsStruct(t *testing.T) {
-	t.Run("LogOptions has all option fields", func(t *testing.T) {
-		opts := LogOptions{
-			Container:    "nginx",
-			Tail:         100,
-			Previous:     true,
-			Since:        "5m",
-			SinceSeconds: 300,
-		}
-
-		if opts.Container != "nginx" {
-			t.Errorf("Container = %q, want %q", opts.Container, "nginx")
-		}
-		if opts.Tail != 100 {
-			t.Errorf("Tail = %d, want %d", opts.Tail, 100)
-		}
-		if !opts.Previous {
-			t.Error("Previous should be true")
-		}
-	})
-}
-
-func TestKubernetesEventStruct(t *testing.T) {
-	t.Run("KubernetesEvent has required fields", func(t *testing.T) {
-		now := time.Now()
-		event := KubernetesEvent{
-			Type:      "Warning",
-			Reason:    "BackOff",
-			Message:   "Back-off restarting failed container",
-			Count:     5,
-			FirstSeen: now.Add(-5 * time.Minute),
-			LastSeen:  now,
-			Object:    "Pod/test-pod",
-		}
-
-		if event.Type != "Warning" {
-			t.Errorf("Type = %q, want %q", event.Type, "Warning")
-		}
-		if event.Count != 5 {
-			t.Errorf("Count = %d, want %d", event.Count, 5)
-		}
-	})
-}

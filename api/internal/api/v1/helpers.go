@@ -34,27 +34,6 @@ func getNestedValue(data map[string]interface{}, path string) interface{} {
 	return nil
 }
 
-// setNestedValue sets a value in a nested map using dot notation path.
-// Creates intermediate maps as needed.
-func setNestedValue(data map[string]interface{}, path string, value interface{}) {
-	keys := strings.Split(path, ".")
-	current := data
-
-	for i, key := range keys {
-		if i == len(keys)-1 {
-			current[key] = value
-			return
-		}
-
-		if next, ok := current[key].(map[string]interface{}); ok {
-			current = next
-		} else {
-			next := make(map[string]interface{})
-			current[key] = next
-			current = next
-		}
-	}
-}
 
 // updateYAMLFile updates a YAML file with the provided key-value pairs.
 // It performs a shallow merge at the top level, preserving unmodified keys.

@@ -306,57 +306,6 @@ func (m *Manager) ListDeployed(instanceName string) ([]DeployedApp, error) {
 	return apps, nil
 }
 
-// processConfigTemplates recursively processes gomplate templates in config values
-// This function expects config values at the root context (e.g., {{ .cloud.domain }})
-func processConfigTemplates(config map[string]interface{}, configFile string, gomplate *tools.Gomplate) (map[string]interface{}, error) {
-	processed := make(map[string]interface{})
-
-	for key, value := range config {
-		switch v := value.(type) {
-		case string:
-			// Process string templates
-			if strings.Contains(v, "{{") {
-				// Use gomplate with config at root context
-				args := []string{
-					"-i", v,
-					"-c", fmt.Sprintf(".=%s", configFile),
-				}
-				compiled, err := gomplate.Exec(args...)
-				if err != nil {
-					return nil, fmt.Errorf("failed to compile template for key %s: %w", key, err)
-				}
-				processed[key] = strings.TrimSpace(compiled)
-			} else {
-				processed[key] = v
-			}
-		case map[string]interface{}:
-			// Recursively process nested maps
-			nestedProcessed, err := processConfigTemplates(v, configFile, gomplate)
-			if err != nil {
-				return nil, err
-			}
-			processed[key] = nestedProcessed
-		case map[interface{}]interface{}:
-			// Convert to string map and process
-			stringMap := make(map[string]interface{})
-			for k, val := range v {
-				if strKey, ok := k.(string); ok {
-					stringMap[strKey] = val
-				}
-			}
-			nestedProcessed, err := processConfigTemplates(stringMap, configFile, gomplate)
-			if err != nil {
-				return nil, err
-			}
-			processed[key] = nestedProcessed
-		default:
-			// Keep other types as-is
-			processed[key] = value
-		}
-	}
-
-	return processed, nil
-}
 
 // processSecretTemplate processes a gomplate template for secret defaults
 // This function uses named contexts for config and secrets (e.g., {{ .config.apps.loomio.db.user }}, {{ .secrets.apps.loomio.dbPassword }})
@@ -1098,7 +1047,7 @@ func (m *Manager) GetEnhanced(instanceName, appName string) (*EnhancedApp, error
 		enhanced.Runtime = runtime
 
 		// Update status based on runtime
-		if runtime.Pods != nil && len(runtime.Pods) > 0 {
+		if len(runtime.Pods) > 0 {
 			allRunning := true
 			allReady := true
 			for _, pod := range runtime.Pods {
