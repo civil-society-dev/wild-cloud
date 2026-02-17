@@ -28,13 +28,7 @@ export function useServiceStatus(instanceName: string | null | undefined, servic
     instanceName || undefined,
     ['service:added', 'service:modified', 'service:deleted'],
     {
-      enabled: !!instanceName && !!serviceName,
-      // Filter by namespace in the onEvent handler if needed
-      eventFilter: (event) => {
-        // Check if this event is for the specific service namespace
-        const namespace = event.metadata?.namespace;
-        return !namespace || namespace === `cluster-services-${serviceName}`;
-      }
+      enabled: !!instanceName && !!serviceName
     }
   );
 

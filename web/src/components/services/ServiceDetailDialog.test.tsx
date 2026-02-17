@@ -205,11 +205,11 @@ describe('ServiceDetailDialog Button Visibility', () => {
   });
 
   describe('Needs Redeploy', () => {
-    it('should show Redeploy button when deployment needs_redeploy', () => {
+    it('should show Redeploy button when deployment is out_of_sync', () => {
       const service = createService({
         templates: { state: 'up_to_date' },
         configuration: { state: 'compiled' },
-        deployment: { state: 'needs_redeploy' },
+        deployment: { state: 'out_of_sync' },
       });
 
       (useService as any).mockReturnValue({

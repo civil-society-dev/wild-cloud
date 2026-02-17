@@ -81,13 +81,10 @@ export function AppDetailPanel({
   const [hasLoadedBackupResources, setHasLoadedBackupResources] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Disable polling when on the Data tab to prevent network loops
-  const enablePolling = activeTab !== 'data';
-
   // Fetch app data
-  const { data: appDetails, isLoading } = useAppEnhanced(instanceName, appName, { enablePolling });
+  const { data: appDetails, isLoading } = useAppEnhanced(instanceName, appName);
   const { data: readmeContent, isLoading: readmeLoading } = useAppReadme(instanceName, appName);
-  const { data: eventsData } = useAppEvents(instanceName, appName, 20, { enablePolling });
+  const { data: eventsData } = useAppEvents(instanceName, appName, 20);
   const { data: logs, refetch: refetchLogs } = useAppLogs(
     instanceName,
     appName,

@@ -166,25 +166,6 @@ export function useDeployedApps(instanceName: string | null | undefined) {
   };
 }
 
-export function useAppStatus(instanceName: string | null | undefined, appName: string | null | undefined) {
-  // SSE handles all real-time app status updates
-  useFilteredSSE(
-    instanceName || undefined,
-    ['pod:added', 'pod:modified', 'pod:deleted', 'deployment:modified'],
-    { enabled: !!instanceName && !!appName }
-  );
-
-  return useQuery({
-    queryKey: ['instances', instanceName, 'apps', appName, 'status'],
-    queryFn: () => appsApi.getStatus(instanceName!, appName!),
-    enabled: !!instanceName && !!appName,
-    // No polling - SSE handles updates
-    refetchInterval: false,
-    // Keep data fresh for longer since SSE provides updates
-    staleTime: 120000,
-  });
-}
-
 export function useAppStatuses(instanceName: string | null | undefined, appNames: string[]) {
   // SSE handles all real-time status updates
   useFilteredSSE(
@@ -199,7 +180,7 @@ export function useAppStatuses(instanceName: string | null | undefined, appNames
       queryFn: () => appsApi.getStatus(instanceName!, name),
       enabled: !!instanceName,
       // No polling - SSE handles updates
-      refetchInterval: false,
+      refetchInterval: false as const,
       // Keep data fresh for longer since SSE provides updates
       staleTime: 120000,
       retry: 0, // Don't retry status checks
@@ -251,7 +232,7 @@ export function useAppBackups(instanceName: string | null | undefined, appName: 
 }
 
 // Enhanced hooks for app details and runtime status
-export function useAppEnhanced(instanceName: string | null | undefined, appName: string | null | undefined, options?: { enablePolling?: boolean }) {
+export function useAppEnhanced(instanceName: string | null | undefined, appName: string | null | undefined) {
   return useQuery({
     queryKey: ['instances', instanceName, 'apps', appName, 'enhanced'],
     queryFn: () => appsApi.getEnhanced(instanceName!, appName!),
@@ -296,8 +277,7 @@ export function useAppLogs(
 export function useAppEvents(
   instanceName: string | null | undefined,
   appName: string | null | undefined,
-  limit?: number,
-  options?: { enablePolling?: boolean }
+  limit?: number
 ) {
   return useQuery({
     queryKey: ['instances', instanceName, 'apps', appName, 'events', limit],

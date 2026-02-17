@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { servicesApi } from '../services/api';
 import type { ServiceInstallRequest } from '../services/api';
-import { useInstanceEvents } from './useInstanceEventsNew';
+import { useFilteredSSE } from './useGlobalSSE';
 import { isSSEEnabled } from '@/services/api/config';
 
 export function useServices(instanceName: string | null | undefined) {
@@ -95,14 +95,11 @@ export function useServices(instanceName: string | null | undefined) {
 
 export function useServiceStatus(instanceName: string | null | undefined, serviceName: string | null | undefined) {
   // Add SSE support for real-time service status updates
-  const { isConnected, status: sseStatus } = useInstanceEvents({
-    filterServiceEvents: true,
-    filterPodEvents: false,
-    filterDeploymentEvents: false,
-    filterTalosEvents: false,
-    namespaces: serviceName ? [`cluster-services-${serviceName}`] : [],
-    showNotifications: false,
-  });
+  const { isConnected } = useFilteredSSE(
+    instanceName || undefined,
+    ['service:added', 'service:modified', 'service:deleted'],
+    { enabled: !!instanceName && !!serviceName }
+  );
 
   const sseEnabled = isSSEEnabled();
 

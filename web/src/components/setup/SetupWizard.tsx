@@ -55,11 +55,8 @@ export function SetupWizard() {
   const { currentInstance } = useInstanceContext();
   const { data: setupStatus } = useSetupStatus(currentInstance || '', { enabled: !!currentInstance });
 
-  console.log('SetupWizard render:', { currentInstance, setupStatus });
-
   // Don't show wizard if setup is complete
   if (!setupStatus || setupStatus.currentPhase === 'complete') {
-    console.log('SetupWizard returning null:', { setupStatus });
     return null;
   }
 

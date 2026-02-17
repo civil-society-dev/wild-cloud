@@ -32,7 +32,6 @@ function notifyStatusListeners(status: typeof connectionStatus) {
 function createGlobalConnection() {
   // Check if there's an existing connection that's not closed
   if (globalEventSource && globalEventSource.readyState !== EventSource.CLOSED) {
-    console.log('Global SSE connection already exists');
     return;
   }
 
@@ -43,14 +42,12 @@ function createGlobalConnection() {
   }
 
   if (!isSSEEnabled) {
-    console.log('SSE is disabled');
     return;
   }
 
   const baseURL = apiClient.getBaseURL();
   const url = `${baseURL}/api/v1/events`;
 
-  console.log('Creating global SSE connection to:', url);
   notifyStatusListeners('connecting');
 
   try {
@@ -62,7 +59,6 @@ function createGlobalConnection() {
   }
 
   globalEventSource.onopen = () => {
-    console.log('Global SSE connection established');
     notifyStatusListeners('connected');
   };
 
@@ -149,7 +145,6 @@ function closeGlobalConnection() {
   }
 
   if (globalEventSource && globalListeners.size === 0) {
-    console.log('Closing global SSE connection (no more listeners)');
     globalEventSource.close();
     globalEventSource = null;
     notifyStatusListeners('disconnected');
@@ -160,7 +155,7 @@ export function useGlobalSSE(options: UseGlobalSSEOptions = {}) {
   const { enabled = true, onEvent, eventFilter } = options;
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<typeof connectionStatus>(connectionStatus);
-  const listenerIdRef = useRef<string>();
+  const listenerIdRef = useRef<string | undefined>(undefined);
   const onEventRef = useRef(onEvent);
   const eventFilterRef = useRef(eventFilter);
 
@@ -223,7 +218,7 @@ export function useGlobalSSE(options: UseGlobalSSEOptions = {}) {
 
 // Helper to invalidate queries based on event type
 function handleEventInvalidation(event: SSEEvent, queryClient: any) {
-  const { type, instanceName, data } = event;
+  const { type, instanceName } = event;
 
   switch (type) {
     case 'central:status':

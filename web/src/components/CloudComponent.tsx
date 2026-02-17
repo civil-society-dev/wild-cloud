@@ -26,8 +26,6 @@ export function CloudComponent() {
   const { instanceId } = useParams<{ instanceId: string }>();
   const { config: fullConfig, isLoading, error, updateConfig, isUpdating } = useInstanceConfig(instanceId);
 
-  console.log('CloudComponent:', { instanceId, fullConfig, isLoading, error });
-
   // Extract cloud config from full config (canonical nested structure)
   const config = fullConfig?.cloud as CloudConfig | undefined;
 

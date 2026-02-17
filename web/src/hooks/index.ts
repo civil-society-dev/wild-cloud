@@ -11,7 +11,7 @@ export { useInstanceContext, InstanceProvider } from './useInstanceContext';
 export { useInstances, useInstance, useInstanceConfig } from './useInstances';
 export { useNodes, useDiscoveryStatus, useNodeHardware } from './useNodes';
 export { useCluster } from './useCluster';
-export { useAvailableApps, useAvailableApp, useDeployedApps, useAppStatus, useAppBackups } from './useApps';
+export { useAvailableApps, useAvailableApp, useDeployedApps, useAppBackups } from './useApps';
 export { useServices, useServiceStatus, useServiceManifest } from './useServices';
 export { useOperations, useOperation } from './useOperations';
 export { useSecrets, useUpdateSecrets } from './useSecrets';
