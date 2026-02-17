@@ -50,6 +50,49 @@ Use tests on the API extensively to keep the API functioning well for all client
 
 - If WILD_CENTRAL_ENV environment variable is set to "development", the API should run in development mode.
 
+## Server-Sent Events (SSE)
+
+The API publishes real-time events via SSE at `/api/v1/events`. Clients connect to this endpoint to receive updates about cluster state changes.
+
+### Publishing Events
+
+Events are published through the `events` package:
+
+```go
+import "wild-cloud/api/internal/events"
+
+// Publish an event
+events.Publish(events.Event{
+    Type:         "pod:modified",
+    InstanceName: instanceName,
+    Data:         podData,
+    Metadata: map[string]interface{}{
+        "namespace": namespace,
+        "name":      podName,
+    },
+})
+```
+
+### Event Types
+
+Standard event types follow the pattern `resource:action`:
+- `pod:added`, `pod:modified`, `pod:deleted`
+- `deployment:added`, `deployment:modified`, `deployment:deleted`
+- `service:added`, `service:modified`, `service:deleted`
+- `operation:started`, `operation:progress`, `operation:completed`, `operation:failed`
+- `central:status`, `central:health`
+- `dnsmasq:restart`, `dnsmasq:config`
+
+### When to Publish
+
+Publish events when:
+- Kubernetes resources change (detected via watches or after kubectl operations)
+- Long-running operations update their status
+- Configuration changes that affect the UI
+- Any state change that clients need to know about immediately
+
+Events are fire-and-forget - the publisher doesn't wait for clients to receive them.
+
 ## Patterns
 
 ### Instance-scoped Endpoints

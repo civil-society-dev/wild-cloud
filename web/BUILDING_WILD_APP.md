@@ -323,3 +323,58 @@ const { register, handleSubmit, control, formState: { errors } } = useForm({
     - App logs.
     - App metrics.
 
+## Real-Time Updates with SSE
+
+The web app uses Server-Sent Events for real-time updates instead of polling. This reduces server load and provides instant updates.
+
+### Using the SSE Hooks
+
+```typescript
+import { useFilteredSSE } from '@/hooks/useGlobalSSE';
+
+// Listen to specific events for an instance
+const { isConnected } = useFilteredSSE(
+  instanceName,                        // Filter by instance
+  ['pod:modified', 'pod:deleted'],     // Event types to listen for
+  { enabled: !!instanceName }          // Only connect when instance is selected
+);
+```
+
+### How It Works
+
+1. **Global Connection**: A single SSE connection is established to `/api/v1/events` and shared across all components
+2. **Client-Side Filtering**: Events are filtered on the client based on instance and event type
+3. **Automatic Query Invalidation**: When events arrive, relevant React Query caches are automatically invalidated
+4. **No Polling**: Remove `refetchInterval` from useQuery hooks - SSE handles all updates
+
+### Event-Driven Patterns
+
+```typescript
+// Hook automatically subscribes to relevant events
+export function useDeployedApps(instanceName: string | null | undefined) {
+  // SSE handles real-time updates for these event types
+  useFilteredSSE(
+    instanceName,
+    ['pod:added', 'pod:modified', 'pod:deleted', 'deployment:modified'],
+    { enabled: !!instanceName }
+  );
+
+  // Query has no refetchInterval - SSE triggers invalidation
+  return useQuery({
+    queryKey: ['instances', instanceName, 'apps'],
+    queryFn: () => appsApi.listDeployed(instanceName!),
+    enabled: !!instanceName,
+    refetchInterval: false,  // No polling!
+    staleTime: 120000,       // Keep data fresh longer
+  });
+}
+```
+
+### Key Principles
+
+- **Single Connection**: One SSE connection serves the entire app
+- **Remove Polling**: Set `refetchInterval: false` on all queries
+- **Increase staleTime**: Set longer stale times (e.g., 120000ms) since SSE provides updates
+- **Filter Events**: Use `useFilteredSSE` to subscribe only to relevant events
+- **Automatic Cleanup**: Hooks handle connection lifecycle automatically
+
