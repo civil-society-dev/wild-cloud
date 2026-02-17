@@ -3,11 +3,13 @@ package v1
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/wild-cloud/wild-central/daemon/internal/config"
 	"github.com/wild-cloud/wild-central/daemon/internal/sse"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
 	"gopkg.in/yaml.v3"
@@ -80,6 +82,23 @@ func (api *API) updateYAMLFile(w http.ResponseWriter, r *http.Request, instanceN
 		existingConfig = make(map[string]interface{})
 	}
 
+	// Track if domains changed (for DNS update)
+	var domainsChanged bool
+	if fileType == "config" {
+		oldCloud, _ := existingConfig["cloud"].(map[string]interface{})
+		newCloud, _ := updates["cloud"].(map[string]interface{})
+		if oldCloud != nil && newCloud != nil {
+			oldDomain, _ := oldCloud["domain"].(string)
+			newDomain, _ := newCloud["domain"].(string)
+			oldInternalDomain, _ := oldCloud["internalDomain"].(string)
+			newInternalDomain, _ := newCloud["internalDomain"].(string)
+
+			if oldDomain != newDomain || oldInternalDomain != newInternalDomain {
+				domainsChanged = true
+			}
+		}
+	}
+
 	// Merge updates into existing config (shallow merge for top-level keys)
 	for key, value := range updates {
 		existingConfig[key] = value
@@ -98,6 +117,29 @@ func (api *API) updateYAMLFile(w http.ResponseWriter, r *http.Request, instanceN
 	}); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to write file")
 		return
+	}
+
+	// Update DNS if domains changed
+	if domainsChanged && fileType == "config" {
+		go func() {
+			log.Printf("Domain change detected for instance %s, updating DNS configuration...", instanceName)
+
+			// Load the full instance config
+			instanceConfigPath := api.instance.GetInstanceConfigPath(instanceName)
+			instanceCfg, err := config.LoadCloudConfig(instanceConfigPath)
+			if err != nil {
+				log.Printf("Failed to load instance config for DNS update: %v", err)
+				return
+			}
+
+			// Update the DNS configuration for this instance
+			if err := api.dnsmasq.UpdateInstanceDNS(instanceName, *instanceCfg); err != nil {
+				log.Printf("Failed to update DNS for instance %s: %v", instanceName, err)
+				return
+			}
+
+			log.Printf("Successfully updated DNS configuration for instance %s", instanceName)
+		}()
 	}
 
 	// Capitalize first letter for message

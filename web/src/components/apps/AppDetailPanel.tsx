@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -204,6 +204,7 @@ export function AppDetailPanel({
         <DialogContent className="sm:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>{appName}</DialogTitle>
+            <DialogDescription>Loading application details...</DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -226,9 +227,9 @@ export function AppDetailPanel({
               {getStatusBadge(appDetails.status)}
             </div>
           </DialogTitle>
-          {appDetails.description && (
-            <p className="text-sm text-muted-foreground">{appDetails.description}</p>
-          )}
+          <DialogDescription>
+            {appDetails.description || `Details for ${appName}`}
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">

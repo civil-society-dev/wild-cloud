@@ -84,6 +84,11 @@ case "$1" in
 
         # Set up dnsmasq directories and permissions
         mkdir -p /etc/dnsmasq.d
+        mkdir -p /etc/dnsmasq.d/wild-cloud-instances
+
+        # Give wildcloud group write access to dnsmasq.d directory for creating temp files
+        chgrp wildcloud /etc/dnsmasq.d
+        chmod 775 /etc/dnsmasq.d
 
         # Create or fix ownership of wild-cloud.conf
         if [ ! -f /etc/dnsmasq.d/wild-cloud.conf ]; then
@@ -98,6 +103,11 @@ case "$1" in
         # Always set correct ownership and permissions
         chown wildcloud:wildcloud /etc/dnsmasq.d/wild-cloud.conf
         chmod 644 /etc/dnsmasq.d/wild-cloud.conf
+
+        # Set ownership and permissions for instance configs directory
+        chown wildcloud:wildcloud /etc/dnsmasq.d/wild-cloud-instances
+        chmod 755 /etc/dnsmasq.d/wild-cloud-instances
+        echo "Created /etc/dnsmasq.d/wild-cloud-instances/ for per-instance DNS configs"
 
         # Set up systemd-resolved configuration directory and file
         mkdir -p /etc/systemd/resolved.conf.d

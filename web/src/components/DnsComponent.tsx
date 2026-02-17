@@ -20,30 +20,23 @@ import {
   AlertCircle,
   Play,
   RotateCw,
-  Settings,
   Loader2,
   Copy,
   ChevronDown,
   ChevronUp,
   Edit,
-  TestTube2,
   ExternalLink
 } from 'lucide-react';
 import { useDnsmasq } from '../hooks/useDnsmasq';
 import { useConfig } from '../hooks';
-import { useInstances } from '../hooks/useInstances';
-import { instancesApi } from '../services/api';
 import { apiService } from '../services/api-legacy';
 import { usePageHelp } from '../hooks/usePageHelp';
-import type { InstanceConfig } from '../types';
 
 export function DnsComponent() {
   const { config: globalConfig, updateConfig, isUpdating } = useConfig();
   const dnsIp = globalConfig?.cloud?.dnsmasq?.ip;
   const routerIp = globalConfig?.cloud?.router?.ip;
   const dynamicDns = globalConfig?.cloud?.router?.dynamicDns || '';
-
-  const { instances, isLoading: isLoadingInstances } = useInstances();
 
   usePageHelp({
     title: 'How DNS Works in Wild Cloud',
@@ -84,67 +77,18 @@ export function DnsComponent() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editedConfig, setEditedConfig] = useState('');
   const [copiedIp, setCopiedIp] = useState(false);
-  const [isLoadingFromInstances, setIsLoadingFromInstances] = useState(false);
-  const [testingDomain, setTestingDomain] = useState<string | null>(null);
-  const [testType, setTestType] = useState<'internal' | 'external' | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, {
-    internal?: { success: boolean; message: string };
-    external?: { success: boolean; message: string };
-  }>>({});
   const [isEditingDdns, setIsEditingDdns] = useState(false);
   const [editedDdns, setEditedDdns] = useState(dynamicDns);
   const [ddnsSaveSuccess, setDdnsSaveSuccess] = useState(false);
-  const [instanceConfigs, setInstanceConfigs] = useState<Record<string, InstanceConfig>>({});
 
   const isRunning = status?.status === 'active';
 
-  // Fetch config on mount to populate Configured Instances section
-  useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
 
   // Update editedDdns when dynamicDns changes
   useEffect(() => {
     setEditedDdns(dynamicDns);
   }, [dynamicDns]);
 
-  // Fetch configs for all instances
-  useEffect(() => {
-    const fetchInstanceConfigs = async () => {
-      if (!instances || instances.length === 0) return;
-
-      const configs: Record<string, InstanceConfig> = {};
-      await Promise.all(
-        instances.map(async (instanceName) => {
-          try {
-            const config = await instancesApi.getConfig(instanceName);
-            configs[instanceName] = config;
-          } catch (error) {
-            console.error(`Failed to fetch config for instance ${instanceName}:`, error);
-          }
-        })
-      );
-      setInstanceConfigs(configs);
-    };
-
-    fetchInstanceConfigs();
-  }, [instances]);
-
-  // Build list of configured domains from instance configs
-  const configuredDomains = (() => {
-    return instances.map(instanceName => {
-      const config = instanceConfigs[instanceName];
-      const domain = config?.cloud?.domain || instanceName;
-      const hasLoadBalancer = !!config?.cluster?.loadBalancerIp;
-
-      return {
-        domain,
-        instanceName,
-        isCommented: !hasLoadBalancer,
-        loadBalancerIp: config?.cluster?.loadBalancerIp
-      };
-    });
-  })();
 
   const handleCopyIp = () => {
     if (dnsIp) {
@@ -154,112 +98,11 @@ export function DnsComponent() {
     }
   };
 
-  const handleTestDomain = async (domain: string, type: 'internal' | 'external') => {
-    setTestingDomain(domain);
-    setTestType(type);
-
-    try {
-      if (type === 'external') {
-        // Use Cloudflare DNS-over-HTTPS to test external resolution
-        const response = await fetch(`https://cloudflare-dns.com/dns-query?name=${domain}&type=A`, {
-          headers: { 'accept': 'application/dns-json' }
-        });
-        const data = await response.json();
-
-        if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
-          // Find the A record (type 1) in the answer chain (may have CNAME first)
-          const aRecord = data.Answer.find((ans: { type: number; data: string }) => ans.type === 1);
-          const resolvedIp = aRecord ? aRecord.data : data.Answer[data.Answer.length - 1].data;
-          setTestResults(prev => ({
-            ...prev,
-            [domain]: {
-              ...prev[domain],
-              external: {
-                success: true,
-                message: resolvedIp
-              }
-            }
-          }));
-        } else {
-          setTestResults(prev => ({
-            ...prev,
-            [domain]: {
-              ...prev[domain],
-              external: {
-                success: false,
-                message: 'No public DNS record (LAN-only)'
-              }
-            }
-          }));
-        }
-      } else {
-        // Test internal resolution via Wild Central API
-        const response = await fetch(`/api/v1/network/resolve?domain=${domain}`);
-        const data = await response.json();
-
-        if (data.success && data.ip) {
-          setTestResults(prev => ({
-            ...prev,
-            [domain]: {
-              ...prev[domain],
-              internal: {
-                success: true,
-                message: data.ip
-              }
-            }
-          }));
-        } else {
-          setTestResults(prev => ({
-            ...prev,
-            [domain]: {
-              ...prev[domain],
-              internal: {
-                success: false,
-                message: data.error || 'Not found'
-              }
-            }
-          }));
-        }
-      }
-    } catch {
-      setTestResults(prev => ({
-        ...prev,
-        [domain]: {
-          ...prev[domain],
-          [type]: {
-            success: false,
-            message: 'Test failed'
-          }
-        }
-      }));
-    } finally {
-      setTestingDomain(null);
-      setTestType(null);
-    }
-  };
-
   const handleStart = () => {
     // Generate config and apply it (overwrite=true)
     generateConfig(true);
   };
 
-  const handleLoadFromInstances = async () => {
-    setIsLoadingFromInstances(true);
-    try {
-      // Generate config without overwriting, load into editor
-      const result = await apiService.generateDnsmasqConfig(false);
-      const configText = result.config || result.content || '';
-      if (configText) {
-        setEditedConfig(configText);
-      } else {
-        console.error('No config content in response:', result);
-      }
-    } catch (error) {
-      console.error('Failed to load config from instances:', error);
-    } finally {
-      setIsLoadingFromInstances(false);
-    }
-  };
 
   const handleShowAdvanced = () => {
     if (!showAdvanced && !config) {
@@ -338,7 +181,7 @@ export function DnsComponent() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">DNS Configuration</h2>
           <p className="text-muted-foreground">
-            Configure external access to your Wild Cloud from anywhere
+            Configure external domain name resolution to your Wild Cloud from anywhere
           </p>
         </div>
       </div>
@@ -346,7 +189,7 @@ export function DnsComponent() {
       {/* Global DNS Configuration */}
       <Card>
         <CardHeader>
-          <CardTitle>Global DNS (DDNS)</CardTitle>
+          <CardTitle>Global Name Resolution</CardTitle>
           <p className="text-sm text-muted-foreground">
             How machines globally find your wild cloud
           </p>
@@ -465,39 +308,6 @@ export function DnsComponent() {
               </div>
             </div>
 
-            {/* Step 3: Cloudflare CNAME */}
-            <div className="space-y-2">
-              <div className="flex items-start gap-3">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                  3
-                </div>
-                <div className="flex-1 space-y-2">
-                  <p className="text-sm font-medium">Update Cloudflare DNS</p>
-                  <p className="text-xs text-muted-foreground">
-                    Create a CNAME record for your Wild Cloud domain pointing to your DDNS hostname
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(`https://dash.cloudflare.com/`, '_blank')}
-                    className="gap-2"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Cloudflare Dashboard
-                  </Button>
-                  {dynamicDns && (
-                    <div className="p-3 bg-muted rounded-md border">
-                      <p className="text-xs font-mono">
-                        Example CNAME: *.yourdomain.com → {dynamicDns}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Replace yourdomain.com with your actual base domain
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -565,90 +375,12 @@ export function DnsComponent() {
           )}
 
           {/* Status Details */}
-          {status && (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg border">
-                <p className="text-sm text-muted-foreground mb-2">Configured Instances</p>
-                {isLoadingInstances ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : configuredDomains.length > 0 ? (
-                  <div className="space-y-2">
-                    {configuredDomains.map(({ domain, instanceName, isCommented }) => (
-                      <div key={instanceName} className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-1">
-                            <div className={`h-1.5 w-1.5 rounded-full ${isCommented ? 'bg-muted-foreground' : 'bg-primary'}`} />
-                            <code className={`text-sm font-mono ${isCommented ? 'text-muted-foreground' : ''}`}>{domain}</code>
-                            {isCommented && (
-                              <Badge variant="outline" className="text-xs">No Load Balancer</Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleTestDomain(domain, 'internal')}
-                              disabled={testingDomain === domain && testType === 'internal'}
-                              className="h-7 px-2"
-                              title="Test internal DNS"
-                            >
-                              {testingDomain === domain && testType === 'internal' ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <TestTube2 className="h-3 w-3" />
-                              )}
-                              <span className="ml-1 text-xs">Int</span>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleTestDomain(domain, 'external')}
-                              disabled={testingDomain === domain && testType === 'external'}
-                              className="h-7 px-2"
-                              title="Test external DNS"
-                            >
-                              {testingDomain === domain && testType === 'external' ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <TestTube2 className="h-3 w-3" />
-                              )}
-                              <span className="ml-1 text-xs">Ext</span>
-                            </Button>
-                          </div>
-                        </div>
-                        {testResults[domain] && (
-                          <div className="ml-5 space-y-0.5">
-                            {testResults[domain].internal && (
-                              <div className={`text-xs flex items-center gap-1 ${testResults[domain].internal.success ? 'text-green-600' : 'text-red-600'}`}>
-                                <span className="font-medium">Internal:</span>
-                                <span className="font-mono">{testResults[domain].internal.message}</span>
-                              </div>
-                            )}
-                            {testResults[domain].external && (
-                              <div className={`text-xs flex items-center gap-1 ${testResults[domain].external.success ? 'text-green-600' : 'text-red-600'}`}>
-                                <span className="font-medium">External:</span>
-                                <span className="font-mono">{testResults[domain].external.message}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No instances configured. Create a Wild Cloud instance to see it listed here.</p>
-                )}
-              </div>
-              {status.last_restart && status.last_restart !== '0001-01-01T00:00:00Z' && (
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Last restart:</span>
-                  <span className="font-mono">
-                    {new Date(status.last_restart).toLocaleString()}
-                  </span>
-                </div>
-              )}
+          {status && status.last_restart && status.last_restart !== '0001-01-01T00:00:00Z' && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground p-3 bg-muted rounded-lg">
+              <span>Last restart:</span>
+              <span className="font-mono">
+                {new Date(status.last_restart).toLocaleString()}
+              </span>
             </div>
           )}
 
@@ -778,23 +510,7 @@ export function DnsComponent() {
               Modify the dnsmasq configuration. Changes will take effect after saving and restarting.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-3">
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLoadFromInstances}
-                disabled={isLoadingFromInstances}
-                className="gap-2"
-              >
-                {isLoadingFromInstances ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Settings className="h-4 w-4" />
-                )}
-                Load from Instances
-              </Button>
-            </div>
+          <div className="py-4">
             <Textarea
               value={editedConfig}
               onChange={(e) => setEditedConfig(e.target.value)}

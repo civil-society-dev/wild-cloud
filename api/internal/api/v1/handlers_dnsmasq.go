@@ -74,6 +74,7 @@ func (api *API) DnsmasqGenerate(w http.ResponseWriter, r *http.Request) {
 
 	// Load all instance configs
 	var instanceConfigs []config.InstanceConfig
+	var validInstanceNames []string
 	for _, name := range instanceNames {
 		instanceConfigPath := api.instance.GetInstanceConfigPath(name)
 		instanceCfg, err := config.LoadCloudConfig(instanceConfigPath)
@@ -82,19 +83,51 @@ func (api *API) DnsmasqGenerate(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		instanceConfigs = append(instanceConfigs, *instanceCfg)
+		validInstanceNames = append(validInstanceNames, name)
 	}
 
-	// Generate config
-	configContent := api.dnsmasq.Generate(globalCfg, instanceConfigs)
+	// Generate dnsmasq config
+	configContent := api.dnsmasq.GenerateMainConfig(globalCfg)
 
 	if overwrite {
 		// Check if this is the first time dnsmasq is being started
 		status, err := api.dnsmasq.GetStatus()
 		isFirstStart := err != nil || status.Status != "active"
 
-		// Write config and restart service
-		if err := api.dnsmasq.UpdateConfig(globalCfg, instanceConfigs, true); err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update dnsmasq: %v", err))
+		// Update main dnsmasq configuration
+		log.Printf("Updating dnsmasq main configuration...")
+
+		// Write the main config
+		tempFile := api.dnsmasq.GetConfigPath() + ".tmp"
+		if err := os.WriteFile(tempFile, []byte(configContent), 0644); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write temp config: %v", err))
+			return
+		}
+
+		// Validate the config
+		if err := api.dnsmasq.ValidateConfig(tempFile); err != nil {
+			os.Remove(tempFile)
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Config validation failed: %v", err))
+			return
+		}
+
+		// Install the new config
+		if err := os.Rename(tempFile, api.dnsmasq.GetConfigPath()); err != nil {
+			os.Remove(tempFile)
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to install config: %v", err))
+			return
+		}
+
+		// Write all instance configs
+		for i, name := range validInstanceNames {
+			if err := api.dnsmasq.WriteInstanceConfig(name, instanceConfigs[i]); err != nil {
+				log.Printf("Warning: Failed to write instance config for %s: %v", name, err)
+			}
+		}
+
+		// Reload dnsmasq
+		if err := api.dnsmasq.ReloadService(); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to reload dnsmasq: %v", err))
 			return
 		}
 
@@ -178,6 +211,7 @@ func (api *API) updateDnsmasqForAllInstances() error {
 
 	// Load all instance configs
 	var instanceConfigs []config.InstanceConfig
+	var validInstanceNames []string
 	for _, name := range instanceNames {
 		instanceConfigPath := api.instance.GetInstanceConfigPath(name)
 		instanceCfg, err := config.LoadCloudConfig(instanceConfigPath)
@@ -186,6 +220,7 @@ func (api *API) updateDnsmasqForAllInstances() error {
 			continue
 		}
 		instanceConfigs = append(instanceConfigs, *instanceCfg)
+		validInstanceNames = append(validInstanceNames, name)
 	}
 
 	// Regenerate and write dnsmasq config with restart

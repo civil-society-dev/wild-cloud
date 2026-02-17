@@ -228,7 +228,20 @@ export function XTerminal({ instanceId }: XTerminalProps) {
         }
       }
 
-      wsRef.current?.close();
+      if (wsRef.current) {
+        const ws = wsRef.current;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        if (ws.readyState === WebSocket.CONNECTING) {
+          // Let it finish connecting, then close immediately to avoid
+          // "WebSocket is closed before the connection is established" warning
+          ws.onopen = () => ws.close();
+        } else {
+          ws.close();
+        }
+        wsRef.current = null;
+      }
       term.dispose();
     };
   }, [instanceId, connect]);

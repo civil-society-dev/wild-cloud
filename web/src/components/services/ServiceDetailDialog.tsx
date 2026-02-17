@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -211,6 +211,7 @@ export function ServiceDetailDialog({
         <DialogContent className="sm:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>{serviceName}</DialogTitle>
+            <DialogDescription>Loading service details...</DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -223,7 +224,7 @@ export function ServiceDetailDialog({
   if (showConfigEditor) {
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="sm:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-y-auto w-full">
+        <DialogContent className="sm:max-w-4xl max-w-[95vw] max-h-[90vh] overflow-y-auto w-full" aria-describedby={undefined}>
           <ServiceConfigEditor
             instanceName={instanceName}
             serviceName={serviceName}
@@ -248,9 +249,9 @@ export function ServiceDetailDialog({
               )}
             </div>
           </DialogTitle>
-          {service.description && (
-            <p className="text-sm text-muted-foreground">{service.description}</p>
-          )}
+          <DialogDescription>
+            {service.description || `Details for ${serviceName}`}
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
