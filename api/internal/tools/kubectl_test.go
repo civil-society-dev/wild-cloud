@@ -463,7 +463,7 @@ func TestFormatAge(t *testing.T) {
 	}
 }
 
-func TestParseResourceQuantity(t *testing.T) {
+func TestParseCPUQuantity(t *testing.T) {
 	tests := []struct {
 		name     string
 		quantity string
@@ -477,8 +477,41 @@ func TestParseResourceQuantity(t *testing.T) {
 		{
 			name:     "cores as plain number",
 			quantity: "2",
-			want:     2,
+			want:     2000,
 		},
+		{
+			name:     "fractional cores",
+			quantity: "0.5",
+			want:     500,
+		},
+		{
+			name:     "empty string",
+			quantity: "",
+			want:     0,
+		},
+		{
+			name:     "whitespace",
+			quantity: "  ",
+			want:     0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseCPUQuantity(tt.quantity)
+			if got != tt.want {
+				t.Errorf("parseCPUQuantity(%q) = %d, want %d", tt.quantity, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseMemoryQuantity(t *testing.T) {
+	tests := []struct {
+		name     string
+		quantity string
+		want     int64
+	}{
 		{
 			name:     "Ki suffix",
 			quantity: "100Ki",
@@ -510,6 +543,11 @@ func TestParseResourceQuantity(t *testing.T) {
 			want:     1 * 1000 * 1000 * 1000,
 		},
 		{
+			name:     "plain bytes",
+			quantity: "1048576",
+			want:     1048576,
+		},
+		{
 			name:     "empty string",
 			quantity: "",
 			want:     0,
@@ -523,9 +561,9 @@ func TestParseResourceQuantity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseResourceQuantity(tt.quantity)
+			got := parseMemoryQuantity(tt.quantity)
 			if got != tt.want {
-				t.Errorf("parseResourceQuantity(%q) = %d, want %d", tt.quantity, got, tt.want)
+				t.Errorf("parseMemoryQuantity(%q) = %d, want %d", tt.quantity, got, tt.want)
 			}
 		})
 	}
