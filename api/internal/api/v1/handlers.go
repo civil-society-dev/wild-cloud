@@ -19,6 +19,7 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/network"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/secrets"
+	"github.com/wild-cloud/wild-central/daemon/internal/sse"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
@@ -34,6 +35,8 @@ type API struct {
 	opsMgr          *operations.Manager     // Operations manager
 	broadcaster     *operations.Broadcaster // SSE broadcaster for operation output
 	backupScheduler *backup.Scheduler       // Backup scheduler
+	sseManager      *sse.Manager            // SSE manager for real-time events
+	watcherManager  *sse.WatcherManager     // Manager for kubectl/talos watchers
 }
 
 // NewAPI creates a new API handler with all dependencies
@@ -60,6 +63,16 @@ func NewAPI(dataDir, appsDir string) (*API, error) {
 		log.Printf("Using custom dnsmasq config path: %s", dnsmasqConfigPath)
 	}
 
+	// Create SSE manager for real-time events
+	sseManager := sse.NewManager()
+	watcherManager := sse.NewWatcherManager(sseManager)
+
+	// Create operations manager with SSE support
+	opsMgr := operations.NewManager(dataDir)
+	// Use adapter to convert between operations.SSEManager and sse.Manager
+	adapter := &sseManagerAdapter{sseManager: sseManager}
+	opsMgr.SetSSEManager(adapter)
+
 	return &API{
 		dataDir:         dataDir,
 		appsDir:         appsDir,
@@ -68,15 +81,32 @@ func NewAPI(dataDir, appsDir string) (*API, error) {
 		context:         context.NewManager(dataDir),
 		instance:        instance.NewManager(dataDir),
 		dnsmasq:         dnsmasq.NewConfigGenerator(dnsmasqConfigPath),
-		opsMgr:          operations.NewManager(dataDir),
+		opsMgr:          opsMgr,
 		broadcaster:     operations.NewBroadcaster(),
 		backupScheduler: nil, // Set later via SetBackupScheduler
+		sseManager:      sseManager,
+		watcherManager:  watcherManager,
 	}, nil
 }
 
 // SetBackupScheduler sets the backup scheduler for the API
 func (api *API) SetBackupScheduler(scheduler *backup.Scheduler) {
 	api.backupScheduler = scheduler
+}
+
+// StartCentralStatusBroadcaster starts periodic broadcasting of central status
+func (api *API) StartCentralStatusBroadcaster(startTime time.Time) {
+	go func() {
+		ticker := time.NewTicker(30 * time.Second) // Broadcast every 30 seconds
+		defer ticker.Stop()
+
+		// Send initial status
+		api.broadcastCentralStatusEvent(startTime)
+
+		for range ticker.C {
+			api.broadcastCentralStatusEvent(startTime)
+		}
+	}()
 }
 
 func (api *API) RegisterRoutes(r *mux.Router) {
@@ -235,6 +265,10 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/utilities/controlplane/ip", api.UtilitiesControlPlaneIP).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/utilities/secrets/{secret}/copy", api.UtilitiesSecretCopy).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/utilities/version", api.UtilitiesVersion).Methods("GET")
+
+	// SSE events endpoints
+	r.HandleFunc("/api/v1/instances/{name}/events", api.InstanceEventStream).Methods("GET")
+	r.HandleFunc("/api/v1/events", api.GlobalEventStream).Methods("GET") // Global events (central, dnsmasq, etc)
 
 	// dnsmasq management
 	r.HandleFunc("/api/v1/dnsmasq/status", api.DnsmasqStatus).Methods("GET")
@@ -546,3 +580,22 @@ func (api *API) NetworkResolveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Helper functions are now in response.go and helpers.go
+
+// sseManagerAdapter adapts sse.Manager to operations.SSEManager interface
+type sseManagerAdapter struct {
+	sseManager *sse.Manager
+}
+
+// Broadcast implements operations.SSEManager interface
+func (a *sseManagerAdapter) Broadcast(event *operations.SSEEvent) {
+	// Convert operations.SSEEvent to sse.Event
+	sseEvent := &sse.Event{
+		ID:           event.ID,
+		Type:         event.Type,
+		InstanceName: event.InstanceName,
+		Timestamp:    event.Timestamp,
+		Data:         event.Data,
+		Metadata:     event.Metadata,
+	}
+	a.sseManager.Broadcast(sseEvent)
+}

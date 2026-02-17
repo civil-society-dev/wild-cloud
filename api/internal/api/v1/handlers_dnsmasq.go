@@ -43,6 +43,9 @@ func (api *API) DnsmasqRestart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast SSE event
+	api.broadcastDnsmasqEvent("dnsmasq:restart", "dnsmasq service restarted")
+
 	respondJSON(w, http.StatusOK, map[string]string{
 		"message": "dnsmasq service restarted successfully",
 	})
@@ -103,6 +106,9 @@ func (api *API) DnsmasqGenerate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Broadcast SSE event
+		api.broadcastDnsmasqEvent("dnsmasq:config", "dnsmasq configuration updated and applied")
+
 		respondJSON(w, http.StatusOK, map[string]interface{}{
 			"message": "dnsmasq configuration generated and applied successfully",
 			"config":  configContent,
@@ -138,6 +144,9 @@ func (api *API) DnsmasqWriteConfig(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config: %v", err))
 		return
 	}
+
+	// Broadcast SSE event
+	api.broadcastDnsmasqEvent("dnsmasq:config", "dnsmasq configuration written")
 
 	respondJSON(w, http.StatusOK, map[string]string{
 		"message": "dnsmasq configuration written successfully",

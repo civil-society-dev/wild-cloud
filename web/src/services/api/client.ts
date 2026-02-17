@@ -14,11 +14,17 @@ export class ApiError extends Error {
   }
 }
 
+import { getApiBaseUrl } from './config';
+
 export class ApiClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055') {
+  constructor(baseUrl: string = getApiBaseUrl()) {
     this.baseUrl = baseUrl;
+  }
+
+  getBaseURL(): string {
+    return this.baseUrl;
   }
 
   private async request<T>(

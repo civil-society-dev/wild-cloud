@@ -8,6 +8,7 @@ resources:
 - namespace.yaml
 - serviceaccount.yaml
 - configmap.yaml
+- pvc.yaml
 - crowdsec-deployment.yaml
 - crowdsec-service.yaml
 - bouncer-deployment.yaml

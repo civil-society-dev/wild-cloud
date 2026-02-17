@@ -67,6 +67,10 @@ func main() {
 	scheduler.Start()
 	log.Println("Backup scheduler initialized")
 
+	// Start central status SSE broadcaster
+	api.StartCentralStatusBroadcaster(startTime)
+	log.Println("Central status broadcaster started")
+
 	// Set up HTTP router
 	router := mux.NewRouter()
 	api.RegisterRoutes(router)
@@ -106,6 +110,10 @@ func main() {
 				fmt.Sprintf("http://%s:80", hostname),
 				fmt.Sprintf("http://%s.local", hostname),
 				fmt.Sprintf("http://%s.lan", hostname),
+				fmt.Sprintf("http://%s.local:5173", hostname),
+				fmt.Sprintf("http://%s.lan:5173", hostname),
+				fmt.Sprintf("http://%s.local:5174", hostname),
+				fmt.Sprintf("http://%s.lan:5174", hostname),
 				// Add development server ports for hostname
 				fmt.Sprintf("http://%s:5173", hostname),
 				fmt.Sprintf("http://%s:5174", hostname),

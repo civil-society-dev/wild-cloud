@@ -105,6 +105,7 @@ spec:
         configMap:
           name: crowdsec-config
       - name: crowdsec-data
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: crowdsec-data
       - name: crowdsec-config-dir
         emptyDir: {}

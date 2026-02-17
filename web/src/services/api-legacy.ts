@@ -8,8 +8,9 @@ import type {
   DnsmasqStatus,
   DnsmasqConfigResponse
 } from '../types';
+import { getApiBaseUrl } from './api/config';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
+const API_BASE = getApiBaseUrl();
 
 class ApiService {
   private baseUrl: string;

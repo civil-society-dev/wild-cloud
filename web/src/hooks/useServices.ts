@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { servicesApi } from '../services/api';
 import type { ServiceInstallRequest } from '../services/api';
+import { useInstanceEvents } from './useInstanceEventsNew';
+import { isSSEEnabled } from '@/services/api/config';
 
 export function useServices(instanceName: string | null | undefined) {
   const queryClient = useQueryClient();
@@ -8,7 +10,6 @@ export function useServices(instanceName: string | null | undefined) {
   const servicesQuery = useQuery({
     queryKey: ['instances', instanceName, 'services'],
     queryFn: () => servicesApi.list(instanceName!),
-    enabled: !!instanceName,
   });
 
   const installMutation = useMutation({
@@ -93,11 +94,25 @@ export function useServices(instanceName: string | null | undefined) {
 }
 
 export function useServiceStatus(instanceName: string | null | undefined, serviceName: string | null | undefined) {
+  // Add SSE support for real-time service status updates
+  const { isConnected, status: sseStatus } = useInstanceEvents({
+    filterServiceEvents: true,
+    filterPodEvents: false,
+    filterDeploymentEvents: false,
+    filterTalosEvents: false,
+    namespaces: serviceName ? [`cluster-services-${serviceName}`] : [],
+    showNotifications: false,
+  });
+
+  const sseEnabled = isSSEEnabled();
+
   return useQuery({
     queryKey: ['instances', instanceName, 'services', serviceName, 'status'],
     queryFn: () => servicesApi.getStatus(instanceName!, serviceName!),
-    enabled: !!instanceName && !!serviceName,
-    refetchInterval: 5000, // Poll every 5 seconds
+    // Only poll if SSE is not available or not connected
+    refetchInterval: sseEnabled && isConnected ? false : 5000,
+    // Increase stale time when SSE is connected
+    staleTime: sseEnabled && isConnected ? 60000 : 10000,
   });
 }
 
@@ -107,7 +122,6 @@ export function useServiceConfig(instanceName: string | null | undefined, servic
   const configQuery = useQuery({
     queryKey: ['instances', instanceName, 'services', serviceName, 'config'],
     queryFn: () => servicesApi.getConfig(instanceName!, serviceName!),
-    enabled: !!instanceName && !!serviceName,
   });
 
   const updateConfigMutation = useMutation({
@@ -144,6 +158,5 @@ export function useService(instanceName: string | null | undefined, serviceName:
       const response = await servicesApi.list(instanceName!);
       return response.services.find(s => s.name === serviceName);
     },
-    enabled: !!instanceName && !!serviceName,
   });
 }

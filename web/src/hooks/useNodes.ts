@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { nodesApi } from '../services/api';
 import type { NodeAddRequest, NodeUpdateRequest } from '../services/api';
+import { useFilteredSSE } from './useGlobalSSE';
 
 export function useNodes(instanceName: string | null | undefined) {
   const queryClient = useQueryClient();
@@ -8,7 +9,6 @@ export function useNodes(instanceName: string | null | undefined) {
   const nodesQuery = useQuery({
     queryKey: ['instances', instanceName, 'nodes'],
     queryFn: () => nodesApi.list(instanceName!),
-    enabled: !!instanceName,
   });
 
   const discoverMutation = useMutation({
@@ -118,11 +118,21 @@ export function useNodes(instanceName: string | null | undefined) {
 }
 
 export function useDiscoveryStatus(instanceName: string | null | undefined) {
+  // SSE handles all real-time discovery updates
+  useFilteredSSE(
+    instanceName || undefined,
+    ['talos:event'], // Listen for Talos discovery events
+    { enabled: !!instanceName }
+  );
+
   return useQuery({
     queryKey: ['instances', instanceName, 'discovery'],
     queryFn: () => nodesApi.discoveryStatus(instanceName!),
     enabled: !!instanceName,
-    refetchInterval: (query) => (query.state.data?.active ? 1000 : false),
+    // No polling - SSE handles updates
+    refetchInterval: false,
+    // Keep data fresh for longer since SSE provides updates
+    staleTime: 60000,
   });
 }
 
@@ -130,6 +140,5 @@ export function useNodeHardware(instanceName: string | null | undefined, ip: str
   return useQuery({
     queryKey: ['instances', instanceName, 'nodes', 'hardware', ip],
     queryFn: () => nodesApi.getHardware(instanceName!, ip!),
-    enabled: !!instanceName && !!ip,
   });
 }

@@ -1,6 +1,8 @@
 module github.com/wild-cloud/wild-central/daemon
 
-go 1.24
+go 1.24.0
+
+toolchain go1.24.5
 
 require (
 	github.com/creack/pty v1.1.24
@@ -10,6 +12,8 @@ require (
 	github.com/rs/cors v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
+
+require golang.org/x/time v0.14.0 // indirect
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

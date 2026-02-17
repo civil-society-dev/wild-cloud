@@ -2,6 +2,7 @@ import { useQuery, useQueries, useMutation, useQueryClient, useMutationState } f
 import { appsApi, operationsApi } from '../services/api';
 import type { AppAddRequest } from '../services/api';
 import { toast } from 'sonner';
+import { useFilteredSSE } from './useGlobalSSE';
 
 // Poll an operation until completion
 async function pollOperation(instanceName: string, operationId: string): Promise<void> {
@@ -45,14 +46,21 @@ export function useAvailableApp(appName: string | null | undefined) {
 export function useDeployedApps(instanceName: string | null | undefined) {
   const queryClient = useQueryClient();
 
+  // SSE handles all real-time app updates
+  useFilteredSSE(
+    instanceName || undefined,
+    ['pod:added', 'pod:modified', 'pod:deleted', 'deployment:added', 'deployment:modified', 'deployment:deleted', 'service:added', 'service:modified', 'service:deleted'],
+    { enabled: !!instanceName }
+  );
+
   const appsQuery = useQuery({
     queryKey: ['instances', instanceName, 'apps'],
     queryFn: () => appsApi.listDeployed(instanceName!),
     enabled: !!instanceName,
-    // Poll every 10 seconds to catch deployment status changes
-    // (API can be slow with many apps)
-    refetchInterval: 10000,
-    staleTime: 5000, // Consider data fresh for 5 seconds
+    // No polling - SSE handles updates
+    refetchInterval: false,
+    // Keep data fresh for longer since SSE provides updates
+    staleTime: 120000,
     retry: 1, // Only retry once on failure
   });
 
@@ -159,22 +167,41 @@ export function useDeployedApps(instanceName: string | null | undefined) {
 }
 
 export function useAppStatus(instanceName: string | null | undefined, appName: string | null | undefined) {
+  // SSE handles all real-time app status updates
+  useFilteredSSE(
+    instanceName || undefined,
+    ['pod:added', 'pod:modified', 'pod:deleted', 'deployment:modified'],
+    { enabled: !!instanceName && !!appName }
+  );
+
   return useQuery({
     queryKey: ['instances', instanceName, 'apps', appName, 'status'],
     queryFn: () => appsApi.getStatus(instanceName!, appName!),
     enabled: !!instanceName && !!appName,
-    refetchInterval: 5000, // Poll every 5 seconds
+    // No polling - SSE handles updates
+    refetchInterval: false,
+    // Keep data fresh for longer since SSE provides updates
+    staleTime: 120000,
   });
 }
 
 export function useAppStatuses(instanceName: string | null | undefined, appNames: string[]) {
+  // SSE handles all real-time status updates
+  useFilteredSSE(
+    instanceName || undefined,
+    ['pod:added', 'pod:modified', 'pod:deleted', 'deployment:modified'],
+    { enabled: !!instanceName }
+  );
+
   const results = useQueries({
     queries: appNames.map(name => ({
       queryKey: ['instances', instanceName, 'apps', name, 'status'],
       queryFn: () => appsApi.getStatus(instanceName!, name),
       enabled: !!instanceName,
-      refetchInterval: 30000, // Poll every 30 seconds instead of 10
-      staleTime: 15000, // Consider data fresh for 15 seconds
+      // No polling - SSE handles updates
+      refetchInterval: false,
+      // Keep data fresh for longer since SSE provides updates
+      staleTime: 120000,
       retry: 0, // Don't retry status checks
     })),
   });
@@ -229,16 +256,27 @@ export function useAppEnhanced(instanceName: string | null | undefined, appName:
     queryKey: ['instances', instanceName, 'apps', appName, 'enhanced'],
     queryFn: () => appsApi.getEnhanced(instanceName!, appName!),
     enabled: !!instanceName && !!appName,
-    refetchInterval: options?.enablePolling !== false ? 10000 : false, // Poll every 10 seconds unless disabled
+    refetchInterval: false, // No polling - SSE handles updates
+    staleTime: 120000, // Keep data fresh for longer since SSE provides updates
   });
 }
 
 export function useAppRuntime(instanceName: string | null | undefined, appName: string | null | undefined) {
+  // SSE handles all real-time runtime updates
+  useFilteredSSE(
+    instanceName || undefined,
+    ['pod:added', 'pod:modified', 'pod:deleted', 'deployment:modified'],
+    { enabled: !!instanceName && !!appName }
+  );
+
   return useQuery({
     queryKey: ['instances', instanceName, 'apps', appName, 'runtime'],
     queryFn: () => appsApi.getRuntime(instanceName!, appName!),
     enabled: !!instanceName && !!appName,
-    refetchInterval: 5000, // Poll every 5 seconds
+    // No polling - SSE handles updates
+    refetchInterval: false,
+    // Keep data fresh for longer since SSE provides updates
+    staleTime: 120000,
   });
 }
 
@@ -265,7 +303,8 @@ export function useAppEvents(
     queryKey: ['instances', instanceName, 'apps', appName, 'events', limit],
     queryFn: () => appsApi.getEvents(instanceName!, appName!, limit),
     enabled: !!instanceName && !!appName,
-    refetchInterval: options?.enablePolling !== false ? 10000 : false, // Poll every 10 seconds unless disabled
+    refetchInterval: false, // No polling - SSE handles updates
+    staleTime: 120000, // Keep data fresh for longer since SSE provides updates
   });
 }
 

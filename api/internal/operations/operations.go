@@ -16,7 +16,23 @@ const totalBootstrapSteps = 7
 
 // Manager handles async operation tracking
 type Manager struct {
-	dataDir string
+	dataDir    string
+	sseManager SSEManager // Optional SSE manager for broadcasting events
+}
+
+// SSEManager is an interface for broadcasting SSE events
+type SSEManager interface {
+	Broadcast(event *SSEEvent)
+}
+
+// SSEEvent represents an SSE event (matching sse.Event structure)
+type SSEEvent struct {
+	ID           string                 `json:"id"`
+	Type         string                 `json:"type"`
+	InstanceName string                 `json:"instanceName"`
+	Timestamp    time.Time              `json:"timestamp"`
+	Data         interface{}            `json:"data"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // NewManager creates a new operations manager
@@ -24,6 +40,11 @@ func NewManager(dataDir string) *Manager {
 	return &Manager{
 		dataDir: dataDir,
 	}
+}
+
+// SetSSEManager sets the SSE manager for broadcasting events
+func (m *Manager) SetSSEManager(sseManager SSEManager) {
+	m.sseManager = sseManager
 }
 
 // BootstrapProgress tracks detailed bootstrap progress
@@ -94,6 +115,9 @@ func (m *Manager) Start(instanceName, opType, target string) (string, error) {
 		return "", err
 	}
 
+	// Broadcast SSE event if manager is available
+	m.broadcastOperationEvent("operation:started", op)
+
 	return opID, nil
 }
 
@@ -126,6 +150,7 @@ func (m *Manager) Update(instanceName, opID, status, message string, progress in
 		return err
 	}
 
+	oldStatus := op.Status
 	op.Status = status
 	op.Message = message
 	op.Progress = progress
@@ -134,7 +159,28 @@ func (m *Manager) Update(instanceName, opID, status, message string, progress in
 		op.EndedAt = time.Now()
 	}
 
-	return m.writeOperation(op)
+	if err := m.writeOperation(op); err != nil {
+		return err
+	}
+
+	// Broadcast appropriate SSE event based on status change
+	if oldStatus != status {
+		switch status {
+		case "running":
+			m.broadcastOperationEvent("operation:progress", op)
+		case "completed":
+			m.broadcastOperationEvent("operation:completed", op)
+		case "failed":
+			m.broadcastOperationEvent("operation:failed", op)
+		case "cancelled":
+			m.broadcastOperationEvent("operation:cancelled", op)
+		}
+	} else if oldStatus == "running" && status == "running" {
+		// Progress update
+		m.broadcastOperationEvent("operation:progress", op)
+	}
+
+	return nil
 }
 
 // UpdateStatus updates only the status
@@ -144,13 +190,32 @@ func (m *Manager) UpdateStatus(instanceName, opID, status string) error {
 		return err
 	}
 
+	oldStatus := op.Status
 	op.Status = status
 
 	if status == "completed" || status == "failed" || status == "cancelled" {
 		op.EndedAt = time.Now()
 	}
 
-	return m.writeOperation(op)
+	if err := m.writeOperation(op); err != nil {
+		return err
+	}
+
+	// Broadcast appropriate SSE event based on status change
+	if oldStatus != status {
+		switch status {
+		case "running":
+			m.broadcastOperationEvent("operation:progress", op)
+		case "completed":
+			m.broadcastOperationEvent("operation:completed", op)
+		case "failed":
+			m.broadcastOperationEvent("operation:failed", op)
+		case "cancelled":
+			m.broadcastOperationEvent("operation:cancelled", op)
+		}
+	}
+
+	return nil
 }
 
 // UpdateProgress updates operation progress
@@ -165,7 +230,14 @@ func (m *Manager) UpdateProgress(instanceName, opID string, progress int, messag
 		op.Message = message
 	}
 
-	return m.writeOperation(op)
+	if err := m.writeOperation(op); err != nil {
+		return err
+	}
+
+	// Broadcast progress event
+	m.broadcastOperationEvent("operation:progress", op)
+
+	return nil
 }
 
 // Cancel requests operation cancellation
@@ -282,4 +354,34 @@ func (m *Manager) writeOperation(op *Operation) error {
 	}
 
 	return nil
+}
+
+// broadcastOperationEvent sends an SSE event for operation changes
+func (m *Manager) broadcastOperationEvent(eventType string, op *Operation) {
+	if m.sseManager == nil || op == nil {
+		return
+	}
+
+	// Create SSE event
+	event := &SSEEvent{
+		ID:           fmt.Sprintf("op-%s-%d", op.ID, time.Now().UnixNano()),
+		Type:         eventType,
+		InstanceName: op.Instance,
+		Timestamp:    time.Now(),
+		Data: map[string]interface{}{
+			"operation_id": op.ID,
+			"type":         op.Type,
+			"target":       op.Target,
+			"status":       op.Status,
+			"progress":     op.Progress,
+			"message":      op.Message,
+			"details":      op.Details,
+		},
+		Metadata: map[string]interface{}{
+			"operation_type": op.Type,
+			"target":         op.Target,
+		},
+	}
+
+	m.sseManager.Broadcast(event)
 }

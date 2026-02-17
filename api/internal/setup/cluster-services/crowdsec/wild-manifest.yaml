@@ -5,6 +5,7 @@ namespace: crowdsec
 category: infrastructure
 
 dependencies:
+  - longhorn
   - traefik
 
 configReferences:

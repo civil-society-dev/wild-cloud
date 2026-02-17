@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { getApiBaseUrl } from './config';
 import type { Operation, OperationListResponse } from './types';
 
 export const operationsApi = {
@@ -16,7 +17,7 @@ export const operationsApi = {
 
   // SSE stream for operation updates
   createStream(instanceName: string, operationId: string): EventSource {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
+    const baseUrl = getApiBaseUrl();
     return new EventSource(`${baseUrl}/api/v1/instances/${instanceName}/operations/${operationId}/stream`);
   },
 };

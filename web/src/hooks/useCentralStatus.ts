@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../services/api/client';
+import { useFilteredSSE } from './useGlobalSSE';
 
 interface CentralStatus {
   status: string;
@@ -20,12 +21,23 @@ interface CentralStatus {
  * @returns Central server status information
  */
 export function useCentralStatus() {
+  // Use global SSE and filter for central status events
+  useFilteredSSE(
+    'global', // Filter for global events only
+    ['central:status', 'central:health'], // Filter for central event types
+    {
+      enabled: true
+    }
+  );
+
   return useQuery({
     queryKey: ['central', 'status'],
     queryFn: async (): Promise<CentralStatus> => {
       return apiClient.get('/api/v1/status');
     },
-    // Poll every 5 seconds to keep uptime current
-    refetchInterval: 5000,
+    // No polling - SSE handles updates
+    refetchInterval: false,
+    // Keep data fresh for longer since SSE provides updates
+    staleTime: 120000,
   });
 }

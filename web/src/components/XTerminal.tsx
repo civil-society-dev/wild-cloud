@@ -3,12 +3,13 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import '@xterm/xterm/css/xterm.css';
+import { getApiBaseUrl } from '@/services/api/config';
 
 interface XTerminalProps {
   instanceId: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
+const API_BASE_URL = getApiBaseUrl();
 
 // Storage keys for terminal history per instance
 const getHistoryKey = (instanceId: string) => `wild-terminal-history-${instanceId}`;

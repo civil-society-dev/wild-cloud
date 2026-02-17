@@ -1,13 +1,24 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiService } from '../services/api-legacy';
 import type { DnsmasqStatus, DnsmasqConfigResponse, StatusResponse } from '../types';
+import { useFilteredSSE } from './useGlobalSSE';
 
 export const useDnsmasq = () => {
+  // Add SSE support for real-time dnsmasq status updates
+  useFilteredSSE(
+    'global', // dnsmasq is a global/central service
+    ['dnsmasq:restart', 'dnsmasq:config'],
+    { enabled: true }
+  );
+
   // Query for status
   const statusQuery = useQuery<DnsmasqStatus>({
     queryKey: ['dnsmasq', 'status'],
     queryFn: () => apiService.getDnsmasqStatus(),
-    refetchInterval: 5000, // Poll every 5 seconds
+    // No polling - SSE handles updates
+    refetchInterval: false,
+    // Keep data fresh for longer since SSE provides updates
+    staleTime: 60000,
   });
 
   // Query for config

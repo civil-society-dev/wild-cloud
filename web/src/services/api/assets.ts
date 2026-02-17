@@ -1,8 +1,9 @@
 import { apiClient } from './client';
+import { getApiBaseUrl } from './config';
 import type { AssetListResponse, PXEAsset, DownloadAssetRequest, AssetStatusResponse } from './types/asset';
 
 // Get API base URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5055';
+const API_BASE_URL = getApiBaseUrl();
 
 export const assetsApi = {
   // List all assets (schematic@version combinations)

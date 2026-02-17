@@ -4,6 +4,7 @@ import { useInstanceContext } from '../hooks/useInstanceContext';
 import { AppSidebar } from '../components/AppSidebar';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '../components/ui/sidebar';
 import { HelpProvider, useHelp } from '../contexts/HelpContext';
+import { SSEProvider } from '../contexts/SSEContext';
 import { HelpPanel } from '../components/HelpPanel';
 import { Button } from '../components/ui/button';
 import { HelpCircle } from 'lucide-react';
@@ -60,10 +61,12 @@ export function InstanceLayout() {
   }
 
   return (
-    <HelpProvider>
-      <SidebarProvider>
-        <InstanceLayoutContent />
-      </SidebarProvider>
-    </HelpProvider>
+    <SSEProvider instanceName={instanceId}>
+      <HelpProvider>
+        <SidebarProvider>
+          <InstanceLayoutContent />
+        </SidebarProvider>
+      </HelpProvider>
+    </SSEProvider>
   );
 }

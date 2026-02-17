@@ -194,7 +194,7 @@ export function DnsComponent() {
         }
       } else {
         // Test internal resolution via Wild Central API
-        const response = await fetch(`http://localhost:5055/api/v1/network/resolve?domain=${domain}`);
+        const response = await fetch(`/api/v1/network/resolve?domain=${domain}`);
         const data = await response.json();
 
         if (data.success && data.ip) {

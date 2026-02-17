@@ -145,11 +145,11 @@ export function AppDetailPanel({
     }
   }, [showSecrets, instanceName, appName, secrets]);
 
-  // Reset backup resources when app changes or tab changes
+  // Reset backup resources when app changes
   useEffect(() => {
     setBackupResources([]);
     setHasLoadedBackupResources(false);
-  }, [appName, activeTab]);
+  }, [appName]);
 
   // Fetch backup resources when Data tab is selected
   useEffect(() => {
