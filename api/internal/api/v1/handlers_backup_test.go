@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wild-cloud/wild-central/daemon/internal/instance"
+	"github.com/wild-cloud/wild-central/daemon/internal/sse"
 	"gopkg.in/yaml.v3"
 )
 
@@ -959,10 +960,11 @@ func TestBackupAppOperations(t *testing.T) {
 	tmpDir := t.TempDir()
 	dataDir := filepath.Join(tmpDir, "data")
 
-	// Create test API instance
+	// Create test API instance with SSE manager (not started to avoid goroutines in tests)
 	api := &API{
-		dataDir:  dataDir,
-		instance: instance.NewManager(dataDir),
+		dataDir:    dataDir,
+		instance:   instance.NewManager(dataDir),
+		sseManager: sse.NewManager(), // Create real SSE manager but don't start it
 	}
 
 	// Create instance directory

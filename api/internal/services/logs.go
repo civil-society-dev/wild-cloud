@@ -30,22 +30,32 @@ func (m *Manager) GetLogs(instanceName, serviceName string, opts contracts.Servi
 
 	kubectl := tools.NewKubectl(kubeconfigPath)
 
-	// 3. Get pod name (use first pod if no specific container specified)
+	// 3. Get pod name - first try to get pods from the service's deployment
 	podName := ""
-	if opts.Container == "" {
-		// Get first pod in namespace
-		podName, err = kubectl.GetFirstPodName(namespace)
+	var pods []tools.PodInfo
+
+	// Try to get pods by deployment name (assumes deployment name matches service name)
+	deploymentName := serviceName
+	pods, err = kubectl.GetPodsByDeployment(namespace, deploymentName)
+	if err != nil || len(pods) == 0 {
+		// Fallback to getting all pods in namespace
+		pods, err = kubectl.GetPods(namespace, false)
 		if err != nil {
-			// Check if it's because there are no pods
-			pods, _ := kubectl.GetPods(namespace, false)
-			if len(pods) == 0 {
-				// Return empty logs response instead of error when no pods exist
-				return &contracts.ServiceLogsResponse{
-					Lines: []string{"No pods found for service. The service may not be deployed yet."},
-				}, nil
-			}
-			return nil, fmt.Errorf("failed to find pod: %w", err)
+			return nil, fmt.Errorf("failed to list pods: %w", err)
 		}
+	}
+
+	// Check if we have any pods
+	if len(pods) == 0 {
+		return &contracts.ServiceLogsResponse{
+			Lines: []string{"No pods found for service. The service may not be deployed yet."},
+		}, nil
+	}
+
+	// Use first pod or find pod with specified container
+	if opts.Container == "" {
+		// Use first pod
+		podName = pods[0].Name
 
 		// If no container specified, get first container
 		containers, err := kubectl.GetPodContainers(namespace, podName)
@@ -57,15 +67,7 @@ func (m *Manager) GetLogs(instanceName, serviceName string, opts contracts.Servi
 		}
 	} else {
 		// Find pod with specified container
-		pods, err := kubectl.GetPods(namespace, false)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list pods: %w", err)
-		}
-		if len(pods) > 0 {
-			podName = pods[0].Name
-		} else {
-			return nil, fmt.Errorf("no pods found in namespace %s", namespace)
-		}
+		podName = pods[0].Name
 	}
 
 	// 4. Set default tail if not specified
@@ -131,20 +133,32 @@ func (m *Manager) StreamLogs(instanceName, serviceName string, opts contracts.Se
 
 	kubectl := tools.NewKubectl(kubeconfigPath)
 
-	// 3. Get pod name
+	// 3. Get pod name - first try to get pods from the service's deployment
 	podName := ""
-	if opts.Container == "" {
-		podName, err = kubectl.GetFirstPodName(namespace)
+	var pods []tools.PodInfo
+
+	// Try to get pods by deployment name (assumes deployment name matches service name)
+	deploymentName := serviceName
+	pods, err = kubectl.GetPodsByDeployment(namespace, deploymentName)
+	if err != nil || len(pods) == 0 {
+		// Fallback to getting all pods in namespace
+		pods, err = kubectl.GetPods(namespace, false)
 		if err != nil {
-			// Check if it's because there are no pods
-			pods, _ := kubectl.GetPods(namespace, false)
-			if len(pods) == 0 {
-				// Send a message event indicating no pods
-				fmt.Fprintf(writer, "data: No pods found for service. The service may not be deployed yet.\n\n")
-				return nil
-			}
-			return fmt.Errorf("failed to find pod: %w", err)
+			return fmt.Errorf("failed to list pods: %w", err)
 		}
+	}
+
+	// Check if we have any pods
+	if len(pods) == 0 {
+		// Send a message event indicating no pods
+		fmt.Fprintf(writer, "data: No pods found for service. The service may not be deployed yet.\n\n")
+		return nil
+	}
+
+	// Use first pod or find pod with specified container
+	if opts.Container == "" {
+		// Use first pod
+		podName = pods[0].Name
 
 		// Get first container
 		containers, err := kubectl.GetPodContainers(namespace, podName)
@@ -155,15 +169,8 @@ func (m *Manager) StreamLogs(instanceName, serviceName string, opts contracts.Se
 			opts.Container = containers[0]
 		}
 	} else {
-		pods, err := kubectl.GetPods(namespace, false)
-		if err != nil {
-			return fmt.Errorf("failed to list pods: %w", err)
-		}
-		if len(pods) > 0 {
-			podName = pods[0].Name
-		} else {
-			return fmt.Errorf("no pods found in namespace %s", namespace)
-		}
+		// Use first pod with specified container
+		podName = pods[0].Name
 	}
 
 	// 4. Set default tail for streaming

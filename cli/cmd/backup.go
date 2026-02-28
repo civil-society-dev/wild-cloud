@@ -100,7 +100,12 @@ var backupListCmd = &cobra.Command{
 			} `json:"data"`
 		}
 
-		if err := json.Unmarshal([]byte(resp.Raw), &result); err != nil {
+		// Marshal resp.Data to JSON then unmarshal to our struct
+		dataBytes, err := json.Marshal(resp.Data)
+		if err != nil {
+			return fmt.Errorf("failed to marshal response data: %w", err)
+		}
+		if err := json.Unmarshal(dataBytes, &result); err != nil {
 			return fmt.Errorf("failed to parse response: %w", err)
 		}
 
@@ -170,7 +175,12 @@ var backupVerifyCmd = &cobra.Command{
 			} `json:"data"`
 		}
 
-		if err := json.Unmarshal([]byte(resp.Raw), &result); err != nil {
+		// Marshal resp.Data to JSON then unmarshal to our struct
+		dataBytes, err := json.Marshal(resp.Data)
+		if err != nil {
+			return fmt.Errorf("failed to marshal response data: %w", err)
+		}
+		if err := json.Unmarshal(dataBytes, &result); err != nil {
 			return fmt.Errorf("failed to parse response: %w", err)
 		}
 
@@ -254,7 +264,12 @@ var backupAllCmd = &cobra.Command{
 			} `json:"data"`
 		}
 
-		if err := json.Unmarshal([]byte(resp.Raw), &result); err != nil {
+		// Marshal resp.Data to JSON then unmarshal to our struct
+		dataBytes, err := json.Marshal(resp.Data)
+		if err != nil {
+			return fmt.Errorf("failed to marshal response data: %w", err)
+		}
+		if err := json.Unmarshal(dataBytes, &result); err != nil {
 			return fmt.Errorf("failed to parse response: %w", err)
 		}
 
@@ -325,7 +340,12 @@ var backupDiscoverCmd = &cobra.Command{
 			} `json:"data"`
 		}
 
-		if err := json.Unmarshal([]byte(resp.Raw), &result); err != nil {
+		// Marshal resp.Data to JSON then unmarshal to our struct
+		dataBytes, err := json.Marshal(resp.Data)
+		if err != nil {
+			return fmt.Errorf("failed to marshal response data: %w", err)
+		}
+		if err := json.Unmarshal(dataBytes, &result); err != nil {
 			return fmt.Errorf("failed to parse response: %w", err)
 		}
 

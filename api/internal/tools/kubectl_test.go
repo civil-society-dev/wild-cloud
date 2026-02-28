@@ -655,3 +655,124 @@ func TestFormatMemory(t *testing.T) {
 	}
 }
 
+func TestKubectlGetPodsByDeployment(t *testing.T) {
+	tests := []struct {
+		name           string
+		namespace      string
+		deploymentName string
+		skipTest       bool
+		wantError      bool
+	}{
+		{
+			name:           "get pods for deployment",
+			namespace:      "kube-system",
+			deploymentName: "coredns",
+			skipTest:       true,
+			wantError:      false,
+		},
+		{
+			name:           "deployment not found",
+			namespace:      "default",
+			deploymentName: "nonexistent-deployment",
+			skipTest:       true,
+			wantError:      true,
+		},
+		{
+			name:           "empty deployment name",
+			namespace:      "default",
+			deploymentName: "",
+			skipTest:       true,
+			wantError:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipTest {
+				t.Skip("Skipping test that requires kubectl and running cluster")
+			}
+
+			k := NewKubectl("")
+			pods, err := k.GetPodsByDeployment(tt.namespace, tt.deploymentName)
+
+			if tt.wantError {
+				if err == nil {
+					t.Error("GetPodsByDeployment() error = nil, wantError = true")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("GetPodsByDeployment() error = %v, wantError = false", err)
+				}
+				if pods == nil {
+					t.Error("GetPodsByDeployment() returned nil slice without error")
+				}
+			}
+		})
+	}
+}
+
+func TestKubectlGetPodsByLabel(t *testing.T) {
+	tests := []struct {
+		name          string
+		namespace     string
+		labelSelector string
+		skipTest      bool
+		wantError     bool
+	}{
+		{
+			name:          "get pods by label",
+			namespace:     "kube-system",
+			labelSelector: "k8s-app=kube-dns",
+			skipTest:      true,
+			wantError:     false,
+		},
+		{
+			name:          "get all pods with empty selector",
+			namespace:     "default",
+			labelSelector: "",
+			skipTest:      true,
+			wantError:     false,
+		},
+		{
+			name:          "get pods by multiple labels",
+			namespace:     "default",
+			labelSelector: "app=nginx,environment=production",
+			skipTest:      true,
+			wantError:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipTest {
+				t.Skip("Skipping test that requires kubectl and running cluster")
+			}
+
+			k := NewKubectl("")
+			pods, err := k.GetPodsByLabel(tt.namespace, tt.labelSelector)
+
+			if tt.wantError {
+				if err == nil {
+					t.Error("GetPodsByLabel() error = nil, wantError = true")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("GetPodsByLabel() error = %v, wantError = false", err)
+				}
+				if pods == nil {
+					t.Error("GetPodsByLabel() returned nil slice without error")
+				}
+				// Verify pod structure
+				for i, pod := range pods {
+					if pod.Name == "" {
+						t.Errorf("pod[%d].Name is empty", i)
+					}
+					if pod.Status == "" {
+						t.Errorf("pod[%d].Status is empty", i)
+					}
+				}
+			}
+		})
+	}
+}
+

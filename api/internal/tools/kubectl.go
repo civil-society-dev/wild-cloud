@@ -304,6 +304,144 @@ func (k *Kubectl) GetFirstPodName(namespace string) (string, error) {
 	return pods[0].Name, nil
 }
 
+// GetPodsByDeployment returns pods belonging to a specific deployment
+func (k *Kubectl) GetPodsByDeployment(namespace, deploymentName string) ([]PodInfo, error) {
+	// First, get the deployment to find its selector labels
+	args := []string{
+		"get", "deployment", deploymentName,
+		"-n", namespace,
+		"-o", "jsonpath={.spec.selector.matchLabels}",
+	}
+
+	if k.kubeconfigPath != "" {
+		args = append([]string{"--kubeconfig", k.kubeconfigPath}, args...)
+	}
+
+	cmd := exec.Command("kubectl", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		// Deployment might not exist, try to get pods by app label
+		return k.GetPodsByLabel(namespace, fmt.Sprintf("app=%s", deploymentName))
+	}
+
+	// Parse the selector labels
+	var labels map[string]string
+	if err := json.Unmarshal(output, &labels); err != nil {
+		// Fallback to simple app label
+		return k.GetPodsByLabel(namespace, fmt.Sprintf("app=%s", deploymentName))
+	}
+
+	// Build label selector string
+	var selectors []string
+	for key, value := range labels {
+		selectors = append(selectors, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	if len(selectors) == 0 {
+		// No selectors found, try app label as fallback
+		return k.GetPodsByLabel(namespace, fmt.Sprintf("app=%s", deploymentName))
+	}
+
+	labelSelector := strings.Join(selectors, ",")
+	return k.GetPodsByLabel(namespace, labelSelector)
+}
+
+// GetPodsByLabel returns pods matching a label selector
+func (k *Kubectl) GetPodsByLabel(namespace, labelSelector string) ([]PodInfo, error) {
+	args := []string{
+		"get", "pods",
+		"-n", namespace,
+		"-l", labelSelector,
+		"-o", "json",
+	}
+
+	if k.kubeconfigPath != "" {
+		args = append([]string{"--kubeconfig", k.kubeconfigPath}, args...)
+	}
+
+	cmd := exec.Command("kubectl", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pods with selector %s: %w", labelSelector, err)
+	}
+
+	// Parse the pod list - reuse existing parsing logic
+	var podList struct {
+		Items []struct {
+			Metadata struct {
+				Name              string    `json:"name"`
+				CreationTimestamp time.Time `json:"creationTimestamp"`
+			} `json:"metadata"`
+			Spec struct {
+				NodeName   string `json:"nodeName"`
+				Containers []struct {
+					Name  string `json:"name"`
+					Image string `json:"image"`
+				} `json:"containers"`
+			} `json:"spec"`
+			Status struct {
+				Phase      string `json:"phase"`
+				PodIP      string `json:"podIP"`
+				Conditions []struct {
+					Type               string    `json:"type"`
+					Status             string    `json:"status"`
+					LastTransitionTime time.Time `json:"lastTransitionTime"`
+					Reason             string    `json:"reason"`
+					Message            string    `json:"message"`
+				} `json:"conditions"`
+				ContainerStatuses []struct {
+					Name         string `json:"name"`
+					Image        string `json:"image"`
+					Ready        bool   `json:"ready"`
+					RestartCount int    `json:"restartCount"`
+					State        struct {
+						Running    *struct{ StartedAt time.Time }    `json:"running,omitempty"`
+						Waiting    *struct{ Reason, Message string } `json:"waiting,omitempty"`
+						Terminated *struct{ Reason, Message string } `json:"terminated,omitempty"`
+					} `json:"state"`
+				} `json:"containerStatuses"`
+			} `json:"status"`
+		} `json:"items"`
+	}
+
+	if err := json.Unmarshal(output, &podList); err != nil {
+		return nil, fmt.Errorf("failed to parse pod list: %w", err)
+	}
+
+	pods := make([]PodInfo, 0, len(podList.Items))
+	for _, item := range podList.Items {
+		pod := PodInfo{
+			Name:   item.Metadata.Name,
+			Status: item.Status.Phase,
+			Node:   item.Spec.NodeName,
+			IP:     item.Status.PodIP,
+		}
+
+		// Add container info if needed
+		for _, container := range item.Spec.Containers {
+			pod.Containers = append(pod.Containers, ContainerInfo{
+				Name:  container.Name,
+				Image: container.Image,
+			})
+		}
+
+		// Calculate ready count and restarts
+		readyCount := 0
+		totalCount := len(item.Status.ContainerStatuses)
+		for _, status := range item.Status.ContainerStatuses {
+			pod.Restarts += status.RestartCount
+			if status.Ready {
+				readyCount++
+			}
+		}
+		pod.Ready = fmt.Sprintf("%d/%d", readyCount, totalCount)
+
+		pods = append(pods, pod)
+	}
+
+	return pods, nil
+}
+
 // GetPodContainers returns container names for a pod
 func (k *Kubectl) GetPodContainers(namespace, podName string) ([]string, error) {
 	args := []string{
