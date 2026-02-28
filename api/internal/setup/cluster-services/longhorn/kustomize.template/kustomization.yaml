@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - longhorn.yaml
   - ingress.yaml
+  - volumesnapshotclass-longhorn.yaml

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,11 +7,9 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { Button } from '../ui/button';
-import { Checkbox } from '../ui/checkbox';
-import { Label } from '../ui/label';
-import { Database, Settings, Key, Loader2, Server } from 'lucide-react';
+import { Loader2, Server } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
-import { backupsApi, type ClusterBackupComponents } from '../../services/api/backups';
+import { backupsApi } from '../../services/api/backups';
 import { toast } from 'sonner';
 
 interface CreateClusterBackupModalProps {
@@ -28,24 +25,12 @@ export function CreateClusterBackupModal({
   onClose,
   onSuccess,
 }: CreateClusterBackupModalProps) {
-  const [components, setComponents] = useState<ClusterBackupComponents>({
-    etcd: true,
-    config: true,
-    secrets: true,
-  });
-
   const createBackupMutation = useMutation({
-    mutationFn: () => backupsApi.createClusterBackup(instanceName, components),
+    mutationFn: () => backupsApi.backupAllApps(instanceName),
     onSuccess: () => {
-      toast.success('Cluster backup started');
+      toast.success('Backup started for all apps');
       onSuccess?.();
       onClose();
-      // Reset to defaults
-      setComponents({
-        etcd: true,
-        config: true,
-        secrets: true,
-      });
     },
     onError: (error: Error) => {
       toast.error(`Failed to create cluster backup: ${error.message}`);
@@ -53,10 +38,6 @@ export function CreateClusterBackupModal({
   });
 
   const handleSubmit = () => {
-    if (!components.etcd && !components.config && !components.secrets) {
-      toast.error('Please select at least one component to backup');
-      return;
-    }
     createBackupMutation.mutate();
   };
 
@@ -72,79 +53,23 @@ export function CreateClusterBackupModal({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <Server className="h-5 w-5 text-blue-500" />
-            <DialogTitle>Create Cluster Backup</DialogTitle>
+            <DialogTitle>Backup All Apps</DialogTitle>
           </div>
           <DialogDescription>
-            Select which cluster components to include in the backup.
+            Create backups for all deployed applications including their databases,
+            persistent volumes, and configuration.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="etcd"
-              checked={components.etcd}
-              onCheckedChange={(checked) =>
-                setComponents((prev) => ({ ...prev, etcd: checked as boolean }))
-              }
-            />
-            <Label
-              htmlFor="etcd"
-              className="flex items-center gap-2 cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              <Database className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div>etcd Database</div>
-                <div className="text-xs text-muted-foreground font-normal">
-                  Backup the etcd cluster state and data
-                </div>
-              </div>
-            </Label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="config"
-              checked={components.config}
-              onCheckedChange={(checked) =>
-                setComponents((prev) => ({ ...prev, config: checked as boolean }))
-              }
-            />
-            <Label
-              htmlFor="config"
-              className="flex items-center gap-2 cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              <Settings className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div>Instance Configuration</div>
-                <div className="text-xs text-muted-foreground font-normal">
-                  Backup the instance config.yaml file
-                </div>
-              </div>
-            </Label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="secrets"
-              checked={components.secrets}
-              onCheckedChange={(checked) =>
-                setComponents((prev) => ({ ...prev, secrets: checked as boolean }))
-              }
-            />
-            <Label
-              htmlFor="secrets"
-              className="flex items-center gap-2 cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              <Key className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div>Instance Secrets</div>
-                <div className="text-xs text-muted-foreground font-normal">
-                  Backup the instance secrets.yaml file
-                </div>
-              </div>
-            </Label>
-          </div>
+        <div className="py-4">
+          <p className="text-sm text-muted-foreground">
+            This will create a backup for each deployed app including:
+          </p>
+          <ul className="mt-3 space-y-1 text-sm text-muted-foreground list-disc list-inside">
+            <li>PostgreSQL and MySQL databases</li>
+            <li>Persistent Volume Claims (PVCs)</li>
+            <li>App configuration</li>
+          </ul>
         </div>
 
         <DialogFooter>

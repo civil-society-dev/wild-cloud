@@ -11,7 +11,6 @@ import (
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v3"
 
-	"github.com/wild-cloud/wild-central/daemon/internal/backup"
 	"github.com/wild-cloud/wild-central/daemon/internal/config"
 	"github.com/wild-cloud/wild-central/daemon/internal/context"
 	"github.com/wild-cloud/wild-central/daemon/internal/dnsmasq"
@@ -34,7 +33,6 @@ type API struct {
 	dnsmasq         *dnsmasq.ConfigGenerator
 	opsMgr          *operations.Manager     // Operations manager
 	broadcaster     *operations.Broadcaster // SSE broadcaster for operation output
-	backupScheduler *backup.Scheduler       // Backup scheduler
 	sseManager      *sse.Manager            // SSE manager for real-time events
 	watcherManager  *sse.WatcherManager     // Manager for kubectl/talos watchers
 }
@@ -83,16 +81,11 @@ func NewAPI(dataDir, appsDir string) (*API, error) {
 		dnsmasq:         dnsmasq.NewConfigGenerator(dnsmasqConfigPath),
 		opsMgr:          opsMgr,
 		broadcaster:     operations.NewBroadcaster(),
-		backupScheduler: nil, // Set later via SetBackupScheduler
 		sseManager:      sseManager,
 		watcherManager:  watcherManager,
 	}, nil
 }
 
-// SetBackupScheduler sets the backup scheduler for the API
-func (api *API) SetBackupScheduler(scheduler *backup.Scheduler) {
-	api.backupScheduler = scheduler
-}
 
 // StartCentralStatusBroadcaster starts periodic broadcasting of central status
 func (api *API) StartCentralStatusBroadcaster(startTime time.Time) {
@@ -223,41 +216,13 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup", api.BackupAppStart).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup", api.BackupAppList).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup/{timestamp}", api.BackupAppDelete).Methods("DELETE")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup/{timestamp}/verify", api.BackupAppVerify).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup/discover", api.BackupAppDiscoverResources).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/restore", api.BackupAppRestore).Methods("POST")
-
-	// Restore from Restic Snapshots
-	r.HandleFunc("/api/v1/instances/{name}/backups/snapshots", api.ListSnapshots).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/snapshots", api.ListAppSnapshots).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/restore/{snapshot}", api.RestoreFromSnapshot).Methods("POST")
-
-	// Backup & Restore - Cluster
-	r.HandleFunc("/api/v1/instances/{name}/backups/all", api.BackupListAll).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/cluster/backup", api.BackupClusterStart).Methods("POST")
-	r.HandleFunc("/api/v1/instances/{name}/cluster/backup", api.BackupClusterList).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/cluster/restore", api.BackupClusterRestore).Methods("POST")
-	r.HandleFunc("/api/v1/instances/{name}/cluster/backup/{timestamp}", api.BackupClusterDelete).Methods("DELETE")
-
-	// Backup Schedules
-	r.HandleFunc("/api/v1/instances/{name}/backup-schedules", api.ScheduleListHandler).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/backup-schedules", api.ScheduleCreateHandler).Methods("POST")
-	r.HandleFunc("/api/v1/instances/{name}/backup-schedules/{schedule_id}", api.ScheduleGetHandler).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/backup-schedules/{schedule_id}", api.ScheduleUpdateHandler).Methods("PUT")
-	r.HandleFunc("/api/v1/instances/{name}/backup-schedules/{schedule_id}", api.ScheduleDeleteHandler).Methods("DELETE")
-	r.HandleFunc("/api/v1/instances/{name}/backup-schedules/{schedule_id}/run", api.ScheduleRunHandler).Methods("POST")
-	r.HandleFunc("/api/v1/instances/{name}/backup-schedules/{schedule_id}/history", api.ScheduleHistoryHandler).Methods("GET")
-	r.HandleFunc("/api/v1/scheduler/status", api.SchedulerStatusHandler).Methods("GET")
 
 	// Global Configuration
 	r.HandleFunc("/api/v1/config", api.GetGlobalConfig).Methods("GET")
 	r.HandleFunc("/api/v1/config", api.UpdateGlobalConfig).Methods("PUT")
-
-	// Backup Configuration
-	r.HandleFunc("/api/v1/config/backup", api.GetBackupConfig).Methods("GET")
-	r.HandleFunc("/api/v1/config/backup", api.UpdateBackupConfig).Methods("PUT")
-	r.HandleFunc("/api/v1/config/backup/test", api.TestBackupConfig).Methods("POST")
-	r.HandleFunc("/api/v1/instances/{name}/backups/repository/status", api.GetRepositoryStatus).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/backups/repository/init", api.InitRepository).Methods("POST")
 
 	// Utilities
 	r.HandleFunc("/api/v1/instances/{name}/utilities/health", api.InstanceUtilitiesHealth).Methods("GET")

@@ -14,7 +14,6 @@ import (
 	"github.com/rs/cors"
 
 	v1 "github.com/wild-cloud/wild-central/daemon/internal/api/v1"
-	"github.com/wild-cloud/wild-central/daemon/internal/backup"
 )
 
 var startTime time.Time
@@ -59,13 +58,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize API: %v", err)
 	}
-
-	// Initialize backup scheduler
-	backupMgr := backup.NewManager(dataDir)
-	scheduler := backup.NewScheduler(backupMgr)
-	api.SetBackupScheduler(scheduler)
-	scheduler.Start()
-	log.Println("Backup scheduler initialized")
 
 	// Start central status SSE broadcaster
 	api.StartCentralStatusBroadcaster(startTime)
@@ -183,6 +175,5 @@ func main() {
 	// Wait for shutdown signal
 	<-sigChan
 	log.Println("Shutting down gracefully...")
-	scheduler.Stop()
 	log.Println("Shutdown complete")
 }

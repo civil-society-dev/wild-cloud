@@ -15,17 +15,19 @@ import { toast } from 'sonner';
  * Hook to fetch and manage backup schedules for an instance
  */
 export function useSchedules(instanceName: string | null | undefined) {
-  // Query for listing schedules
+  // Schedules feature is not implemented yet - disable the query entirely
   const schedulesQuery = useQuery({
     queryKey: ['instances', instanceName, 'backup-schedules'],
     queryFn: () => listSchedules(instanceName!),
-    enabled: !!instanceName,
+    enabled: false, // Disabled until schedules API is implemented
+    retry: false,
+    staleTime: Infinity,
   });
 
   return {
-    schedules: schedulesQuery.data || [],
-    isLoading: schedulesQuery.isLoading,
-    error: schedulesQuery.error,
+    schedules: [] as BackupSchedule[], // Always return empty array for now
+    isLoading: false, // Not loading since we're not fetching
+    error: null, // No error since we're not fetching
     refetch: schedulesQuery.refetch,
   };
 }

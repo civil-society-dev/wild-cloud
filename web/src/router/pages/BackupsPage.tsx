@@ -19,7 +19,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useDeployedApps } from '../../hooks/useApps';
-import { useAllBackupsUnified, calculateBackupMetrics } from '../../hooks/useBackups';
+import { useAllBackups, calculateBackupMetrics } from '../../hooks/useBackups';
 import { useSchedules, useDeleteSchedule, useRunSchedule, useToggleSchedule } from '../../hooks/useSchedules';
 import { backupsApi } from '../../services/api/backups';
 import { BackupCard } from '../../components/backup/BackupCard';
@@ -54,10 +54,11 @@ export function BackupsPage() {
   const [selectedSchedule, setSelectedSchedule] = useState<BackupSchedule | null>(null);
 
   // Fetch deployed apps to get their backups
-  const { isLoading: isLoadingApps } = useDeployedApps(instanceId);
+  const { apps: deployedAppsData, isLoading: isLoadingApps } = useDeployedApps(instanceId);
+  const deployedApps = deployedAppsData?.map((app: any) => app.name) || [];
 
   // Fetch all backups (cluster + apps)
-  const { allBackups, isLoading: isLoadingBackups, refetch } = useAllBackupsUnified(instanceId);
+  const { backups: allBackups, isLoading: isLoadingBackups, refetch } = useAllBackups(instanceId, deployedApps);
 
   // Fetch schedules
   const { schedules, isLoading: isLoadingSchedules } = useSchedules(instanceId);
@@ -161,11 +162,8 @@ export function BackupsPage() {
         return;
       }
 
-      if (backup.type === 'cluster') {
-        await backupsApi.deleteClusterBackup(instanceId, backup.timestamp);
-      } else {
-        await backupsApi.deleteAppBackup(instanceId, backup.app_name, backup.timestamp);
-      }
+      // All backups are app-level backups
+      await backupsApi.deleteAppBackup(instanceId, backup.app_name, backup.timestamp);
       refetch();
     } catch (error) {
       console.error('Failed to delete backup:', error);

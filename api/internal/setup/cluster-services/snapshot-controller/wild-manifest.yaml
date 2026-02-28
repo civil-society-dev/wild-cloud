@@ -1,0 +1,11 @@
+name: snapshot-controller
+description: Kubernetes CSI Snapshot Controller for managing VolumeSnapshots
+version: v8.1.0
+namespace: kube-system
+deploymentName: snapshot-controller
+category: infrastructure
+
+configReferences:
+  - cluster.name
+
+serviceConfig: {}

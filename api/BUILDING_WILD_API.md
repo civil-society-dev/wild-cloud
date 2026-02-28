@@ -19,7 +19,7 @@ Use tests on the API extensively to keep the API functioning well for all client
 - Like v.PoC, we should only use gomplate templates for distinguishing between cloud instances. However, **within** a cloud instance, there should be no templating. The templates are compiled when being copied into the instances. This allows transparency and simple management by the user.
 - Manage state and infrastructure idempotently.
 - Cluster state should be the k8s cluster itself, not local files. It should be accessed via kubectl and talosctl.
-- All wild cloud state should be stored on the filesystem in easy to read YAML files, and can be edited directly or through the webapp.
+- All wild cloud state should be stored on the filesystem in easy to read YAML files, and can be edited directly or through the webapp. Avoid changing state directly on the server when it can be updated with manifest files.
 - All code should be simple and easy to understand.
   - Avoid unnecessary complexity.
   - Avoid unnecessary dependencies.

@@ -1,26 +1,32 @@
 import { apiClient } from './client';
 
 // Backup data models
+
+/**
+ * Component backup information
+ */
+export interface ComponentBackup {
+  type: string;     // "postgres", "mysql", "pvc", "config"
+  name: string;     // Component identifier
+  size: number;
+  location: string; // Path in destination
+  metadata: Record<string, any>;
+}
+
+/**
+ * App backup information
+ */
 export interface BackupInfo {
   app_name: string;
   timestamp: string;
-  type: string; // "full", "database", "pvc", "cluster"
+  type: string;      // "full"
   size?: number;
-  status: string; // "completed", "failed", "in_progress"
+  status: string;    // "completed", "failed", "in_progress"
   error?: string;
-  files: string[];
+  components: ComponentBackup[];
   created_at: string;
-}
-
-export interface ClusterBackupComponents {
-  etcd: boolean;
-  config: boolean;
-  secrets: boolean;
-}
-
-export interface ClusterBackupInfo extends BackupInfo {
-  instance_name: string;
-  components: ClusterBackupComponents;
+  verified: boolean;
+  verified_at?: string;
 }
 
 export interface BackupListResponse {
@@ -32,51 +38,61 @@ export interface BackupListResponse {
 
 export interface BackupOperationResponse {
   success: boolean;
-  operation_id: string;
-  message: string;
+  operation_id?: string;
+  message?: string;
 }
 
+/**
+ * Restore options for an app
+ */
 export interface RestoreOptions {
-  db_only?: boolean;
-  pvc_only?: boolean;
-  skip_globals?: boolean;
-  snapshot_id?: string;
+  timestamp?: string;      // Specific backup timestamp to restore
+  components?: string[];   // Specific components to restore
+  skip_data?: boolean;     // Skip data, restore only config
 }
 
-export interface ClusterRestoreOptions {
-  timestamp: string;
-  etcd: boolean;
-  config: boolean;
-  secrets: boolean;
+/**
+ * Backup resource discovery
+ */
+export interface BackupResourceInfo {
+  name: string;
+  type: string;          // "database", "pvc", "secret"
+  plugin: string;        // "postgres", "mysql", "longhorn-pvc", etc.
+  source: Record<string, any>;  // Resource-specific info
+  shouldBackup: boolean;
+  reason?: string;       // Why it's included/excluded
 }
 
-export interface AllBackupsResponse {
+export interface DiscoverResourcesResponse {
   success: boolean;
   data: {
-    cluster: ClusterBackupInfo[];
-    apps: Record<string, BackupInfo[]>;
+    app: string;
+    resources: BackupResourceInfo[];
   };
 }
 
-export interface ClusterBackupListResponse {
+/**
+ * Backup verification result
+ */
+export interface ComponentVerification {
+  type: string;
   success: boolean;
-  data: {
-    backups: ClusterBackupInfo[];
-  };
+  error?: string;
+}
+
+export interface VerificationResult {
+  success: boolean;
+  components: ComponentVerification[];
+  tested_at: string;
+}
+
+export interface VerificationResponse {
+  success: boolean;
+  data: VerificationResult;
 }
 
 // Backup API service
 export const backupsApi = {
-  /**
-   * List all backups (cluster and apps) for an instance
-   */
-  async listAllBackups(instanceName: string): Promise<AllBackupsResponse['data']> {
-    const response = await apiClient.get<AllBackupsResponse>(
-      `/api/v1/instances/${instanceName}/backups/all`
-    );
-    return response.data;
-  },
-
   /**
    * List all backups for a specific app
    */
@@ -88,9 +104,9 @@ export const backupsApi = {
   },
 
   /**
-   * Create a new backup for an app
+   * Start a backup for an app
    */
-  async createAppBackup(instanceName: string, appName: string): Promise<BackupOperationResponse> {
+  async startAppBackup(instanceName: string, appName: string): Promise<BackupOperationResponse> {
     return await apiClient.post<BackupOperationResponse>(
       `/api/v1/instances/${instanceName}/apps/${appName}/backup`
     );
@@ -111,56 +127,58 @@ export const backupsApi = {
   },
 
   /**
-   * List cluster backups for an instance
-   */
-  async listClusterBackups(instanceName: string): Promise<ClusterBackupInfo[]> {
-    const response = await apiClient.get<ClusterBackupListResponse>(
-      `/api/v1/instances/${instanceName}/cluster/backup`
-    );
-    return response.data.backups || [];
-  },
-
-  /**
-   * Create a cluster backup
-   */
-  async createClusterBackup(
-    instanceName: string,
-    components: ClusterBackupComponents
-  ): Promise<BackupOperationResponse> {
-    return await apiClient.post<BackupOperationResponse>(
-      `/api/v1/instances/${instanceName}/cluster/backup`,
-      components
-    );
-  },
-
-  /**
-   * Restore cluster from backup
-   */
-  async restoreClusterBackup(
-    instanceName: string,
-    options: ClusterRestoreOptions
-  ): Promise<BackupOperationResponse> {
-    return await apiClient.post<BackupOperationResponse>(
-      `/api/v1/instances/${instanceName}/cluster/restore`,
-      options
-    );
-  },
-
-  /**
-   * Delete a cluster backup
-   */
-  async deleteClusterBackup(instanceName: string, timestamp: string): Promise<void> {
-    await apiClient.delete(
-      `/api/v1/instances/${instanceName}/cluster/backup/${timestamp}`
-    );
-  },
-
-  /**
    * Delete an app backup
    */
   async deleteAppBackup(instanceName: string, appName: string, timestamp: string): Promise<void> {
     await apiClient.delete(
       `/api/v1/instances/${instanceName}/apps/${appName}/backup/${timestamp}`
     );
+  },
+
+  /**
+   * Verify a backup can be restored
+   */
+  async verifyBackup(
+    instanceName: string,
+    appName: string,
+    timestamp?: string
+  ): Promise<VerificationResult> {
+    const endpoint = timestamp
+      ? `/api/v1/instances/${instanceName}/apps/${appName}/backup/verify/${timestamp}`
+      : `/api/v1/instances/${instanceName}/apps/${appName}/backup/verify`;
+
+    const response = await apiClient.post<VerificationResponse>(endpoint);
+    return response.data;
+  },
+
+  /**
+   * Discover backup resources for an app
+   */
+  async discoverResources(instanceName: string, appName: string): Promise<DiscoverResourcesResponse['data']> {
+    const response = await apiClient.get<DiscoverResourcesResponse>(
+      `/api/v1/instances/${instanceName}/apps/${appName}/backup/discover`
+    );
+    return response.data;
+  },
+
+  /**
+   * Backup all deployed apps
+   * Note: This endpoint is not yet implemented in the API
+   */
+  async backupAllApps(_instanceName: string): Promise<BackupOperationResponse> {
+    // For now, return a mock response as the endpoint isn't implemented
+    throw new Error('Backup all apps feature is not yet implemented');
+  },
+
+  /**
+   * Get backup statistics for all apps
+   */
+  async getBackupStats(instanceName: string): Promise<Record<string, BackupInfo[]>> {
+    // Returns a map of app name to backup list
+    const response = await apiClient.get<{
+      success: boolean;
+      data: Record<string, BackupInfo[]>;
+    }>(`/api/v1/instances/${instanceName}/backups/stats`);
+    return response.data || {};
   },
 };

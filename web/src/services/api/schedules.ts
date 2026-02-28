@@ -58,10 +58,18 @@ export interface SchedulerStatusResponse {
 
 // List all backup schedules for an instance
 export async function listSchedules(instanceName: string): Promise<BackupSchedule[]> {
-  const response = await apiClient.get<ScheduleListResponse>(
-    `/api/v1/instances/${instanceName}/backup-schedules`
-  );
-  return response.schedules;
+  try {
+    const response = await apiClient.get<ScheduleListResponse>(
+      `/api/v1/instances/${instanceName}/backup-schedules`
+    );
+    return response.schedules;
+  } catch (error: any) {
+    // Schedules API not implemented yet, return empty array
+    if (error.response?.status === 404 || error.response?.status === 405) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 // Create a new backup schedule

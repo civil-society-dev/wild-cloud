@@ -142,18 +142,18 @@ export function BackupDetailsModal({
             </Card>
           </div>
 
-          {/* Contents List */}
-          {backup.files && backup.files.length > 0 && (
+          {/* Components List */}
+          {backup.components && backup.components.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Contents</CardTitle>
+                <CardTitle className="text-sm">Components</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2">
-                  {backup.files.map((file, i) => (
+                  {backup.components.map((component, i) => (
                     <li key={i} className="flex items-center gap-2 text-sm">
                       <FileIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="truncate">{file}</span>
+                      <span className="truncate">{component.name} ({component.type})</span>
                     </li>
                   ))}
                 </ul>
@@ -187,10 +187,10 @@ export function BackupDetailsModal({
                 <span className="text-muted-foreground">Created:</span>
                 <span>{formatTimestamp(backup.created_at)}</span>
               </div>
-              {backup.files && (
+              {backup.components && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Files:</span>
-                  <span>{backup.files.length}</span>
+                  <span className="text-muted-foreground">Components:</span>
+                  <span>{backup.components.length}</span>
                 </div>
               )}
             </CardContent>

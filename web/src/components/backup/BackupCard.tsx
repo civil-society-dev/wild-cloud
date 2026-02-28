@@ -14,9 +14,8 @@ import {
   Trash2,
   Database,
   Settings,
-  Key,
 } from 'lucide-react';
-import type { BackupInfo, ClusterBackupInfo } from '../../services/api/backups';
+import type { BackupInfo } from '../../services/api/backups';
 
 interface BackupCardProps {
   backup: BackupInfo;
@@ -33,9 +32,6 @@ export function BackupCard({
   onDelete,
   onDownload,
 }: BackupCardProps) {
-  const isClusterBackup = backup.type === 'cluster';
-  const clusterBackup = isClusterBackup ? (backup as ClusterBackupInfo) : null;
-
   // Determine backup type icon
   const getTypeIcon = () => {
     if (backup.type === 'cluster') {
@@ -116,36 +112,28 @@ export function BackupCard({
     return parts.join(' • ') || 'Backup';
   };
 
-  // Get cluster components display
-  const getClusterComponents = () => {
-    if (!clusterBackup) return null;
+  // Get backup components display
+  const getBackupComponents = () => {
+    if (!backup.components || backup.components.length === 0) return null;
 
-    const components = [];
-    if (clusterBackup.components.etcd) {
-      components.push(
-        <Badge key="etcd" variant="outline" className="gap-1">
-          <Database className="h-3 w-3" />
-          etcd
+    // Group components by type
+    const componentsByType: Record<string, number> = {};
+    backup.components.forEach(comp => {
+      componentsByType[comp.type] = (componentsByType[comp.type] || 0) + 1;
+    });
+
+    return Object.entries(componentsByType).map(([type, count]) => {
+      const Icon = type === 'postgres' || type === 'mysql' ? Database :
+                   type === 'config' ? Settings :
+                   type === 'pvc' ? Database : Settings;
+
+      return (
+        <Badge key={type} variant="outline" className="gap-1">
+          <Icon className="h-3 w-3" />
+          {type} {count > 1 && `(${count})`}
         </Badge>
       );
-    }
-    if (clusterBackup.components.config) {
-      components.push(
-        <Badge key="config" variant="outline" className="gap-1">
-          <Settings className="h-3 w-3" />
-          Config
-        </Badge>
-      );
-    }
-    if (clusterBackup.components.secrets) {
-      components.push(
-        <Badge key="secrets" variant="outline" className="gap-1">
-          <Key className="h-3 w-3" />
-          Secrets
-        </Badge>
-      );
-    }
-    return components;
+    });
   };
 
   return (
@@ -172,17 +160,14 @@ export function BackupCard({
                 {getDescription()}
               </p>
 
-              {isClusterBackup && clusterBackup && (
+              {backup.components && backup.components.length > 0 && (
                 <div className="flex gap-1 flex-wrap mt-2">
-                  {getClusterComponents()}
+                  {getBackupComponents()}
                 </div>
               )}
 
               <p className="text-xs text-muted-foreground">
                 {formatTimestamp(backup.created_at)}
-                {backup.files && backup.files.length > 0 && (
-                  <> • {backup.files.length} file{backup.files.length !== 1 ? 's' : ''}</>
-                )}
               </p>
 
               {backup.error && (

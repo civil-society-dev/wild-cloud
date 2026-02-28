@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/wild-cloud/wild-central/daemon/internal/backup"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
+	"github.com/wild-cloud/wild-central/daemon/internal/sse"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 	"gopkg.in/yaml.v3"
 )
@@ -22,11 +23,51 @@ func (api *API) BackupAppStart(w http.ResponseWriter, r *http.Request) {
 	instanceName := GetInstanceName(r)
 	appName := GetAppName(r)
 
+	// Publish backup started event
+	api.sseManager.Broadcast(&sse.Event{
+		Type:         "backup:started",
+		InstanceName: instanceName,
+		Data: map[string]interface{}{
+			"app": appName,
+		},
+		Metadata: map[string]interface{}{
+			"app": appName,
+		},
+	})
+
 	api.StartAsyncOperation(w, instanceName, "backup", appName,
 		func(opsMgr *operations.Manager, opID string) error {
 			_ = opsMgr.UpdateProgress(instanceName, opID, 10, "Starting backup")
 			mgr := backup.NewManager(api.dataDir)
-			_, err := mgr.BackupApp(instanceName, appName)
+			backupInfo, err := mgr.BackupApp(instanceName, appName)
+
+			// Publish backup completed or failed event
+			if err != nil {
+				api.sseManager.Broadcast(&sse.Event{
+					Type:         "backup:failed",
+					InstanceName: instanceName,
+					Data: map[string]interface{}{
+						"app":   appName,
+						"error": err.Error(),
+					},
+					Metadata: map[string]interface{}{
+						"app": appName,
+					},
+				})
+			} else {
+				api.sseManager.Broadcast(&sse.Event{
+					Type:         "backup:completed",
+					InstanceName: instanceName,
+					Data: map[string]interface{}{
+						"app":    appName,
+						"backup": backupInfo,
+					},
+					Metadata: map[string]interface{}{
+						"app": appName,
+					},
+				})
+			}
+
 			return err
 		})
 }
@@ -61,11 +102,51 @@ func (api *API) BackupAppRestore(w http.ResponseWriter, r *http.Request) {
 		opts = backup.RestoreOptions{}
 	}
 
+	// Publish restore started event
+	api.sseManager.Broadcast(&sse.Event{
+		Type:         "restore:started",
+		InstanceName: instanceName,
+		Data: map[string]interface{}{
+			"app": appName,
+		},
+		Metadata: map[string]interface{}{
+			"app": appName,
+		},
+	})
+
 	api.StartAsyncOperation(w, instanceName, "restore", appName,
 		func(opsMgr *operations.Manager, opID string) error {
 			_ = opsMgr.UpdateProgress(instanceName, opID, 10, "Starting restore")
 			mgr := backup.NewManager(api.dataDir)
-			return mgr.RestoreApp(instanceName, appName, opts)
+			err := mgr.RestoreApp(instanceName, appName, opts)
+
+			// Publish restore completed or failed event
+			if err != nil {
+				api.sseManager.Broadcast(&sse.Event{
+					Type:         "restore:failed",
+					InstanceName: instanceName,
+					Data: map[string]interface{}{
+						"app":   appName,
+						"error": err.Error(),
+					},
+					Metadata: map[string]interface{}{
+						"app": appName,
+					},
+				})
+			} else {
+				api.sseManager.Broadcast(&sse.Event{
+					Type:         "restore:completed",
+					InstanceName: instanceName,
+					Data: map[string]interface{}{
+						"app": appName,
+					},
+					Metadata: map[string]interface{}{
+						"app": appName,
+					},
+				})
+			}
+
+			return err
 		})
 }
 
@@ -77,13 +158,98 @@ func (api *API) BackupAppDelete(w http.ResponseWriter, r *http.Request) {
 
 	mgr := backup.NewManager(api.dataDir)
 	if err := mgr.DeleteAppBackup(instanceName, appName, timestamp); err != nil {
+		// Publish delete failed event
+		api.sseManager.Broadcast(&sse.Event{
+			Type:         "backup:delete:failed",
+			InstanceName: instanceName,
+			Data: map[string]interface{}{
+				"app":       appName,
+				"timestamp": timestamp,
+				"error":     err.Error(),
+			},
+			Metadata: map[string]interface{}{
+				"app": appName,
+			},
+		})
 		respondError(w, http.StatusInternalServerError, "Failed to delete backup")
 		return
 	}
 
+	// Publish delete completed event
+	api.sseManager.Broadcast(&sse.Event{
+		Type:         "backup:deleted",
+		InstanceName: instanceName,
+		Data: map[string]interface{}{
+			"app":       appName,
+			"timestamp": timestamp,
+		},
+		Metadata: map[string]interface{}{
+			"app": appName,
+		},
+	})
+
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Backup deleted successfully",
+	})
+}
+
+// BackupAppVerify verifies a specific app backup can be restored
+func (api *API) BackupAppVerify(w http.ResponseWriter, r *http.Request) {
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
+	timestamp := mux.Vars(r)["timestamp"]
+
+	// Publish verify started event
+	api.sseManager.Broadcast(&sse.Event{
+		Type:         "backup:verify:started",
+		InstanceName: instanceName,
+		Data: map[string]interface{}{
+			"app":       appName,
+			"timestamp": timestamp,
+		},
+		Metadata: map[string]interface{}{
+			"app": appName,
+		},
+	})
+
+	mgr := backup.NewManager(api.dataDir)
+	result, err := mgr.VerifyBackup(instanceName, appName, timestamp)
+	if err != nil {
+		// Publish verify failed event
+		api.sseManager.Broadcast(&sse.Event{
+			Type:         "backup:verify:failed",
+			InstanceName: instanceName,
+			Data: map[string]interface{}{
+				"app":       appName,
+				"timestamp": timestamp,
+				"error":     err.Error(),
+			},
+			Metadata: map[string]interface{}{
+				"app": appName,
+			},
+		})
+		respondError(w, http.StatusInternalServerError, "Failed to verify backup")
+		return
+	}
+
+	// Publish verify completed event
+	api.sseManager.Broadcast(&sse.Event{
+		Type:         "backup:verified",
+		InstanceName: instanceName,
+		Data: map[string]interface{}{
+			"app":       appName,
+			"timestamp": timestamp,
+			"result":    result,
+		},
+		Metadata: map[string]interface{}{
+			"app": appName,
+		},
+	})
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    result,
 	})
 }
 
