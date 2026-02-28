@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input, Label } from './ui';
 import { Textarea } from './ui/textarea';
+import { Alert, AlertDescription } from './ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X, Globe, Play, RotateCw, Copy, ChevronDown, ChevronUp, Edit } from 'lucide-react';
+import { HardDrive, Settings, Clock, CheckCircle, BookOpen, ExternalLink, Loader2, AlertCircle, Database, FolderTree, Mail, Router, Edit2, Check, X, XCircle, Play, RotateCw, Copy, ChevronDown, ChevronUp, Edit } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useCentralStatus } from '../hooks/useCentralStatus';
 import { useInstanceConfig, useInstanceContext, useConfig } from '../hooks';
@@ -517,7 +518,7 @@ export function CentralComponent() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(`http://${globalConfig.cloud.router.ip}`, '_blank')}
+                    onClick={() => window.open(`http://${globalConfig?.cloud?.router?.ip}`, '_blank')}
                     className="gap-2"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -705,10 +706,10 @@ export function CentralComponent() {
               )}
 
               {(dnsGenerateError || dnsRestartError) && (
-                <Alert variant="destructive" className="mt-4">
+                <Alert variant="error" className="mt-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    {dnsGenerateError || dnsRestartError}
+                    {(dnsGenerateError || dnsRestartError)?.toString()}
                   </AlertDescription>
                 </Alert>
               )}

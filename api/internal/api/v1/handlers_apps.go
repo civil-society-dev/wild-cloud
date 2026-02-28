@@ -110,6 +110,17 @@ func (api *API) AppsDeploy(w http.ResponseWriter, r *http.Request) {
 		})
 }
 
+// AppsRestart performs a rolling restart of an app's pods
+func (api *API) AppsRestart(w http.ResponseWriter, r *http.Request) {
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
+
+	api.startAppOperation(w, instanceName, appName, "restart_app", "App restarted",
+		func(mgr *apps.Manager, instance, app string) error {
+			return mgr.Restart(instance, app)
+		})
+}
+
 // AppsDelete deletes an app
 func (api *API) AppsDelete(w http.ResponseWriter, r *http.Request) {
 	instanceName := GetInstanceName(r)

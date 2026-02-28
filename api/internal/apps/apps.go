@@ -800,6 +800,33 @@ func (m *Manager) Deploy(instanceName, appName string) error {
 	return nil
 }
 
+// Restart performs a rolling restart of all deployments and statefulsets in an app's namespace
+func (m *Manager) Restart(instanceName, appName string) error {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
+	// Restart deployments
+	deployCmd := exec.Command("kubectl", "rollout", "restart", "deployment", "-n", appName)
+	tools.WithKubeconfig(deployCmd, kubeconfigPath)
+	if output, err := deployCmd.CombinedOutput(); err != nil {
+		// Ignore "no resources found" errors - namespace may only have statefulsets
+		if !strings.Contains(string(output), "no resources found") {
+			return fmt.Errorf("failed to restart deployments: %w\nOutput: %s", err, string(output))
+		}
+	}
+
+	// Restart statefulsets
+	stsCmd := exec.Command("kubectl", "rollout", "restart", "statefulset", "-n", appName)
+	tools.WithKubeconfig(stsCmd, kubeconfigPath)
+	if output, err := stsCmd.CombinedOutput(); err != nil {
+		// Ignore "no resources found" errors - namespace may only have deployments
+		if !strings.Contains(string(output), "no resources found") {
+			return fmt.Errorf("failed to restart statefulsets: %w\nOutput: %s", err, string(output))
+		}
+	}
+
+	return nil
+}
+
 // Delete removes an app from the cluster and configuration
 func (m *Manager) Delete(instanceName, appName string) error {
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)

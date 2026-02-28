@@ -1,6 +1,6 @@
 import { useQuery, useQueries, useMutation, useQueryClient, useMutationState } from '@tanstack/react-query';
 import { appsApi, operationsApi } from '../services/api';
-import type { AppAddRequest } from '../services/api';
+import type { AppAddRequest, Config } from '../services/api';
 import { toast } from 'sonner';
 import { useFilteredSSE } from './useGlobalSSE';
 
@@ -72,6 +72,21 @@ export function useDeployedApps(instanceName: string | null | undefined) {
     },
   });
 
+  const updateConfigMutation = useMutation({
+    mutationKey: ['updateConfig', instanceName],
+    mutationFn: async ({ appName, config }: { appName: string; config: Config }) => {
+      return appsApi.updateConfig(instanceName!, appName, config);
+    },
+    onSuccess: (_, { appName }) => {
+      toast.success(`${appName} configuration updated. Redeploy to apply changes.`, { id: `config-${appName}` });
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'apps'] });
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'apps', appName] });
+    },
+    onError: (error, { appName }) => {
+      toast.error(`Failed to update ${appName} config: ${error.message}`, { id: `config-${appName}` });
+    },
+  });
+
   const deployMutation = useMutation({
     mutationKey: ['deployApp', instanceName],
     mutationFn: async (appName: string) => {
@@ -86,6 +101,23 @@ export function useDeployedApps(instanceName: string | null | undefined) {
     },
     onError: (error, appName) => {
       toast.error(`Failed to deploy ${appName}: ${error.message}`, { id: `deploy-${appName}` });
+    },
+  });
+
+  const restartMutation = useMutation({
+    mutationKey: ['restartApp', instanceName],
+    mutationFn: async (appName: string) => {
+      toast.loading(`Restarting ${appName}...`, { id: `restart-${appName}` });
+      const response = await appsApi.restart(instanceName!, appName);
+      await pollOperation(instanceName!, response.operation_id);
+      return response;
+    },
+    onSuccess: (_, appName) => {
+      toast.success(`${appName} restarted successfully`, { id: `restart-${appName}` });
+      queryClient.invalidateQueries({ queryKey: ['instances', instanceName, 'apps'] });
+    },
+    onError: (error, appName) => {
+      toast.error(`Failed to restart ${appName}: ${error.message}`, { id: `restart-${appName}` });
     },
   });
 
@@ -129,6 +161,11 @@ export function useDeployedApps(instanceName: string | null | undefined) {
     select: (mutation) => mutation.state.variables as string,
   });
 
+  const pendingRestarts = useMutationState({
+    filters: { mutationKey: ['restartApp', instanceName], status: 'pending' },
+    select: (mutation) => mutation.state.variables as string,
+  });
+
   const pendingDeletes = useMutationState({
     filters: { mutationKey: ['deleteApp', instanceName], status: 'pending' },
     select: (mutation) => mutation.state.variables as string,
@@ -153,9 +190,14 @@ export function useDeployedApps(instanceName: string | null | undefined) {
     isAdding: addMutation.isPending,
     addingAppNames: pendingAdds,
     addResult: addMutation.data,
+    updateConfig: updateConfigMutation.mutate,
+    isUpdatingConfig: updateConfigMutation.isPending,
     updateApp: updateMutation.mutate,
     isUpdating: updateMutation.isPending,
     updatingAppNames: pendingUpdates,
+    restartApp: restartMutation.mutate,
+    isRestarting: restartMutation.isPending,
+    restartingAppNames: pendingRestarts,
     deployApp: deployMutation.mutate,
     isDeploying: deployMutation.isPending,
     deployingAppNames: pendingDeploys,

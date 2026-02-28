@@ -38,6 +38,10 @@ export const appsApi = {
     return apiClient.post(`/api/v1/instances/${instanceName}/apps/${appName}/deploy`);
   },
 
+  async restart(instanceName: string, appName: string): Promise<OperationResponse> {
+    return apiClient.post(`/api/v1/instances/${instanceName}/apps/${appName}/restart`);
+  },
+
   async update(instanceName: string, appName: string): Promise<OperationResponse> {
     return apiClient.post(`/api/v1/instances/${instanceName}/apps/${appName}/update`);
   },
@@ -48,6 +52,10 @@ export const appsApi = {
 
   async getConfig(instanceName: string, appName: string): Promise<Config> {
     return apiClient.get(`/api/v1/instances/${instanceName}/apps/${appName}/config`);
+  },
+
+  async updateConfig(instanceName: string, appName: string, config: Config): Promise<{ message: string; app: string }> {
+    return apiClient.patch(`/api/v1/instances/${instanceName}/apps/${appName}/config`, { config });
   },
 
   async getStatus(instanceName: string, appName: string): Promise<AppStatus> {

@@ -204,6 +204,7 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/instances/{name}/apps", api.AppsListDeployed).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/apps", api.AppsAdd).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/deploy", api.AppsDeploy).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/restart", api.AppsRestart).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/update", api.AppsUpdate).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/eject", api.AppsEject).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/config", api.AppsGetConfig).Methods("GET")

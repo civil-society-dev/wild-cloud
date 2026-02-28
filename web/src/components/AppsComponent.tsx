@@ -46,6 +46,10 @@ export function AppsComponent() {
     addApp,
     isAdding,
     addingAppNames,
+    updateConfig,
+    isUpdatingConfig,
+    restartApp,
+    restartingAppNames,
     updateApp,
     updatingAppNames,
     deployApp,
@@ -266,11 +270,17 @@ export function AppsComponent() {
   const handleConfigSave = (appName: string, config: Config, requiredAppMappings?: Record<string, string>) => {
     if (!selectedAppForConfig) return;
 
-    addApp({
-      name: appName,
-      config: config,
-      requiredAppMappings: requiredAppMappings,
-    });
+    if (selectedAppForConfig.deploymentStatus) {
+      // App already exists - update config via PATCH (recompiles templates)
+      updateConfig({ appName, config });
+    } else {
+      // New app - add via POST
+      addApp({
+        name: appName,
+        config: config,
+        requiredAppMappings: requiredAppMappings,
+      });
+    }
 
     setConfigDialogOpen(false);
     setSelectedAppForConfig(null);
@@ -468,7 +478,7 @@ export function AppsComponent() {
         existingConfig={selectedAppForConfig?.config}
         existingAppName={selectedAppForConfig?.deploymentStatus ? selectedAppForConfig.name : undefined}
         onSave={handleConfigSave}
-        isSaving={isAdding}
+        isSaving={isAdding || isUpdatingConfig}
       />
 
       {/* App Detail Panel */}
@@ -493,6 +503,7 @@ export function AppsComponent() {
             setSelectedAppForBackup(appName);
             setRestoreModalOpen(true);
           }}
+          onRestart={(appName) => restartApp(appName)}
           onConfigure={async (appName) => {
             const app = installedApps.find(a => a.name === appName);
             if (app) {
@@ -510,6 +521,7 @@ export function AppsComponent() {
             }
           }}
           isDeploying={deployingAppNames.includes(selectedAppForDetail)}
+          isRestarting={restartingAppNames.includes(selectedAppForDetail)}
           isUpdating={updatingAppNames.includes(selectedAppForDetail)}
           isDeleting={deletingAppNames.includes(selectedAppForDetail)}
           updateAvailable={installedApps.find(a => a.name === selectedAppForDetail)?.updateAvailable || false}

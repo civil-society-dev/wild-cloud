@@ -43,9 +43,11 @@ interface AppDetailPanelProps {
   onBackup: (appName: string) => void;
   onRestore: (appName: string) => void;
   onConfigure: (appName: string) => void;
+  onRestart: (appName: string) => void;
   isDeploying: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
+  isRestarting: boolean;
   updateAvailable: boolean;
   availableVersion?: string;
 }
@@ -61,9 +63,11 @@ export function AppDetailPanel({
   onBackup,
   onRestore,
   onConfigure,
+  onRestart,
   isDeploying,
   isUpdating,
   isDeleting,
+  isRestarting,
   updateAvailable,
   availableVersion,
 }: AppDetailPanelProps) {
@@ -304,6 +308,46 @@ export function AppDetailPanel({
                     )}
                     Update to {availableVersion}
                   </Button>
+                )}
+
+                {/* Deployed: reconfigure and redeploy */}
+                {(appDetails.status === 'deployed' || appDetails.status === 'running') && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onConfigure(appName)}
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Reconfigure
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onDeploy(appName)}
+                      disabled={isDeploying}
+                    >
+                      {isDeploying ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      Redeploy
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onRestart(appName)}
+                      disabled={isRestarting}
+                    >
+                      {isRestarting ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                      )}
+                      Restart
+                    </Button>
+                  </>
                 )}
 
                 {/* Deployed: backup and restore */}
