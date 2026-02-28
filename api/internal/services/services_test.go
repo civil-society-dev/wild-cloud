@@ -776,3 +776,477 @@ func TestNewManager(t *testing.T) {
 	// This is environment-dependent
 	t.Logf("Loaded %d service manifests", len(m.manifests))
 }
+
+// TestExtractConfigValues tests extracting config values from manifest references
+func TestExtractConfigValues(t *testing.T) {
+	tests := []struct {
+		name           string
+		configContent  string
+		paths          []string
+		expectedValues map[string]string
+		expectError    bool
+	}{
+		{
+			name: "extract simple config references",
+			configContent: `
+cloud:
+  domain: example.com
+cluster:
+  ipAddressPool: 192.168.1.10-192.168.1.20
+`,
+			paths: []string{
+				"cloud.domain",
+				"cluster.ipAddressPool",
+			},
+			expectedValues: map[string]string{
+				"cloud.domain":          "example.com",
+				"cluster.ipAddressPool": "192.168.1.10-192.168.1.20",
+			},
+		},
+		{
+			name: "extract nested service config",
+			configContent: `
+cluster:
+  services:
+    test-service:
+      smtp:
+        host: mail.example.com
+        port: "587"
+`,
+			paths: []string{
+				"cluster.services.test-service.smtp.host",
+				"cluster.services.test-service.smtp.port",
+			},
+			expectedValues: map[string]string{
+				"cluster.services.test-service.smtp.host": "mail.example.com",
+				"cluster.services.test-service.smtp.port": "587",
+			},
+		},
+		{
+			name: "handle missing config values",
+			configContent: `
+cloud:
+  domain: example.com
+`,
+			paths: []string{
+				"cloud.domain",
+				"cloud.missing.value",
+			},
+			expectedValues: map[string]string{
+				"cloud.domain":        "example.com",
+				"cloud.missing.value": "",
+			},
+		},
+		{
+			name:           "no config references",
+			configContent:  `config: test`,
+			paths:          []string{},
+			expectedValues: map[string]string{},
+		},
+		{
+			name: "convert non-string values",
+			configContent: `
+cluster:
+  port: 8080
+  enabled: true
+`,
+			paths: []string{
+				"cluster.port",
+				"cluster.enabled",
+			},
+			expectedValues: map[string]string{
+				"cluster.port":    "8080",
+				"cluster.enabled": "true",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yaml")
+
+			// Write config file
+			if err := os.WriteFile(configPath, []byte(tt.configContent), 0644); err != nil {
+				t.Fatalf("Failed to write config file: %v", err)
+			}
+
+			values, err := extractConfigValues(configPath, tt.paths)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(values) != len(tt.expectedValues) {
+				t.Errorf("Got %d values, expected %d", len(values), len(tt.expectedValues))
+			}
+
+			for key, expectedValue := range tt.expectedValues {
+				if actualValue, exists := values[key]; !exists {
+					t.Errorf("Missing key %s", key)
+				} else if actualValue != expectedValue {
+					t.Errorf("Key %s: got %s, expected %s", key, actualValue, expectedValue)
+				}
+			}
+		})
+	}
+}
+
+// TestSaveAndLoadCompileConfig tests saving and loading compile config
+func TestSaveAndLoadCompileConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create service directory
+	serviceDir := filepath.Join(tmpDir, "test-service")
+	os.MkdirAll(serviceDir, 0755)
+
+	// Test saving config
+	configValues := map[string]string{
+		"cloud.domain":          "example.com",
+		"cluster.ipAddressPool": "192.168.1.10-192.168.1.20",
+		"smtp.host":            "mail.example.com",
+	}
+
+	err := saveCompileConfig(serviceDir, configValues)
+	if err != nil {
+		t.Fatalf("saveCompileConfig failed: %v", err)
+	}
+
+	// Verify file was created
+	configFile := filepath.Join(serviceDir, ".last-compile-config.json")
+	if _, err := os.Stat(configFile); err != nil {
+		t.Fatalf("Config file not created: %v", err)
+	}
+
+	// Test loading config
+	config, err := loadCompileConfig(serviceDir)
+	if err != nil {
+		t.Fatalf("loadCompileConfig failed: %v", err)
+	}
+
+	if config == nil {
+		t.Fatal("Loaded config is nil")
+	}
+
+	// Verify values match
+	if len(config.Values) != len(configValues) {
+		t.Errorf("Loaded %d values, expected %d", len(config.Values), len(configValues))
+	}
+
+	for key, expectedValue := range configValues {
+		if actualValue, exists := config.Values[key]; !exists {
+			t.Errorf("Missing key %s in loaded config", key)
+		} else if actualValue != expectedValue {
+			t.Errorf("Key %s: got %s, expected %s", key, actualValue, expectedValue)
+		}
+	}
+
+	// Test that timestamp is recent
+	if time.Since(config.Timestamp) > time.Second {
+		t.Errorf("Timestamp too old: %v", config.Timestamp)
+	}
+}
+
+// TestConfigValuesChanged tests config value comparison
+func TestConfigValuesChanged(t *testing.T) {
+	tests := []struct {
+		name        string
+		oldValues   map[string]string
+		newValues   map[string]string
+		expectChanged bool
+	}{
+		{
+			name: "no changes",
+			oldValues: map[string]string{
+				"cloud.domain": "example.com",
+				"smtp.host":   "mail.example.com",
+			},
+			newValues: map[string]string{
+				"cloud.domain": "example.com",
+				"smtp.host":   "mail.example.com",
+			},
+			expectChanged: false,
+		},
+		{
+			name: "value changed",
+			oldValues: map[string]string{
+				"cloud.domain": "example.com",
+			},
+			newValues: map[string]string{
+				"cloud.domain": "newexample.com",
+			},
+			expectChanged: true,
+		},
+		{
+			name: "new key added",
+			oldValues: map[string]string{
+				"cloud.domain": "example.com",
+			},
+			newValues: map[string]string{
+				"cloud.domain": "example.com",
+				"smtp.host":   "mail.example.com",
+			},
+			expectChanged: true,
+		},
+		{
+			name: "key removed",
+			oldValues: map[string]string{
+				"cloud.domain": "example.com",
+				"smtp.host":   "mail.example.com",
+			},
+			newValues: map[string]string{
+				"cloud.domain": "example.com",
+			},
+			expectChanged: true,
+		},
+		{
+			name:          "both empty",
+			oldValues:     map[string]string{},
+			newValues:     map[string]string{},
+			expectChanged: false,
+		},
+		{
+			name:      "old nil, new empty",
+			oldValues: nil,
+			newValues: map[string]string{},
+			expectChanged: false,
+		},
+		{
+			name:      "old empty, new has values",
+			oldValues: map[string]string{},
+			newValues: map[string]string{
+				"cloud.domain": "example.com",
+			},
+			expectChanged: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			changed := configValuesChanged(tt.oldValues, tt.newValues)
+			if changed != tt.expectChanged {
+				t.Errorf("configValuesChanged = %v, expected %v", changed, tt.expectChanged)
+			}
+		})
+	}
+}
+
+// TestCheckConfigurationStateWithValueTracking tests config state with value tracking
+func TestCheckConfigurationStateWithValueTracking(t *testing.T) {
+	tests := []struct {
+		name           string
+		setup          func(tmpDir string) (*Manager, string, string)
+		expectedState  string
+		expectedReason string
+	}{
+		{
+			name: "service without config references - never needs recompile for config changes",
+			setup: func(tmpDir string) (*Manager, string, string) {
+				m := &Manager{
+					dataDir: tmpDir,
+					manifests: map[string]*ServiceManifest{
+						"test-service": {
+							Name: "test-service",
+							// No ConfigReferences or ServiceConfig
+						},
+					},
+				}
+
+				instancePath := filepath.Join(tmpDir, "instances", "test-instance")
+				serviceDir := filepath.Join(instancePath, "setup", "cluster-services", "test-service")
+
+				// Create template and kustomize dirs
+				templateDir := filepath.Join(serviceDir, "kustomize.template")
+				kustomizeDir := filepath.Join(serviceDir, "kustomize")
+				os.MkdirAll(templateDir, 0755)
+				os.MkdirAll(kustomizeDir, 0755)
+				os.WriteFile(filepath.Join(templateDir, "deployment.yaml"), []byte("template"), 0644)
+				os.WriteFile(filepath.Join(kustomizeDir, "kustomization.yaml"), []byte("compiled"), 0644)
+
+				// Create config file (newer than kustomize)
+				time.Sleep(10 * time.Millisecond)
+				os.WriteFile(filepath.Join(instancePath, "config.yaml"), []byte("config: updated"), 0644)
+
+				// Write manifest to instance
+				manifestData, _ := yaml.Marshal(m.manifests["test-service"])
+				os.WriteFile(filepath.Join(serviceDir, "wild-manifest.yaml"), manifestData, 0644)
+
+				return m, "test-instance", "test-service"
+			},
+			expectedState: "compiled",
+			// Service without config refs should not trigger recompile for config changes
+		},
+		{
+			name: "config values unchanged - remains compiled",
+			setup: func(tmpDir string) (*Manager, string, string) {
+				m := &Manager{
+					dataDir: tmpDir,
+					manifests: map[string]*ServiceManifest{
+						"test-service": {
+							Name: "test-service",
+							ConfigReferences: []string{
+								"cloud.domain",
+							},
+						},
+					},
+				}
+
+				instancePath := filepath.Join(tmpDir, "instances", "test-instance")
+				serviceDir := filepath.Join(instancePath, "setup", "cluster-services", "test-service")
+
+				// Create dirs
+				templateDir := filepath.Join(serviceDir, "kustomize.template")
+				kustomizeDir := filepath.Join(serviceDir, "kustomize")
+				os.MkdirAll(templateDir, 0755)
+				os.MkdirAll(kustomizeDir, 0755)
+				os.WriteFile(filepath.Join(templateDir, "deployment.yaml"), []byte("template"), 0644)
+				os.WriteFile(filepath.Join(kustomizeDir, "kustomization.yaml"), []byte("compiled"), 0644)
+
+				// Create config
+				config := map[string]interface{}{
+					"cloud": map[string]interface{}{
+						"domain": "example.com",
+					},
+				}
+				configData, _ := yaml.Marshal(config)
+				os.WriteFile(filepath.Join(instancePath, "config.yaml"), configData, 0644)
+
+				// Save tracking file with same values
+				saveCompileConfig(serviceDir, map[string]string{
+					"cloud.domain": "example.com",
+				})
+
+				// Write manifest
+				manifestData, _ := yaml.Marshal(m.manifests["test-service"])
+				os.WriteFile(filepath.Join(serviceDir, "wild-manifest.yaml"), manifestData, 0644)
+
+				return m, "test-instance", "test-service"
+			},
+			expectedState: "compiled",
+		},
+		{
+			name: "config values changed - needs recompile",
+			setup: func(tmpDir string) (*Manager, string, string) {
+				m := &Manager{
+					dataDir: tmpDir,
+					manifests: map[string]*ServiceManifest{
+						"test-service": {
+							Name: "test-service",
+							ConfigReferences: []string{
+								"cloud.domain",
+							},
+						},
+					},
+				}
+
+				instancePath := filepath.Join(tmpDir, "instances", "test-instance")
+				serviceDir := filepath.Join(instancePath, "setup", "cluster-services", "test-service")
+
+				// Create dirs
+				templateDir := filepath.Join(serviceDir, "kustomize.template")
+				kustomizeDir := filepath.Join(serviceDir, "kustomize")
+				os.MkdirAll(templateDir, 0755)
+				os.MkdirAll(kustomizeDir, 0755)
+				os.WriteFile(filepath.Join(templateDir, "deployment.yaml"), []byte("template"), 0644)
+				os.WriteFile(filepath.Join(kustomizeDir, "kustomization.yaml"), []byte("compiled"), 0644)
+
+				// Create config with new value
+				config := map[string]interface{}{
+					"cloud": map[string]interface{}{
+						"domain": "newexample.com", // Changed!
+					},
+				}
+				configData, _ := yaml.Marshal(config)
+				os.WriteFile(filepath.Join(instancePath, "config.yaml"), configData, 0644)
+
+				// Save tracking file with old value
+				saveCompileConfig(serviceDir, map[string]string{
+					"cloud.domain": "example.com", // Old value
+				})
+
+				// Write manifest
+				manifestData, _ := yaml.Marshal(m.manifests["test-service"])
+				os.WriteFile(filepath.Join(serviceDir, "wild-manifest.yaml"), manifestData, 0644)
+
+				return m, "test-instance", "test-service"
+			},
+			expectedState:  "needs_recompile",
+			expectedReason: "config_changed",
+		},
+		{
+			name: "no tracking file - fallback to timestamp check",
+			setup: func(tmpDir string) (*Manager, string, string) {
+				m := &Manager{
+					dataDir: tmpDir,
+					manifests: map[string]*ServiceManifest{
+						"test-service": {
+							Name: "test-service",
+							ConfigReferences: []string{
+								"cloud.domain",
+							},
+						},
+					},
+				}
+
+				instancePath := filepath.Join(tmpDir, "instances", "test-instance")
+				serviceDir := filepath.Join(instancePath, "setup", "cluster-services", "test-service")
+
+				// Create old kustomize
+				kustomizeDir := filepath.Join(serviceDir, "kustomize")
+				os.MkdirAll(kustomizeDir, 0755)
+				os.WriteFile(filepath.Join(kustomizeDir, "kustomization.yaml"), []byte("compiled"), 0644)
+
+				time.Sleep(10 * time.Millisecond)
+
+				// Create newer template
+				templateDir := filepath.Join(serviceDir, "kustomize.template")
+				os.MkdirAll(templateDir, 0755)
+				os.WriteFile(filepath.Join(templateDir, "deployment.yaml"), []byte("template"), 0644)
+
+				time.Sleep(10 * time.Millisecond)
+
+				// Create newer config
+				config := map[string]interface{}{
+					"cloud": map[string]interface{}{
+						"domain": "example.com",
+					},
+				}
+				configData, _ := yaml.Marshal(config)
+				os.WriteFile(filepath.Join(instancePath, "config.yaml"), configData, 0644)
+
+				// No tracking file created
+
+				// Write manifest
+				manifestData, _ := yaml.Marshal(m.manifests["test-service"])
+				os.WriteFile(filepath.Join(serviceDir, "wild-manifest.yaml"), manifestData, 0644)
+
+				return m, "test-instance", "test-service"
+			},
+			expectedState:  "needs_recompile",
+			expectedReason: "config_changed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			m, instanceName, serviceName := tt.setup(tmpDir)
+
+			result := m.checkConfigurationState(instanceName, serviceName)
+
+			if result.State != tt.expectedState {
+				t.Errorf("State = %s, want %s", result.State, tt.expectedState)
+			}
+			if tt.expectedReason != "" && result.Reason != tt.expectedReason {
+				t.Errorf("Reason = %s, want %s", result.Reason, tt.expectedReason)
+			}
+		})
+	}
+}

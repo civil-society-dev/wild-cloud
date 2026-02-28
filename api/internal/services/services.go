@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/wild-cloud/wild-central/daemon/internal/config"
 	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/setup"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
@@ -276,10 +278,7 @@ func (m *Manager) checkConfigurationState(instanceName, serviceName string) Conf
 	templateModTime := getDirectoryModTime(templateDir)
 	kustomizeModTime := getDirectoryModTime(kustomizeDir)
 
-	configPath := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName), "config.yaml")
-	configModTime := getFileModTime(configPath)
-
-	// If templates or config changed after last compile, needs recompile
+	// If templates changed after last compile, needs recompile
 	if templateModTime.After(kustomizeModTime) {
 		lastCompiled := kustomizeModTime.Format(time.RFC3339)
 		return ConfigurationState{
@@ -289,13 +288,53 @@ func (m *Manager) checkConfigurationState(instanceName, serviceName string) Conf
 		}
 	}
 
-	if configModTime.After(kustomizeModTime) {
-		lastCompiled := kustomizeModTime.Format(time.RFC3339)
-		return ConfigurationState{
-			State:        "needs_recompile",
-			Reason:       "config_changed",
-			LastCompiled: &lastCompiled,
+	// Check if config values have changed (only for services that use config)
+	manifestPath := filepath.Join(instanceServiceDir, "wild-manifest.yaml")
+	if fileExists(manifestPath) {
+		manifest, err := LoadManifest(instanceServiceDir)
+		if err == nil {
+			configPaths := manifest.GetAllConfigPaths()
+			if len(configPaths) > 0 {
+				// This service uses config, check if values have changed
+				configPath := filepath.Join(tools.GetInstancePath(m.dataDir, instanceName), "config.yaml")
+
+				// Load previously saved config values
+				previousConfig, err := loadCompileConfig(instanceServiceDir)
+				if err != nil || previousConfig == nil {
+					// No previous config or error reading it - needs recompile
+					lastCompiled := kustomizeModTime.Format(time.RFC3339)
+					return ConfigurationState{
+						State:        "needs_recompile",
+						Reason:       "config_changed",
+						LastCompiled: &lastCompiled,
+					}
+				}
+
+				// Extract current config values
+				currentValues, err := extractConfigValues(configPath, configPaths)
+				if err != nil {
+					// Error extracting values - be safe and recompile
+					lastCompiled := kustomizeModTime.Format(time.RFC3339)
+					return ConfigurationState{
+						State:        "needs_recompile",
+						Reason:       "config_changed",
+						LastCompiled: &lastCompiled,
+					}
+				}
+
+				// Compare values
+				if configValuesChanged(previousConfig.Values, currentValues) {
+					lastCompiled := kustomizeModTime.Format(time.RFC3339)
+					return ConfigurationState{
+						State:        "needs_recompile",
+						Reason:       "config_changed",
+						LastCompiled: &lastCompiled,
+					}
+				}
+			}
+			// Service doesn't use config, so config changes don't matter
 		}
+		// Error loading manifest - fall through to "compiled" state
 	}
 
 	// Up to date
@@ -714,6 +753,94 @@ func dirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
+// CompileConfig stores the configuration values used during compilation
+type CompileConfig struct {
+	Timestamp time.Time         `json:"timestamp"`
+	Values    map[string]string `json:"values"`
+}
+
+// extractConfigValues extracts the values for the given config paths from config.yaml
+func extractConfigValues(configPath string, paths []string) (map[string]string, error) {
+	if len(paths) == 0 {
+		return make(map[string]string), nil
+	}
+
+	values := make(map[string]string)
+	configMgr := config.NewManager()
+
+	for _, path := range paths {
+		value, err := configMgr.GetConfigValue(configPath, path)
+		if err != nil {
+			// Config value might not exist yet, that's OK
+			values[path] = ""
+		} else {
+			// yq returns "null" for missing values
+			if value == "null" {
+				values[path] = ""
+			} else {
+				values[path] = value
+			}
+		}
+	}
+
+	return values, nil
+}
+
+// saveCompileConfig saves the config values used during compilation
+func saveCompileConfig(serviceDir string, values map[string]string) error {
+	configFile := filepath.Join(serviceDir, ".last-compile-config.json")
+
+	compileConfig := CompileConfig{
+		Timestamp: time.Now(),
+		Values:    values,
+	}
+
+	data, err := json.MarshalIndent(compileConfig, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal compile config: %w", err)
+	}
+
+	return os.WriteFile(configFile, data, 0644)
+}
+
+// loadCompileConfig loads the previously saved compile config
+func loadCompileConfig(serviceDir string) (*CompileConfig, error) {
+	configFile := filepath.Join(serviceDir, ".last-compile-config.json")
+
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil // No previous compile config
+		}
+		return nil, fmt.Errorf("failed to read compile config: %w", err)
+	}
+
+	var compileConfig CompileConfig
+	if err := json.Unmarshal(data, &compileConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal compile config: %w", err)
+	}
+
+	return &compileConfig, nil
+}
+
+// configValuesChanged checks if any of the config values have changed
+func configValuesChanged(oldValues, newValues map[string]string) bool {
+	// If the number of keys is different, something changed
+	if len(oldValues) != len(newValues) {
+		return true
+	}
+
+	// Check each value
+	for key, oldValue := range oldValues {
+		newValue, exists := newValues[key]
+		if !exists || oldValue != newValue {
+			return true
+		}
+	}
+
+	return false
+}
+
 // extractFS extracts files from an fs.FS to a destination directory
 func extractFS(fsys fs.FS, dst string) error {
 	return fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
@@ -759,6 +886,26 @@ func (m *Manager) Compile(instanceName, serviceName string) error {
 
 	if !fileExists(configFile) {
 		return fmt.Errorf("config.yaml not found for instance %s", instanceName)
+	}
+
+	// 2a. Extract and save config values used by this service
+	// Load the service manifest to get config paths
+	manifestPath := filepath.Join(serviceDir, "wild-manifest.yaml")
+	if fileExists(manifestPath) {
+		manifest, err := LoadManifest(serviceDir)
+		if err == nil {
+			// Get all config paths this service uses
+			configPaths := manifest.GetAllConfigPaths()
+			if len(configPaths) > 0 {
+				// Extract current values
+				values, err := extractConfigValues(configFile, configPaths)
+				if err == nil {
+					// Save them for future comparison
+					saveCompileConfig(serviceDir, values)
+				}
+				// Ignore errors - this is a nice-to-have feature
+			}
+		}
 	}
 
 	// 3. Create output directory
