@@ -19,7 +19,7 @@ describe('ServiceDetailDialog Button Visibility', () => {
   // Note: These tests use actual API values from the backend:
   // - templates.state: "not_fetched", "up_to_date", "update_available"
   // - configuration.state: "not_configured", "compiled", "needs_recompile"
-  // - deployment.state: "not_deployed", "deployed", "needs_redeploy"
+  // - deployment.state: "not_deployed", "deployed", "out_of_sync"
 
   beforeEach(() => {
     // Reset mocks before each test

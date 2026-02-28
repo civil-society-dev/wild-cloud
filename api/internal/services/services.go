@@ -391,7 +391,7 @@ func (m *Manager) checkDeploymentState(instanceName, serviceName string) Deploym
 		if !kustomizeModTime.IsZero() && !lastDeployTime.IsZero() {
 			if kustomizeModTime.After(lastDeployTime) {
 				return DeploymentState{
-					State:   "needs_redeploy",
+					State:   "out_of_sync",
 					Healthy: deploymentInfo.Ready == deploymentInfo.Desired,
 					Replicas: deploymentInfo,
 				}

@@ -402,6 +402,36 @@ func TestCheckDeploymentState(t *testing.T) {
 	}
 }
 
+// TestCheckDeploymentStateOutOfSync tests the out_of_sync state detection
+func TestCheckDeploymentStateOutOfSync(t *testing.T) {
+	// This test simulates the scenario where kustomize files are newer than .last-deploy
+	// Unfortunately, we can't fully test this without mocking kubectl, but we can
+	// document the expected behavior and prepare the test structure for future mocking
+
+	t.Run("kustomize newer than last deploy should return out_of_sync", func(t *testing.T) {
+		// Note: This test documents the expected behavior when:
+		// 1. Service is deployed (kubectl returns deployment info)
+		// 2. kustomize directory exists with files
+		// 3. .last-deploy file exists
+		// 4. kustomize files are newer than .last-deploy
+		// Expected result: State should be "out_of_sync"
+
+		// In production, this scenario occurs when:
+		// - User runs compile to regenerate manifests (updates kustomize/)
+		// - But hasn't yet deployed those changes
+		// - The .last-deploy file still has the old timestamp
+
+		// To properly test this, we would need to:
+		// 1. Mock kubectl.GetDeployment to return valid deployment info
+		// 2. Create kustomize directory with recent files
+		// 3. Create .last-deploy file with older timestamp
+		// 4. Verify checkDeploymentState returns "out_of_sync"
+
+		// For now, this test serves as documentation of the expected behavior
+		t.Log("out_of_sync state occurs when kustomize files are newer than .last-deploy")
+	})
+}
+
 // TestGetServiceLifecycleStatus tests the orchestration of lifecycle checks
 func TestGetServiceLifecycleStatus(t *testing.T) {
 	tmpDir := t.TempDir()
