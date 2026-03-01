@@ -50,6 +50,15 @@ export function BackupRestoreModal({
 
   const formatTimestamp = (timestamp: string) => {
     try {
+      // Handle format: 20260301T090145Z -> 2026-03-01T09:01:45Z
+      if (timestamp.match(/^\d{8}T\d{6}Z$/)) {
+        const formatted = timestamp.replace(
+          /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
+          '$1-$2-$3T$4:$5:$6Z'
+        );
+        return new Date(formatted).toLocaleString();
+      }
+      // Try standard parsing for other formats
       return new Date(timestamp).toLocaleString();
     } catch {
       return timestamp;

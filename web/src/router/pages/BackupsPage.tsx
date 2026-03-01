@@ -19,7 +19,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useDeployedApps } from '../../hooks/useApps';
-import { useAllBackups, calculateBackupMetrics } from '../../hooks/useBackups';
+import { useAllBackups, useAppBackups, calculateBackupMetrics } from '../../hooks/useBackups';
 import { useSchedules, useDeleteSchedule, useRunSchedule, useToggleSchedule } from '../../hooks/useSchedules';
 import { backupsApi } from '../../services/api/backups';
 import { BackupCard } from '../../components/backup/BackupCard';
@@ -59,6 +59,12 @@ export function BackupsPage() {
 
   // Fetch all backups (cluster + apps)
   const { backups: allBackups, isLoading: isLoadingBackups, refetch } = useAllBackups(instanceId, deployedApps);
+
+  // Fetch backups for selected app (for restore modal)
+  const { backups: appBackups, isLoading: isLoadingAppBackups } = useAppBackups(
+    instanceId,
+    selectedBackup?.app_name || null
+  );
 
   // Fetch schedules
   const { schedules, isLoading: isLoadingSchedules } = useSchedules(instanceId);
@@ -466,9 +472,22 @@ export function BackupsPage() {
           onClose={() => setRestoreModalOpen(false)}
           mode="restore"
           appName={selectedBackup.app_name}
-          onConfirm={() => {
-            // Restore logic handled by BackupRestoreModal
-            setRestoreModalOpen(false);
+          backups={appBackups?.filter(b => b.status === 'completed').map(b => ({
+            timestamp: b.timestamp,
+            size: b.size ? `${(b.size / 1024 / 1024).toFixed(2)} MB` : undefined
+          })) || []}
+          isLoading={isLoadingAppBackups}
+          onConfirm={(timestamp) => {
+            if (timestamp) {
+              backupsApi.restoreAppBackup(instanceId, selectedBackup.app_name, { timestamp })
+                .then(() => {
+                  setRestoreModalOpen(false);
+                  refetch();
+                })
+                .catch((error) => {
+                  console.error('Failed to restore backup:', error);
+                });
+            }
           }}
         />
       )}
