@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/apps"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
+	"gopkg.in/yaml.v3"
 )
 
 // PostgreSQLStrategy implements backup strategy for PostgreSQL databases
@@ -286,8 +288,31 @@ func (p *PostgreSQLStrategy) restoreGlobals(kubeconfigPath string, dest BackupDe
 
 // getDatabaseName determines the database name for the app
 func (p *PostgreSQLStrategy) getDatabaseName(instanceName, appName string) string {
-	// In production, this would read from config.yaml
-	// For now, use app name as database name
+	// Read from config.yaml to get the actual database name
+	configPath := tools.GetInstanceConfigPath(p.dataDir, instanceName)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		// Fall back to app name if config can't be read
+		return appName
+	}
+
+	var config map[string]interface{}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		// Fall back to app name if config can't be parsed
+		return appName
+	}
+
+	// Extract app-specific configuration
+	if apps, ok := config["apps"].(map[string]interface{}); ok {
+		if appConfig, ok := apps[appName].(map[string]interface{}); ok {
+			// Look for dbName field
+			if dbName, ok := appConfig["dbName"].(string); ok && dbName != "" {
+				return dbName
+			}
+		}
+	}
+
+	// Fall back to app name if dbName not found
 	return appName
 }
 // getPostgresPod finds the first running postgres pod
