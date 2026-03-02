@@ -32,6 +32,7 @@ import { CreateClusterBackupModal } from '../../components/backup/CreateClusterB
 import { BackupRestoreModal } from '../../components/BackupRestoreModal';
 import type { BackupInfo } from '../../services/api/backups';
 import type { BackupSchedule } from '../../services/api/schedules';
+import { toast } from 'sonner';
 
 type FilterType = 'all' | 'apps' | 'cluster';
 
@@ -47,6 +48,7 @@ export function BackupsPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createClusterModalOpen, setCreateClusterModalOpen] = useState(false);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   // Schedule state
   const [createScheduleModalOpen, setCreateScheduleModalOpen] = useState(false);
@@ -477,18 +479,45 @@ export function BackupsPage() {
             size: b.size ? `${(b.size / 1024 / 1024).toFixed(2)} MB` : undefined
           })) || []}
           isLoading={isLoadingAppBackups}
-          onConfirm={(timestamp) => {
+          onConfirm={async (timestamp) => {
             if (timestamp) {
-              backupsApi.restoreAppBackup(instanceId, selectedBackup.app_name, { timestamp })
-                .then(() => {
-                  setRestoreModalOpen(false);
-                  refetch();
-                })
-                .catch((error) => {
-                  console.error('Failed to restore backup:', error);
+              setIsRestoring(true);
+              toast.info('Starting restore operation...', {
+                description: `Restoring ${selectedBackup.app_name} from backup`,
+                duration: 5000,
+              });
+
+              try {
+                const response = await backupsApi.restoreAppBackup(instanceId, selectedBackup.app_name, { timestamp });
+
+                // Check if we got an operation ID
+                if (response.operation_id) {
+                  toast.success('Restore initiated', {
+                    description: `Operation ID: ${response.operation_id}. The restore is running in the background.`,
+                    duration: 10000,
+                  });
+
+                  // TODO: Could poll operation status here
+                } else {
+                  toast.success('Restore completed', {
+                    description: `${selectedBackup.app_name} has been restored successfully`,
+                  });
+                }
+
+                setRestoreModalOpen(false);
+                refetch();
+              } catch (error: any) {
+                console.error('Failed to restore backup:', error);
+                toast.error('Restore failed', {
+                  description: error.message || 'An error occurred while restoring the backup. Please check the logs for details.',
+                  duration: 10000,
                 });
+              } finally {
+                setIsRestoring(false);
+              }
             }
           }}
+          isPending={isRestoring}
         />
       )}
 
