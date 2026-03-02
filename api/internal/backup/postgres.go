@@ -139,14 +139,24 @@ func (p *PostgreSQLStrategy) Restore(component *ComponentBackup, dest BackupDest
 	}
 	defer reader.Close()
 
-	// Drop and recreate database
+	// Drop database first (must be done separately, can't run in transaction)
 	dropCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
 		"psql", "-U", "postgres", "-d", "postgres", "-c",
-		fmt.Sprintf("DROP DATABASE IF EXISTS %s; CREATE DATABASE %s;", dbName, dbName))
+		fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
 	tools.WithKubeconfig(dropCmd, kubeconfigPath)
 
 	if output, err := dropCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to recreate database: %w, output: %s", err, output)
+		return fmt.Errorf("failed to drop database: %w, output: %s", err, output)
+	}
+
+	// Create new database
+	createCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
+		"psql", "-U", "postgres", "-d", "postgres", "-c",
+		fmt.Sprintf("CREATE DATABASE %s", dbName))
+	tools.WithKubeconfig(createCmd, kubeconfigPath)
+
+	if output, err := createCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create database: %w, output: %s", err, output)
 	}
 
 	// Restore database using pg_restore
