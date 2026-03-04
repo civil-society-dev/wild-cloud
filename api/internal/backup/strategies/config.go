@@ -1,4 +1,4 @@
-package backup
+package strategies
 
 import (
 	"archive/tar"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/apps"
+	btypes "github.com/wild-cloud/wild-central/daemon/internal/backup/types"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 	"gopkg.in/yaml.v3"
 )
@@ -34,7 +35,7 @@ func (c *ConfigStrategy) Name() string {
 }
 
 // Backup creates a backup of app configuration files
-func (c *ConfigStrategy) Backup(instanceName, appName string, manifest *apps.AppManifest, dest BackupDestination) (*ComponentBackup, error) {
+func (c *ConfigStrategy) Backup(instanceName, appName string, manifest *apps.AppManifest, dest btypes.BackupDestination) (*btypes.ComponentBackup, error) {
 	instancePath := filepath.Join(c.dataDir, "instances", instanceName)
 	appPath := filepath.Join(instancePath, "apps", appName)
 
@@ -104,7 +105,7 @@ func (c *ConfigStrategy) Backup(instanceName, appName string, manifest *apps.App
 		return nil, fmt.Errorf("failed to upload config backup: %w", err)
 	}
 
-	return &ComponentBackup{
+	return &btypes.ComponentBackup{
 		Type:     "config",
 		Name:     fmt.Sprintf("config.%s", appName),
 		Size:     size,
@@ -118,7 +119,7 @@ func (c *ConfigStrategy) Backup(instanceName, appName string, manifest *apps.App
 }
 
 // Restore restores app configuration from backup
-func (c *ConfigStrategy) Restore(component *ComponentBackup, dest BackupDestination) error {
+func (c *ConfigStrategy) Restore(component *btypes.ComponentBackup, dest btypes.BackupDestination) error {
 	// Get instance and app name from component location
 	// Format: config/{instance}/{app}/{timestamp}.tar.gz
 	parts := strings.Split(component.Location, "/")
@@ -213,7 +214,7 @@ func (c *ConfigStrategy) Restore(component *ComponentBackup, dest BackupDestinat
 }
 
 // Verify checks if a config backup exists and is valid
-func (c *ConfigStrategy) Verify(component *ComponentBackup, dest BackupDestination) error {
+func (c *ConfigStrategy) Verify(component *btypes.ComponentBackup, dest btypes.BackupDestination) error {
 	// Check if backup exists
 	reader, err := dest.Get(component.Location)
 	if err != nil {

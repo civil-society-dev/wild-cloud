@@ -14,27 +14,31 @@ import { useFilteredSSE } from './useGlobalSSE';
 export function useAppBackups(instanceName: string | null | undefined, appName: string | null | undefined) {
   const queryClient = useQueryClient();
 
-  // Listen for backup events via SSE
+  // Listen for operation events via SSE and filter for backup/restore operations
   useFilteredSSE(
     instanceName ?? undefined,
     [
-      'backup:started',
-      'backup:completed',
-      'backup:failed',
-      'backup:deleted',
-      'backup:verified',
-      'restore:started',
-      'restore:completed',
-      'restore:failed',
+      'operation:started',
+      'operation:progress',
+      'operation:completed',
+      'operation:failed',
     ],
     {
       enabled: !!instanceName && !!appName,
       onEvent: (event) => {
-        // Filter for events matching this app
-        if (event.data?.app === appName) {
-          // Invalidate the backup list when any backup event occurs
+        // Filter for backup/restore operations matching this app
+        const opType = event.data?.type || event.data?.operation_type;
+        const target = event.data?.target;
+
+        if ((opType === 'backup' || opType === 'restore') && target === appName) {
+          // Invalidate the backup list when any backup/restore operation occurs
           queryClient.invalidateQueries({
             queryKey: ['instances', instanceName, 'apps', appName, 'backups']
+          });
+
+          // Also invalidate operations list
+          queryClient.invalidateQueries({
+            queryKey: ['instances', instanceName, 'operations']
           });
         }
       }
@@ -110,26 +114,33 @@ export function useAppBackups(instanceName: string | null | undefined, appName: 
 export function useAllBackups(instanceName: string | null | undefined, deployedApps: string[] = []) {
   const queryClient = useQueryClient();
 
-  // Listen for backup events via SSE for all apps
+  // Listen for operation events via SSE for all apps
   useFilteredSSE(
     instanceName ?? undefined,
     [
-      'backup:started',
-      'backup:completed',
-      'backup:failed',
-      'backup:deleted',
-      'backup:verified',
-      'restore:started',
-      'restore:completed',
-      'restore:failed',
+      'operation:started',
+      'operation:progress',
+      'operation:completed',
+      'operation:failed',
     ],
     {
       enabled: !!instanceName && deployedApps.length > 0,
-      onEvent: () => {
-        // Invalidate the all-backups query when any backup event occurs
-        queryClient.invalidateQueries({
-          queryKey: ['instances', instanceName, 'all-backups']
-        });
+      onEvent: (event) => {
+        // Filter for backup/restore operations for any deployed app
+        const opType = event.data?.type || event.data?.operation_type;
+        const target = event.data?.target;
+
+        if ((opType === 'backup' || opType === 'restore') && deployedApps.includes(target)) {
+          // Invalidate the all-backups query when any backup/restore operation occurs
+          queryClient.invalidateQueries({
+            queryKey: ['instances', instanceName, 'all-backups']
+          });
+
+          // Also invalidate operations list
+          queryClient.invalidateQueries({
+            queryKey: ['instances', instanceName, 'operations']
+          });
+        }
       }
     }
   );

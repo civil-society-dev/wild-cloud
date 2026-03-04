@@ -215,9 +215,10 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	// Backup & Restore - Apps
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup", api.BackupAppStart).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup", api.BackupAppList).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup/latest", api.BackupAppLatest).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup/discover", api.BackupAppDiscoverResources).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup/{timestamp}", api.BackupAppDelete).Methods("DELETE")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup/{timestamp}/verify", api.BackupAppVerify).Methods("POST")
-	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/backup/discover", api.BackupAppDiscoverResources).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/apps/{app}/restore", api.BackupAppRestore).Methods("POST")
 
 	// Global Configuration

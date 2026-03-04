@@ -1,4 +1,4 @@
-package backup
+package destinations
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	btypes "github.com/wild-cloud/wild-central/daemon/internal/backup/types"
 )
 
 // LocalDestination implements backup destination for local filesystem
@@ -15,7 +16,7 @@ type LocalDestination struct {
 }
 
 // NewLocalDestination creates a new local filesystem backup destination
-func NewLocalDestination(cfg *LocalConfig) (*LocalDestination, error) {
+func NewLocalDestination(cfg *btypes.LocalConfig) (*LocalDestination, error) {
 	// Ensure base path exists
 	if err := os.MkdirAll(cfg.Path, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create backup directory: %w", err)
@@ -96,10 +97,10 @@ func (l *LocalDestination) Delete(key string) error {
 }
 
 // List returns objects with the given prefix
-func (l *LocalDestination) List(prefix string) ([]BackupObject, error) {
+func (l *LocalDestination) List(prefix string) ([]btypes.BackupObject, error) {
 	searchPath := filepath.Join(l.basePath, prefix)
 
-	var objects []BackupObject
+	var objects []btypes.BackupObject
 
 	// If the search path doesn't exist, return empty list
 	if _, err := os.Stat(searchPath); os.IsNotExist(err) {
@@ -120,7 +121,7 @@ func (l *LocalDestination) List(prefix string) ([]BackupObject, error) {
 				return nil
 			}
 
-			objects = append(objects, BackupObject{
+			objects = append(objects, btypes.BackupObject{
 				Key:          relPath,
 				Size:         info.Size(),
 				LastModified: info.ModTime(),
@@ -185,7 +186,7 @@ func (l *LocalDestination) GetDiskUsage() (int64, error) {
 }
 
 // Cleanup performs cleanup tasks (for local, this might involve pruning old backups)
-func (l *LocalDestination) Cleanup(retention RetentionPolicy) error {
+func (l *LocalDestination) Cleanup(retention btypes.RetentionPolicy) error {
 	// This could implement retention policy enforcement
 	// For now, it's a no-op
 	return nil

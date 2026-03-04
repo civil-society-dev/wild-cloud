@@ -83,6 +83,8 @@ data:
   default-setting.yaml: |-
     priority-class: longhorn-critical
     disable-revision-counter: true
+    backup-target: {{ .cluster.longhorn.backupTarget }}
+    backup-target-credential-secret: ""
 ---
 # Source: longhorn/templates/storageclass.yaml
 apiVersion: v1

@@ -38,7 +38,13 @@ func (api *API) BackupAppStart(w http.ResponseWriter, r *http.Request) {
 	api.StartAsyncOperation(w, instanceName, "backup", appName,
 		func(opsMgr *operations.Manager, opID string) error {
 			_ = opsMgr.UpdateProgress(instanceName, opID, 10, "Starting backup")
-			mgr := backup.NewManager(api.dataDir)
+
+			// Create progress callback for the backup manager
+			progressCallback := func(progress int, message string) {
+				_ = opsMgr.UpdateProgress(instanceName, opID, progress, message)
+			}
+
+			mgr := backup.NewManagerWithProgress(api.dataDir, progressCallback)
 			backupInfo, err := mgr.BackupApp(instanceName, appName)
 
 			// Publish backup completed or failed event
@@ -92,6 +98,29 @@ func (api *API) BackupAppList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// BackupAppLatest handles GET /api/v1/instances/{name}/apps/{app}/backup/latest
+func (api *API) BackupAppLatest(w http.ResponseWriter, r *http.Request) {
+	instanceName := GetInstanceName(r)
+	appName := GetAppName(r)
+	mgr := backup.NewManager(api.dataDir)
+	backups, err := mgr.ListBackups(instanceName, appName)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to list backups")
+		return
+	}
+
+	// Return only the latest backup (backups are already sorted newest first)
+	var latestBackup interface{}
+	if len(backups) > 0 {
+		latestBackup = backups[0]
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    latestBackup,
+	})
+}
+
 // BackupAppRestore restores an app from backup
 func (api *API) BackupAppRestore(w http.ResponseWriter, r *http.Request) {
 	instanceName := GetInstanceName(r)
@@ -100,6 +129,11 @@ func (api *API) BackupAppRestore(w http.ResponseWriter, r *http.Request) {
 	var opts backup.RestoreOptions
 	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
 		opts = backup.RestoreOptions{}
+	}
+
+	// Default to blue-green restore for safety
+	if opts.BlueGreen == false && !opts.SkipData {
+		opts.BlueGreen = true
 	}
 
 	// Publish restore started event
@@ -117,7 +151,13 @@ func (api *API) BackupAppRestore(w http.ResponseWriter, r *http.Request) {
 	api.StartAsyncOperation(w, instanceName, "restore", appName,
 		func(opsMgr *operations.Manager, opID string) error {
 			_ = opsMgr.UpdateProgress(instanceName, opID, 10, "Starting restore")
-			mgr := backup.NewManager(api.dataDir)
+
+			// Create progress callback for the backup manager
+			progressCallback := func(progress int, message string) {
+				_ = opsMgr.UpdateProgress(instanceName, opID, progress, message)
+			}
+
+			mgr := backup.NewManagerWithProgress(api.dataDir, progressCallback)
 			err := mgr.RestoreApp(instanceName, appName, opts)
 
 			// Publish restore completed or failed event

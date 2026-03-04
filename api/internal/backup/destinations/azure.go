@@ -1,4 +1,4 @@
-package backup
+package destinations
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	btypes "github.com/wild-cloud/wild-central/daemon/internal/backup/types"
 )
 
 // AzureDestination implements backup destination for Azure Blob Storage
@@ -18,7 +19,7 @@ type AzureDestination struct {
 }
 
 // NewAzureDestination creates a new Azure Blob Storage backup destination
-func NewAzureDestination(cfg *AzureConfig) (*AzureDestination, error) {
+func NewAzureDestination(cfg *btypes.AzureConfig) (*AzureDestination, error) {
 	// Create credentials
 	credential, err := azblob.NewSharedKeyCredential(cfg.StorageAccount, cfg.AccessKey)
 	if err != nil {
@@ -120,10 +121,10 @@ func (a *AzureDestination) Delete(key string) error {
 }
 
 // List returns objects with the given prefix
-func (a *AzureDestination) List(prefix string) ([]BackupObject, error) {
+func (a *AzureDestination) List(prefix string) ([]btypes.BackupObject, error) {
 	fullPrefix := a.getFullKey(prefix)
 
-	var objects []BackupObject
+	var objects []btypes.BackupObject
 
 	// List blobs
 	for marker := (azblob.Marker{}); marker.NotDone(); {
@@ -143,7 +144,7 @@ func (a *AzureDestination) List(prefix string) ([]BackupObject, error) {
 		marker = listBlob.NextMarker
 
 		for _, blobInfo := range listBlob.Segment.BlobItems {
-			objects = append(objects, BackupObject{
+			objects = append(objects, btypes.BackupObject{
 				Key:          a.stripPrefix(blobInfo.Name),
 				Size:         *blobInfo.Properties.ContentLength,
 				LastModified: blobInfo.Properties.LastModified,

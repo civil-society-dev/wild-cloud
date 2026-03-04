@@ -355,6 +355,199 @@ backup:
 	assert.True(t, os.IsNotExist(err), "Backup directory should be deleted")
 }
 
+func TestProgressCallback(t *testing.T) {
+	t.Run("NewManagerWithProgress creates manager with callback", func(t *testing.T) {
+		tempDir := t.TempDir()
+		callbackCalled := false
+		var receivedProgress int
+		var receivedMessage string
+
+		callback := func(progress int, message string) {
+			callbackCalled = true
+			receivedProgress = progress
+			receivedMessage = message
+		}
+
+		mgr := NewManagerWithProgress(tempDir, callback)
+		assert.NotNil(t, mgr)
+		assert.NotNil(t, mgr.progressCallback)
+
+		// Test callback is invoked
+		mgr.reportProgress(50, "Test message")
+		assert.True(t, callbackCalled)
+		assert.Equal(t, 50, receivedProgress)
+		assert.Equal(t, "Test message", receivedMessage)
+	})
+
+	t.Run("NewManager creates manager without callback", func(t *testing.T) {
+		tempDir := t.TempDir()
+		mgr := NewManager(tempDir)
+		assert.NotNil(t, mgr)
+		assert.Nil(t, mgr.progressCallback)
+
+		// Should not panic when no callback
+		assert.NotPanics(t, func() {
+			mgr.reportProgress(50, "Test")
+		})
+	})
+
+	t.Run("BackupApp reports progress", func(t *testing.T) {
+		tempDir := t.TempDir()
+		progressReports := []struct {
+			progress int
+			message  string
+		}{}
+
+		callback := func(progress int, message string) {
+			progressReports = append(progressReports, struct {
+				progress int
+				message  string
+			}{progress, message})
+		}
+
+		// Setup test environment
+		instanceName := "test-instance"
+		appName := "test-app"
+		instanceDir := filepath.Join(tempDir, "instances", instanceName)
+		appsDir := filepath.Join(instanceDir, "apps", appName)
+		backupsDir := filepath.Join(instanceDir, "backups")
+
+		require.NoError(t, os.MkdirAll(appsDir, 0755))
+		require.NoError(t, os.MkdirAll(backupsDir, 0755))
+
+		// Create manifest
+		manifestContent := `
+name: test-app
+description: Test application
+version: 1.0.0
+defaultConfig:
+  image: test:latest
+`
+		require.NoError(t, os.WriteFile(filepath.Join(appsDir, "manifest.yaml"), []byte(manifestContent), 0644))
+
+		// Create config
+		configContent := `
+backup:
+  destination:
+    type: local
+    local:
+      path: ` + backupsDir + `
+`
+		require.NoError(t, os.WriteFile(filepath.Join(instanceDir, "config.yaml"), []byte(configContent), 0644))
+
+		// Create manager with progress callback
+		mgr := NewManagerWithProgress(tempDir, callback)
+		mgr.strategies = map[string]Strategy{
+			"config": &MockStrategy{
+				Name_: "config",
+			},
+		}
+
+		// Perform backup
+		_, err := mgr.BackupApp(instanceName, appName)
+		require.NoError(t, err)
+
+		// Check that progress was reported
+		assert.Greater(t, len(progressReports), 0)
+
+		// Verify some expected progress messages
+		foundMessages := make(map[string]bool)
+		for _, report := range progressReports {
+			if strings.Contains(report.message, "Loading backup configuration") {
+				foundMessages["config"] = true
+			}
+			if strings.Contains(report.message, "Loading app manifest") {
+				foundMessages["manifest"] = true
+			}
+			if strings.Contains(report.message, "Backup completed") {
+				foundMessages["completed"] = true
+				assert.Equal(t, 100, report.progress)
+			}
+		}
+
+		assert.True(t, foundMessages["config"], "Should report loading configuration")
+		assert.True(t, foundMessages["manifest"], "Should report loading manifest")
+		assert.True(t, foundMessages["completed"], "Should report completion")
+	})
+
+	t.Run("RestoreApp reports progress", func(t *testing.T) {
+		tempDir := t.TempDir()
+		progressReports := []struct {
+			progress int
+			message  string
+		}{}
+
+		callback := func(progress int, message string) {
+			progressReports = append(progressReports, struct {
+				progress int
+				message  string
+			}{progress, message})
+		}
+
+		// Setup test environment
+		instanceName := "test-instance"
+		appName := "test-app"
+		timestamp := time.Now().UTC().Format("20060102T150405Z")
+
+		instanceDir := filepath.Join(tempDir, "instances", instanceName)
+		backupsDir := filepath.Join(instanceDir, "backups", appName, timestamp)
+		require.NoError(t, os.MkdirAll(backupsDir, 0755))
+
+		// Create backup metadata
+		metadata := &BackupInfo{
+			AppName:   appName,
+			Timestamp: timestamp,
+			Type:      "full",
+			Status:    "completed",
+			Components: []ComponentBackup{
+				{
+					Type:     "test",
+					Name:     "test-component",
+					Size:     1024,
+					Location: "test/backup.tar.gz",
+				},
+			},
+			CreatedAt: time.Now(),
+		}
+
+		metadataJSON, _ := json.MarshalIndent(metadata, "", "  ")
+		require.NoError(t, os.WriteFile(filepath.Join(backupsDir, "metadata.json"), metadataJSON, 0644))
+
+		// Create config
+		configContent := `
+backup:
+  destination:
+    type: local
+    local:
+      path: ` + filepath.Join(instanceDir, "backup-storage") + `
+`
+		require.NoError(t, os.WriteFile(filepath.Join(instanceDir, "config.yaml"), []byte(configContent), 0644))
+
+		// Create manager with progress callback
+		mgr := NewManagerWithProgress(tempDir, callback)
+		mgr.strategies = map[string]Strategy{
+			"test": &MockStrategy{
+				Name_: "test",
+				RestoreFunc: func(component *ComponentBackup, dest BackupDestination) error {
+					return nil
+				},
+			},
+		}
+
+		// Perform restore
+		err := mgr.RestoreApp(instanceName, appName, RestoreOptions{})
+		require.NoError(t, err)
+
+		// Check that progress was reported
+		assert.Greater(t, len(progressReports), 0)
+
+		// Verify completion message
+		lastReport := progressReports[len(progressReports)-1]
+		assert.Equal(t, 100, lastReport.progress)
+		assert.Contains(t, lastReport.message, "Restore completed")
+	})
+}
+
 func TestVerifyBackup(t *testing.T) {
 	// Create temp directory for test
 	tempDir := t.TempDir()

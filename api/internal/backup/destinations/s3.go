@@ -1,4 +1,4 @@
-package backup
+package destinations
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	btypes "github.com/wild-cloud/wild-central/daemon/internal/backup/types"
 )
 
 // S3Destination implements backup destination for S3-compatible storage
@@ -21,7 +22,7 @@ type S3Destination struct {
 }
 
 // NewS3Destination creates a new S3 backup destination
-func NewS3Destination(cfg *S3Config) (*S3Destination, error) {
+func NewS3Destination(cfg *btypes.S3Config) (*S3Destination, error) {
 	// Create custom AWS config
 	awsCfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion(cfg.Region),
@@ -115,7 +116,7 @@ func (s *S3Destination) Delete(key string) error {
 }
 
 // List returns objects with the given prefix
-func (s *S3Destination) List(prefix string) ([]BackupObject, error) {
+func (s *S3Destination) List(prefix string) ([]btypes.BackupObject, error) {
 	fullPrefix := s.getFullKey(prefix)
 
 	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
@@ -123,7 +124,7 @@ func (s *S3Destination) List(prefix string) ([]BackupObject, error) {
 		Prefix: aws.String(fullPrefix),
 	})
 
-	var objects []BackupObject
+	var objects []btypes.BackupObject
 
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(context.Background())
@@ -132,7 +133,7 @@ func (s *S3Destination) List(prefix string) ([]BackupObject, error) {
 		}
 
 		for _, obj := range page.Contents {
-			objects = append(objects, BackupObject{
+			objects = append(objects, btypes.BackupObject{
 				Key:          s.stripPrefix(*obj.Key),
 				Size:         *obj.Size,
 				LastModified: *obj.LastModified,

@@ -1,4 +1,4 @@
-package backup
+package strategies
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/apps"
+	btypes "github.com/wild-cloud/wild-central/daemon/internal/backup/types"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
@@ -32,7 +33,7 @@ func (m *MySQLStrategy) Name() string {
 }
 
 // Backup creates a MySQL database backup using direct streaming with compression
-func (m *MySQLStrategy) Backup(instanceName, appName string, manifest *apps.AppManifest, dest BackupDestination) (*ComponentBackup, error) {
+func (m *MySQLStrategy) Backup(instanceName, appName string, manifest *apps.AppManifest, dest btypes.BackupDestination) (*btypes.ComponentBackup, error) {
 	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
 
 	// Determine database name from manifest or default to app name
@@ -98,7 +99,7 @@ func (m *MySQLStrategy) Backup(instanceName, appName string, manifest *apps.AppM
 		return nil, dumpErr
 	}
 
-	return &ComponentBackup{
+	return &btypes.ComponentBackup{
 		Type:     "mysql",
 		Name:     fmt.Sprintf("mysql.%s", dbName),
 		Size:     size,
@@ -112,7 +113,7 @@ func (m *MySQLStrategy) Backup(instanceName, appName string, manifest *apps.AppM
 }
 
 // Restore restores a MySQL database from backup
-func (m *MySQLStrategy) Restore(component *ComponentBackup, dest BackupDestination) error {
+func (m *MySQLStrategy) Restore(component *btypes.ComponentBackup, dest btypes.BackupDestination) error {
 	// Get instance name from component location
 	// Format: mysql/{instance}/{app}/{timestamp}.sql.gz
 	parts := strings.Split(component.Location, "/")
@@ -180,7 +181,7 @@ func (m *MySQLStrategy) Restore(component *ComponentBackup, dest BackupDestinati
 }
 
 // Verify checks if a MySQL backup can be restored
-func (m *MySQLStrategy) Verify(component *ComponentBackup, dest BackupDestination) error {
+func (m *MySQLStrategy) Verify(component *btypes.ComponentBackup, dest btypes.BackupDestination) error {
 	// Check if backup exists in destination
 	reader, err := dest.Get(component.Location)
 	if err != nil {

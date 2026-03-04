@@ -1,5 +1,5 @@
-// Package backup - interfaces and types for backup system
-package backup
+// Package types provides shared types for the backup system
+package types
 
 import (
 	"io"
@@ -51,12 +51,42 @@ type BackupObject struct {
 	LastModified time.Time `json:"lastModified"`
 }
 
+// BackupInfo represents metadata about a backup
+type BackupInfo struct {
+	AppName    string            `json:"app_name"`
+	Timestamp  string            `json:"timestamp"`
+	Type       string            `json:"type"` // "full"
+	Size       int64             `json:"size,omitempty"`
+	Status     string            `json:"status"` // "completed", "failed", "in_progress"
+	Error      string            `json:"error,omitempty"`
+	Components []ComponentBackup `json:"components"`
+	CreatedAt  time.Time         `json:"created_at"`
+	Verified   bool              `json:"verified"`
+	VerifiedAt *time.Time        `json:"verified_at,omitempty"`
+}
+
+// ComponentBackup represents a single backup component (db, pvc, config, etc)
+type ComponentBackup struct {
+	Type     string                 `json:"type"`     // "postgres", "mysql", "pvc", "config"
+	Name     string                 `json:"name"`     // Component identifier
+	Size     int64                  `json:"size"`
+	Location string                 `json:"location"` // Path in destination
+	Metadata map[string]interface{} `json:"metadata"`
+}
+
+// RestoreOptions configures restore behavior
+type RestoreOptions struct {
+	Components []string `json:"components,omitempty"` // Specific components to restore
+	SkipData   bool     `json:"skip_data"`            // Skip data, restore only config
+	BlueGreen  bool     `json:"blue_green"`           // Use blue-green restore strategy
+}
+
 // VerificationResult represents the result of backup verification
 type VerificationResult struct {
-	Success    bool                     `json:"success"`
-	Duration   float64                  `json:"duration"` // seconds
-	TestedAt   time.Time                `json:"testedAt"`
-	Components []ComponentVerification  `json:"components"`
+	Success    bool                    `json:"success"`
+	Duration   float64                 `json:"duration"` // seconds
+	TestedAt   time.Time               `json:"testedAt"`
+	Components []ComponentVerification `json:"components"`
 }
 
 // ComponentVerification represents verification result for a single component
@@ -66,30 +96,33 @@ type ComponentVerification struct {
 	Error   string `json:"error,omitempty"`
 }
 
+// ProgressCallback is a function type for reporting backup/restore progress
+type ProgressCallback func(progress int, message string)
+
 // BackupConfiguration represents instance-level backup configuration
 type BackupConfiguration struct {
-	Destination DestinationConfig `yaml:"destination"`
-	Retention   RetentionPolicy   `yaml:"retention"`
-	Schedules   map[string]string `yaml:"schedules"` // app-name -> cron expression
+	Destination  DestinationConfig `yaml:"destination"`
+	Retention    RetentionPolicy   `yaml:"retention"`
+	Schedules    map[string]string `yaml:"schedules"` // app-name -> cron expression
 	Verification VerificationConfig `yaml:"verification"`
 }
 
 // DestinationConfig configures where backups are stored
 type DestinationConfig struct {
-	Type  string            `yaml:"type"` // "s3", "azure", "nfs", "local"
-	S3    *S3Config         `yaml:"s3,omitempty"`
-	Azure *AzureConfig      `yaml:"azure,omitempty"`
-	NFS   *NFSConfig        `yaml:"nfs,omitempty"`
-	Local *LocalConfig      `yaml:"local,omitempty"`
+	Type  string       `yaml:"type"` // "s3", "azure", "nfs", "local"
+	S3    *S3Config    `yaml:"s3,omitempty"`
+	Azure *AzureConfig `yaml:"azure,omitempty"`
+	NFS   *NFSConfig   `yaml:"nfs,omitempty"`
+	Local *LocalConfig `yaml:"local,omitempty"`
 }
 
 // S3Config configures S3 backup destination
 type S3Config struct {
-	Bucket          string `yaml:"bucket"`
-	Region          string `yaml:"region"`
-	Endpoint        string `yaml:"endpoint,omitempty"` // For S3-compatible services
-	AccessKeyID     string `yaml:"-"` // Loaded from secrets.yaml
-	SecretAccessKey string `yaml:"-"` // Loaded from secrets.yaml
+	Bucket         string `yaml:"bucket"`
+	Region         string `yaml:"region"`
+	Endpoint       string `yaml:"endpoint,omitempty"` // For S3-compatible services
+	AccessKeyID    string `yaml:"-"`                  // Loaded from secrets.yaml
+	SecretAccessKey string `yaml:"-"`                 // Loaded from secrets.yaml
 }
 
 // AzureConfig configures Azure Blob Storage destination
@@ -123,6 +156,6 @@ type RetentionPolicy struct {
 // VerificationConfig configures backup verification
 type VerificationConfig struct {
 	Enabled      bool   `yaml:"enabled"`
-	Schedule     string `yaml:"schedule"` // Cron expression
+	Schedule     string `yaml:"schedule"`     // Cron expression
 	RandomSample bool   `yaml:"randomSample"` // Test random backup each time
 }

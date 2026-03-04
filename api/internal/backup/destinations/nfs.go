@@ -1,4 +1,4 @@
-package backup
+package destinations
 
 import (
 	"fmt"
@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	btypes "github.com/wild-cloud/wild-central/daemon/internal/backup/types"
 )
 
 // NFSDestination implements backup destination for NFS mount
@@ -18,7 +20,7 @@ type NFSDestination struct {
 }
 
 // NewNFSDestination creates a new NFS backup destination
-func NewNFSDestination(cfg *NFSConfig) (*NFSDestination, error) {
+func NewNFSDestination(cfg *btypes.NFSConfig) (*NFSDestination, error) {
 	// Use configured mount path or generate one
 	var mountPath string
 	if cfg.MountPoint != "" {
@@ -121,10 +123,10 @@ func (n *NFSDestination) Delete(key string) error {
 }
 
 // List returns objects with the given prefix
-func (n *NFSDestination) List(prefix string) ([]BackupObject, error) {
+func (n *NFSDestination) List(prefix string) ([]btypes.BackupObject, error) {
 	searchPath := filepath.Join(n.mountPath, prefix)
 
-	var objects []BackupObject
+	var objects []btypes.BackupObject
 
 	err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -133,7 +135,7 @@ func (n *NFSDestination) List(prefix string) ([]BackupObject, error) {
 
 		if !info.IsDir() {
 			relPath, _ := filepath.Rel(n.mountPath, path)
-			objects = append(objects, BackupObject{
+			objects = append(objects, btypes.BackupObject{
 				Key:          relPath,
 				Size:         info.Size(),
 				LastModified: info.ModTime(),

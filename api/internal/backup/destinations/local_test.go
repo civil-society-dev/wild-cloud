@@ -1,4 +1,4 @@
-package backup
+package destinations
 
 import (
 	"bytes"
@@ -10,31 +10,32 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	btypes "github.com/wild-cloud/wild-central/daemon/internal/backup/types"
 )
 
 func TestLocalDestination_NewLocalDestination(t *testing.T) {
 	tests := []struct {
 		name        string
-		config      *LocalConfig
+		config      *btypes.LocalConfig
 		expectError bool
 	}{
 		{
 			name: "successful creation",
-			config: &LocalConfig{
+			config: &btypes.LocalConfig{
 				Path: t.TempDir(),
 			},
 			expectError: false,
 		},
 		{
 			name: "creates missing directory",
-			config: &LocalConfig{
+			config: &btypes.LocalConfig{
 				Path: filepath.Join(t.TempDir(), "new", "nested", "dir"),
 			},
 			expectError: false,
 		},
 		{
 			name: "invalid path",
-			config: &LocalConfig{
+			config: &btypes.LocalConfig{
 				Path: "/root/no-permission",
 			},
 			expectError: true,
@@ -60,7 +61,7 @@ func TestLocalDestination_NewLocalDestination(t *testing.T) {
 
 func TestLocalDestination_Put(t *testing.T) {
 	tempDir := t.TempDir()
-	dest, err := NewLocalDestination(&LocalConfig{Path: tempDir})
+	dest, err := NewLocalDestination(&btypes.LocalConfig{Path: tempDir})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -118,7 +119,7 @@ func TestLocalDestination_Put(t *testing.T) {
 
 func TestLocalDestination_Get(t *testing.T) {
 	tempDir := t.TempDir()
-	dest, err := NewLocalDestination(&LocalConfig{Path: tempDir})
+	dest, err := NewLocalDestination(&btypes.LocalConfig{Path: tempDir})
 	require.NoError(t, err)
 
 	// Create test files
@@ -181,7 +182,7 @@ func TestLocalDestination_Get(t *testing.T) {
 
 func TestLocalDestination_Delete(t *testing.T) {
 	tempDir := t.TempDir()
-	dest, err := NewLocalDestination(&LocalConfig{Path: tempDir})
+	dest, err := NewLocalDestination(&btypes.LocalConfig{Path: tempDir})
 	require.NoError(t, err)
 
 	// Create test files
@@ -220,7 +221,7 @@ func TestLocalDestination_Delete(t *testing.T) {
 
 func TestLocalDestination_List(t *testing.T) {
 	tempDir := t.TempDir()
-	dest, err := NewLocalDestination(&LocalConfig{Path: tempDir})
+	dest, err := NewLocalDestination(&btypes.LocalConfig{Path: tempDir})
 	require.NoError(t, err)
 
 	// Create test files
@@ -297,7 +298,7 @@ func TestLocalDestination_List(t *testing.T) {
 
 func TestLocalDestination_GetURL(t *testing.T) {
 	tempDir := t.TempDir()
-	dest, err := NewLocalDestination(&LocalConfig{Path: tempDir})
+	dest, err := NewLocalDestination(&btypes.LocalConfig{Path: tempDir})
 	require.NoError(t, err)
 
 	// Create a test file
@@ -320,7 +321,7 @@ func TestLocalDestination_GetURL(t *testing.T) {
 
 func TestLocalDestination_Type(t *testing.T) {
 	tempDir := t.TempDir()
-	dest, err := NewLocalDestination(&LocalConfig{Path: tempDir})
+	dest, err := NewLocalDestination(&btypes.LocalConfig{Path: tempDir})
 	require.NoError(t, err)
 
 	assert.Equal(t, "local", dest.Type())
@@ -328,7 +329,7 @@ func TestLocalDestination_Type(t *testing.T) {
 
 func TestLocalDestination_GetDiskUsage(t *testing.T) {
 	tempDir := t.TempDir()
-	dest, err := NewLocalDestination(&LocalConfig{Path: tempDir})
+	dest, err := NewLocalDestination(&btypes.LocalConfig{Path: tempDir})
 	require.NoError(t, err)
 
 	// Initially empty

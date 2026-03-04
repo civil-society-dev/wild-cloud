@@ -1,4 +1,4 @@
-package backup
+package strategies
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wild-cloud/wild-central/daemon/internal/apps"
+	btypes "github.com/wild-cloud/wild-central/daemon/internal/backup/types"
 )
 
 // MockPostgresDestination for testing
@@ -55,11 +56,11 @@ func (m *MockPostgresDestination) Delete(key string) error {
 	return nil
 }
 
-func (m *MockPostgresDestination) List(prefix string) ([]BackupObject, error) {
-	var objects []BackupObject
+func (m *MockPostgresDestination) List(prefix string) ([]btypes.BackupObject, error) {
+	var objects []btypes.BackupObject
 	for key, data := range m.putData {
 		if strings.HasPrefix(key, prefix) {
-			objects = append(objects, BackupObject{
+			objects = append(objects, btypes.BackupObject{
 				Key:          key,
 				Size:         int64(len(data)),
 				LastModified: time.Now(),
@@ -188,13 +189,13 @@ func TestPostgreSQLStrategy_Verify(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		component   *ComponentBackup
+		component   *btypes.ComponentBackup
 		destData    map[string][]byte
 		expectError bool
 	}{
 		{
 			name: "successful verification",
-			component: &ComponentBackup{
+			component: &btypes.ComponentBackup{
 				Type:     "postgres",
 				Location: "test/backup.sql.gz",
 				Size:     9,
@@ -206,7 +207,7 @@ func TestPostgreSQLStrategy_Verify(t *testing.T) {
 		},
 		{
 			name: "file not found",
-			component: &ComponentBackup{
+			component: &btypes.ComponentBackup{
 				Type:     "postgres",
 				Location: "test/missing.sql.gz",
 				Size:     100,
@@ -218,7 +219,7 @@ func TestPostgreSQLStrategy_Verify(t *testing.T) {
 		},
 		{
 			name: "size mismatch",
-			component: &ComponentBackup{
+			component: &btypes.ComponentBackup{
 				Type:     "postgres",
 				Location: "test/backup.sql.gz",
 				Size:     1000, // Different from actual

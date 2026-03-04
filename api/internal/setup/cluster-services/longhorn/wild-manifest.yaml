@@ -7,3 +7,10 @@ category: infrastructure
 
 dependencies:
   - traefik
+
+serviceConfig:
+  backupTarget:
+    path: cluster.longhorn.backupTarget
+    prompt: "Enter Longhorn backup target (NFS URL, e.g., nfs://server:/path)"
+    default: "nfs://{{ .cloud.nfs.host }}:/data/{{ .cluster.name }}/backups"
+    type: string

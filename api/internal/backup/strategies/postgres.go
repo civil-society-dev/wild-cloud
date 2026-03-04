@@ -1,4 +1,4 @@
-package backup
+package strategies
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/apps"
+	btypes "github.com/wild-cloud/wild-central/daemon/internal/backup/types"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 	"gopkg.in/yaml.v3"
 )
@@ -32,7 +33,7 @@ func (p *PostgreSQLStrategy) Name() string {
 }
 
 // Backup creates a PostgreSQL database backup using direct streaming
-func (p *PostgreSQLStrategy) Backup(instanceName, appName string, manifest *apps.AppManifest, dest BackupDestination) (*ComponentBackup, error) {
+func (p *PostgreSQLStrategy) Backup(instanceName, appName string, manifest *apps.AppManifest, dest btypes.BackupDestination) (*btypes.ComponentBackup, error) {
 	kubeconfigPath := tools.GetKubeconfigPath(p.dataDir, instanceName)
 
 	// Determine database name from manifest or default to app name
@@ -97,7 +98,7 @@ func (p *PostgreSQLStrategy) Backup(instanceName, appName string, manifest *apps
 		fmt.Printf("Warning: failed to backup PostgreSQL globals: %v\n", err)
 	}
 
-	return &ComponentBackup{
+	return &btypes.ComponentBackup{
 		Type:     "postgres",
 		Name:     fmt.Sprintf("postgres.%s", dbName),
 		Size:     size,
@@ -111,7 +112,7 @@ func (p *PostgreSQLStrategy) Backup(instanceName, appName string, manifest *apps
 }
 
 // Restore restores a PostgreSQL database from backup
-func (p *PostgreSQLStrategy) Restore(component *ComponentBackup, dest BackupDestination) error {
+func (p *PostgreSQLStrategy) Restore(component *btypes.ComponentBackup, dest btypes.BackupDestination) error {
 	// Get instance and app name from component location
 	// Format: postgres/{instance}/{app}/{timestamp}.dump
 	parts := strings.Split(component.Location, "/")
@@ -119,12 +120,23 @@ func (p *PostgreSQLStrategy) Restore(component *ComponentBackup, dest BackupDest
 		return fmt.Errorf("invalid backup location format")
 	}
 	instanceName := parts[1]
+	appName := parts[2]
 
 	kubeconfigPath := tools.GetKubeconfigPath(p.dataDir, instanceName)
 	dbName, _ := component.Metadata["database"].(string)
 	if dbName == "" {
 		return fmt.Errorf("database name not found in backup metadata")
 	}
+
+	// For blue-green restore, create a restore database alongside production
+	restoreDbName := fmt.Sprintf("%s_restore", dbName)
+
+	// Check if this is a restore operation (blue-green)
+	isBlueGreen := component.Metadata["blueGreen"] == true
+
+	// Debug logging
+	fmt.Printf("PostgreSQL Restore: dbName=%s, restoreDbName=%s, isBlueGreen=%v, metadata=%+v\n",
+		dbName, restoreDbName, isBlueGreen, component.Metadata)
 
 	// Get the postgres pod name
 	podName, err := p.getPostgresPod(kubeconfigPath)
@@ -139,29 +151,69 @@ func (p *PostgreSQLStrategy) Restore(component *ComponentBackup, dest BackupDest
 	}
 	defer reader.Close()
 
-	// Drop database first (must be done separately, can't run in transaction)
+	targetDb := dbName
+	if isBlueGreen {
+		targetDb = restoreDbName
+	}
+
+	// In blue-green mode, we're working with a new database, so drop it if it exists
+	// In non-blue-green mode, we need to terminate connections first
+	if !isBlueGreen {
+		// Terminate all connections to the production database
+		terminateCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
+			"psql", "-U", "postgres", "-d", "postgres", "-c",
+			fmt.Sprintf("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '%s' AND pid <> pg_backend_pid()", targetDb))
+		tools.WithKubeconfig(terminateCmd, kubeconfigPath)
+
+		if output, err := terminateCmd.CombinedOutput(); err != nil {
+			// Non-critical if no connections exist, continue
+			fmt.Printf("Warning: failed to terminate connections: %v, output: %s\n", err, output)
+		}
+	}
+
+	// Drop target database if it exists
 	dropCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
 		"psql", "-U", "postgres", "-d", "postgres", "-c",
-		fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
+		fmt.Sprintf("DROP DATABASE IF EXISTS %s", targetDb))
 	tools.WithKubeconfig(dropCmd, kubeconfigPath)
 
 	if output, err := dropCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to drop database: %w, output: %s", err, output)
+		// If blue-green and can't drop restore db, it's okay to continue
+		if !isBlueGreen {
+			return fmt.Errorf("failed to drop database: %w, output: %s", err, output)
+		}
+		fmt.Printf("Warning: failed to drop restore database: %v\n", err)
 	}
 
-	// Create new database
+	// Create target database
 	createCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
 		"psql", "-U", "postgres", "-d", "postgres", "-c",
-		fmt.Sprintf("CREATE DATABASE %s", dbName))
+		fmt.Sprintf("CREATE DATABASE %s", targetDb))
 	tools.WithKubeconfig(createCmd, kubeconfigPath)
 
 	if output, err := createCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to create database: %w, output: %s", err, output)
 	}
 
+	// Grant permissions to the app user on the restore database
+	if isBlueGreen {
+		// Get the app user from config
+		appUser := p.getAppUser(instanceName, appName)
+		if appUser != "" && appUser != "postgres" {
+			grantCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
+				"psql", "-U", "postgres", "-d", "postgres", "-c",
+				fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", targetDb, appUser))
+			tools.WithKubeconfig(grantCmd, kubeconfigPath)
+
+			if output, err := grantCmd.CombinedOutput(); err != nil {
+				fmt.Printf("Warning: failed to grant privileges: %v, output: %s\n", err, output)
+			}
+		}
+	}
+
 	// Restore database using pg_restore
 	restoreCmd := exec.Command("kubectl", "exec", "-i", "-n", "postgres", podName, "--",
-		"pg_restore", "-U", "postgres", "-d", dbName, "--no-owner", "--clean", "--if-exists")
+		"pg_restore", "-U", "postgres", "-d", targetDb, "--no-owner", "--clean", "--if-exists")
 	tools.WithKubeconfig(restoreCmd, kubeconfigPath)
 	restoreCmd.Stdin = reader
 
@@ -171,7 +223,7 @@ func (p *PostgreSQLStrategy) Restore(component *ComponentBackup, dest BackupDest
 	if err := restoreCmd.Run(); err != nil {
 		// pg_restore returns non-zero for warnings, check if database was actually restored
 		checkCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
-			"psql", "-U", "postgres", "-d", dbName, "-c", "\\dt")
+			"psql", "-U", "postgres", "-d", targetDb, "-c", "\\dt")
 		tools.WithKubeconfig(checkCmd, kubeconfigPath)
 
 		if checkOutput, checkErr := checkCmd.Output(); checkErr != nil || !strings.Contains(string(checkOutput), "table") {
@@ -180,11 +232,49 @@ func (p *PostgreSQLStrategy) Restore(component *ComponentBackup, dest BackupDest
 		// Restore succeeded with warnings, continue
 	}
 
-	// Restore globals if present
-	if globalsKey, ok := component.Metadata["globals"].(string); ok && globalsKey != "" {
-		if err := p.restoreGlobals(kubeconfigPath, dest, globalsKey); err != nil {
-			// Globals restore is optional, log but don't fail
-			fmt.Printf("Warning: failed to restore PostgreSQL globals: %v\n", err)
+	// Grant table and sequence permissions after restore (for blue-green)
+	if isBlueGreen {
+		appUser := p.getAppUser(instanceName, appName)
+		if appUser != "" && appUser != "postgres" {
+			// Grant permissions on all tables in the restored database
+			grantTablesCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
+				"psql", "-U", "postgres", "-d", targetDb, "-c",
+				fmt.Sprintf("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %s", appUser))
+			tools.WithKubeconfig(grantTablesCmd, kubeconfigPath)
+
+			if output, err := grantTablesCmd.CombinedOutput(); err != nil {
+				fmt.Printf("Warning: failed to grant table privileges: %v, output: %s\n", err, output)
+			}
+
+			// Grant permissions on all sequences
+			grantSeqCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
+				"psql", "-U", "postgres", "-d", targetDb, "-c",
+				fmt.Sprintf("GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO %s", appUser))
+			tools.WithKubeconfig(grantSeqCmd, kubeconfigPath)
+
+			if output, err := grantSeqCmd.CombinedOutput(); err != nil {
+				fmt.Printf("Warning: failed to grant sequence privileges: %v, output: %s\n", err, output)
+			}
+
+			// Also grant permissions on schema itself
+			grantSchemaCmd := exec.Command("kubectl", "exec", "-n", "postgres", podName, "--",
+				"psql", "-U", "postgres", "-d", targetDb, "-c",
+				fmt.Sprintf("GRANT ALL ON SCHEMA public TO %s", appUser))
+			tools.WithKubeconfig(grantSchemaCmd, kubeconfigPath)
+
+			if output, err := grantSchemaCmd.CombinedOutput(); err != nil {
+				fmt.Printf("Warning: failed to grant schema privileges: %v, output: %s\n", err, output)
+			}
+		}
+	}
+
+	// Restore globals if present (only for non-blue-green)
+	if !isBlueGreen {
+		if globalsKey, ok := component.Metadata["globals"].(string); ok && globalsKey != "" {
+			if err := p.restoreGlobals(kubeconfigPath, dest, globalsKey); err != nil {
+				// Globals restore is optional, log but don't fail
+				fmt.Printf("Warning: failed to restore PostgreSQL globals: %v\n", err)
+			}
 		}
 	}
 
@@ -192,7 +282,7 @@ func (p *PostgreSQLStrategy) Restore(component *ComponentBackup, dest BackupDest
 }
 
 // Verify checks if a PostgreSQL backup can be restored
-func (p *PostgreSQLStrategy) Verify(component *ComponentBackup, dest BackupDestination) error {
+func (p *PostgreSQLStrategy) Verify(component *btypes.ComponentBackup, dest btypes.BackupDestination) error {
 	// Check if backup exists in destination
 	reader, err := dest.Get(component.Location)
 	if err != nil {
@@ -232,7 +322,7 @@ func (p *PostgreSQLStrategy) Supports(manifest *apps.AppManifest) bool {
 }
 
 // backupGlobals backs up PostgreSQL global objects (users, roles, etc)
-func (p *PostgreSQLStrategy) backupGlobals(kubeconfigPath string, dest BackupDestination, key string) error {
+func (p *PostgreSQLStrategy) backupGlobals(kubeconfigPath string, dest btypes.BackupDestination, key string) error {
 	// Get the postgres pod name
 	podName, err := p.getPostgresPod(kubeconfigPath)
 	if err != nil {
@@ -268,7 +358,7 @@ func (p *PostgreSQLStrategy) backupGlobals(kubeconfigPath string, dest BackupDes
 }
 
 // restoreGlobals restores PostgreSQL global objects
-func (p *PostgreSQLStrategy) restoreGlobals(kubeconfigPath string, dest BackupDestination, key string) error {
+func (p *PostgreSQLStrategy) restoreGlobals(kubeconfigPath string, dest btypes.BackupDestination, key string) error {
 	// Get the postgres pod name
 	podName, err := p.getPostgresPod(kubeconfigPath)
 	if err != nil {
@@ -325,6 +415,36 @@ func (p *PostgreSQLStrategy) getDatabaseName(instanceName, appName string) strin
 	// Fall back to app name if dbName not found
 	return appName
 }
+// getAppUser retrieves the database user for the app from config
+func (p *PostgreSQLStrategy) getAppUser(instanceName, appName string) string {
+	configPath := tools.GetInstanceConfigPath(p.dataDir, instanceName)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+
+	var config map[string]interface{}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return ""
+	}
+
+	// Extract app-specific configuration
+	if apps, ok := config["apps"].(map[string]interface{}); ok {
+		if appConfig, ok := apps[appName].(map[string]interface{}); ok {
+			// Look for dbUser or dbUsername field
+			if dbUser, ok := appConfig["dbUser"].(string); ok && dbUser != "" {
+				return dbUser
+			}
+			if dbUsername, ok := appConfig["dbUsername"].(string); ok && dbUsername != "" {
+				return dbUsername
+			}
+		}
+	}
+
+	// Default to app name as user
+	return appName
+}
+
 // getPostgresPod finds the first running postgres pod
 func (p *PostgreSQLStrategy) getPostgresPod(kubeconfigPath string) (string, error) {
 	cmd := exec.Command("kubectl", "get", "pods", "-n", "postgres",
